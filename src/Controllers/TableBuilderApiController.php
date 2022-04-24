@@ -16,6 +16,43 @@ use Mariojgt\Builder\Helpers\AutenticatorHandle;
  */
 class TableBuilderApiController extends Controller
 {
+
+    /**
+     * If the permission array is not empty then the user must have the permission to access else we need to check
+     * @param Request $request
+     * @param string $type // create | edit | delete |read
+     *
+     * @return bool [true|false]
+     */
+    private function permissionCheck(Request $request, $checkType)
+    {
+        // Get the user based in the guard
+        $user        = Auth::guard($request->permission['guard'])->user();
+        $type        = $request->permission['type'];
+        $classMethod = '';
+        // Type
+        if ($type == 'permission') {
+            $classMethod = 'hasPermissionTo';
+        } else {
+            $classMethod = 'hasRole';
+        }
+
+        // Check if the user has the permission
+        try {
+            $autorized = $user->$classMethod($request->permission['key'][$checkType]);
+        } catch (\Throwable $th) {
+            $autorized = false;
+        }
+
+        // if false return a 422 error
+        if (!$autorized) {
+            throw ValidationException::withMessages([
+                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
+            ]);
+        }
+        return $autorized;
+    }
+
     /**
      * This is the main table builder and will handle the data display to the table
      * @param Request $request
@@ -28,6 +65,11 @@ class TableBuilderApiController extends Controller
             'model'   => 'required',
             'columns' => 'required',
         ]);
+
+        if (!empty($request->permission)) {
+            // First check if the user has the permission to access
+            $this->permissionCheck($request, 'index');
+        }
 
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);
@@ -89,6 +131,11 @@ class TableBuilderApiController extends Controller
             ]
         );
 
+        if (!empty($request->permission)) {
+            // First check if the user has the permission to access
+            $this->permissionCheck($request, 'store');
+        }
+
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);
         $model = new $model;
@@ -134,6 +181,11 @@ class TableBuilderApiController extends Controller
                 'data.*.value.required' => 'The value is required',
             ]
         );
+
+        if (!empty($request->permission)) {
+            // First check if the user has the permission to access
+            $this->permissionCheck($request, 'update');
+        }
 
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);
@@ -214,6 +266,11 @@ class TableBuilderApiController extends Controller
             'model' => 'required',
             'id'  => 'required',
         ]);
+
+        if (!empty($request->permission)) {
+            // First check if the user has the permission to access
+            $this->permissionCheck($request, 'delete');
+        }
 
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);

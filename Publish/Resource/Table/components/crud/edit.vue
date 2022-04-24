@@ -77,6 +77,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  permission: {
+    type: String,
+    default: null,
+  },
 });
 
 let avaliableFields = $ref([]);
@@ -89,9 +93,10 @@ const emit = defineEmits(["onEdit"]);
 const editData = async () => {
   axios
     .post(props.endpoint, {
-      model: props.model, // The model name encrypted
-      id: props.id, // The model name id
-      data: avaliableFields, // Item we want to delete
+      model     : props.model,        // The model name encrypted
+      id        : props.id,           // The model name id
+      data      : avaliableFields,    // Item we want to delete
+      permission: props.permission,   // Permission
     })
     .then(function (response) {
       message.success(response.data.message);

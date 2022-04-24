@@ -26,6 +26,7 @@
                 :columns="props.columns"
                 :endpoint="props.endpointCreate"
                 :model="props.model"
+                :permission="props.permission"
                 @onCreate="onCreate"
               />
             </slot>
@@ -82,6 +83,7 @@
                       :id="tableItem.id"
                       :endpoint="props.endpointDelete"
                       :model="props.model"
+                      :permission="props.permission"
                       @onDelete="onDelete"
                     />
                     <Edit
@@ -90,6 +92,7 @@
                       :model="props.model"
                       :modelValue="tableItem"
                       :id="tableItem.id"
+                      :permission="props.permission"
                       @onEdit="onEdit"
                     />
                   </div>
@@ -119,6 +122,9 @@
 <script setup >
 // Import axios
 import axios from "axios";
+// improt flash message
+import { useMessage } from "naive-ui";
+const message = useMessage();
 
 // Import the delete component
 import Delete from "./components/crud/delete.vue";
@@ -162,6 +168,10 @@ const props = defineProps({
   endpointEdit: {
     type: String,
     default: "",
+  },
+  permission: {
+    type: String,
+    default: null,
   },
 });
 
@@ -276,24 +286,29 @@ const fetchData = async (newEndPoint = null) => {
 
   axios
     .post(newEndPoint, {
-      model: props.model, // The model name encrypted
-      columns: props.columns, // columns to display
-      perPage: perPage, // per page
-      search: search, // Search
-      sort: filterBy, // Filter example : name
-      direction: orderBy, // Asc or desc
+      model     : props.model,        // The model name encrypted
+      columns   : props.columns,      // columns to display
+      perPage   : perPage,            // per page
+      search    : search,             // Search
+      sort      : filterBy,           // Filter example : name
+      direction : orderBy,            // Asc or desc
+      permission: props.permission,   // Permission
     })
     .then(function (response) {
-      tableData      = response.data.data;
+      tableData = response.data.data;
       paginationInfo = {
         currentPage: response.data.current_page,
-        lastPage   : response.data.last_page,
-        perPage    : response.data.per_page,
-        total      : response.data.total,
-        links      : response.data.links
+        lastPage: response.data.last_page,
+        perPage: response.data.per_page,
+        total: response.data.total,
+        links: response.data.links,
       };
     })
-    .catch(function (error) {});
+    .catch(function (error) {
+      for (const [key, value] of Object.entries(error.response.data.errors)) {
+        message.error(value[0]);
+      }
+    });
 };
 fetchData();
 </script>

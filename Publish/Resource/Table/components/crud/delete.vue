@@ -65,6 +65,10 @@ const props = defineProps({
     type: String,
     default: () => [],
   },
+  permission: {
+    type: String,
+    default: null,
+  },
 });
 
 const emit = defineEmits(["onDelete"]);
@@ -72,8 +76,9 @@ const emit = defineEmits(["onDelete"]);
 const deleteItem = async () => {
   axios
     .post(props.endpoint, {
-      model: props.model, // The model name encrypted
-      id: props.id, // Item we want to delete
+      model     : props.model,        // The model name encrypted
+      id        : props.id,           // Item we want to delete
+      permission: props.permission,   // Permission
     })
     .then(function (response) {
       message.success(response.data.message);

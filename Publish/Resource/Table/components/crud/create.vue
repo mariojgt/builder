@@ -55,6 +55,10 @@ const props = defineProps({
     type: String,
     default: () => [],
   },
+  permission: {
+    type: String,
+    default: null,
+  },
 });
 
 let avaliableFields = $ref([]);
@@ -67,8 +71,9 @@ const emit = defineEmits(["onCreate"]);
 const createNew = async () => {
   axios
     .post(props.endpoint, {
-      model: props.model, // The model name encrypted
-      data: avaliableFields, // Item we want to delete
+      model     : props.model,        // The model name encrypted
+      data      : avaliableFields,    // Item we want to delete
+      permission: props.permission,   // Permission
     })
     .then(function (response) {
       message.success(response.data.message);
