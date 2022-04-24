@@ -3,14 +3,17 @@
 
 # Builder
 
-This Laravel packages has been design to quickly add 2 steps verifications in am very simple way and very easy to expand.
+Laravel package to quick build generict crud operations.
 
 # Features
 
--   [ ] Demo with the example application flow you need.
--   [ ] 2 steps autentication.
-- [ ] middlewhere protection.
+-   [ ] Ready to use datatabel api integrated with laravel.
 
+# Requirements
+-   [ ] laravel.
+- [ ] tailwind.
+- [ ] daisy ui.
+- [ ] inersia js.
 
 
 ### First option via composer
@@ -22,79 +25,69 @@ This will copy the resource assets, run migrations and copy over some config fil
 
 ## How to use
 
-1: You need to assign the trait to you user model table in order to use the 2steps verification and have access to the backup codes.
-
+1: Go to the routes file and you first need to add the following line:
 ```php
-use Mariojgt\Builder\Trait\Builder;
-
-class User extends Authenticatable
-{
-    use HasApiTokens, HasFactory, Notifiable, Builder;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var string[]
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    // Table api controller
+    Route::controller(TableBuilderApiController::class)->group(function () {
+        Route::post('/admin/api/generic/table', 'index')->name('admin.api.generic.table');
+        Route::post('/admin/api/generic/table/create', 'store')->name('admin.api.generic.table.create');
+        Route::post('/admin/api/generic/table/update', 'update')->name('admin.api.generic.table.update');
+        Route::post('/admin/api/generic/table/delete', 'delete')->name('admin.api.generic.table.delete');
+    });
 ```
-
-this will insure you have access to the backup codes
-
-2:In order to sync the user you need to first generate the authenticator secret using the helper normally when you register or with a controller method to sync the autenticator
-
+2: in you controller you need the following array
 ```php
-use Mariojgt\Builder\Helpers\AutenticatorHandle;
+        // Table columns
+        $columns = [
+            [
+                'label'     => 'Id',    // Display name
+                'key'       => 'id',    // Table column key
+                'sortable'  => true,    // Can be use in the filter
+                'canCreate' => false,   // Can be use in the create form
+                'canEdit'   => false,   // Can be use in the edit form
+            ],
+            [
+                'label'     => 'Name',   // Display name
+                'key'       => 'name',   // Table column key
+                'sortable'  => true,     // Can be use in the filter
+                'canCreate' => true,     // Can be use in the create form
+                'canEdit'   => true,     // Can be use in the edit form
+                'type'      => 'text',   // Type text,email,password,date,timestamp
+            ],
+            [
+                'label'     => 'Guard',
+                'key'       => 'guard_name',
+                'sortable'  => true,
+                'canCreate' => true,
+                'canEdit'   => true,
+                'type'      => 'text',
+            ],
+            [
+                'label'     => 'Created At',
+                'key'       => 'created_at',
+                'sortable'  => false,
+                'canCreate' => false,
+                'canEdit'   => true,
+                'type'      => 'date',
+            ],
+            [
+                'label'     => 'Updated At',
+                'key'       => 'updated_at',
+                'sortable'  => false,
+                'canCreate' => false,
+                'canEdit'   => true,
+                'type'      => 'timestamp',
+            ],
+        ];
 
-class myController
-{
-    public register () {
-	    // Start the class that handle most of the logic
-	    $handle = new AutenticatorHandle();
-	    // Generate the code
-		$codeInfo =	    $handle->generateCode($userEmail);
-		// Sync that code with the user using the trait
-		Auth()->user()->syncAutenticator($codeInfo['secret']);
-    }
+        return Inertia::render('BackEnd/Permissions/Index', [
+            'title' => 'Permissions | Roles',
+            // Required for the generic table api
+            'endpoint'       => route('admin.api.generic.table'), // Index table endpoint
+            'endpointDelete' => route('admin.api.generic.table.delete'), // Delete table endpoint
+            'endpointCreate' => route('admin.api.generic.table.create'), // Create table endpoint
+            'endpointEdit'   => route('admin.api.generic.table.update'), // Edit table endpoint
+            'columns'        => $columns, // Table columns
+            'model'          => encrypt(Role::class), // Model name encrypted
+        ]);
 ```
-
-3: At this point the authenticator is enabled against that user, now you need to protect the middlewhere here is a example
-
-```php
-// Auth Route Example
-Route::group([
-    'middleware' => ['web', '2fa'], // note you can use (2fa:admin) for admin guard or leave empty for web as default
-], function () {
-    // Example page required to be login
-    Route::get('/builder-try', [HomeContoller::class, 'protected'])->name('builder.try');
-});
-
-```
-
-4:Display the user codes, normaly you only display the backup codes once you can use the following example
-
-```
-Auth()->user()->getCodes; // this will return the backup codes for that user
-```
-
-5:using backup codes see the example
-
-```php
-use Mariojgt\Builder\Helpers\AutenticatorHandle;
-
-myclass {
-
-	public myFunction () {
-		 // Start the class that handle most of the logic
-		$handle = new AutenticatorHandle();
-		// the encryption is using the normal laravel encrypt fuction // example encrypt('user_secret')
-		$handle->useBackupCode($codeYouType, $encryptAutenticatorSecret); // The second parameter is not required
-	}
-
-}
-```
-
