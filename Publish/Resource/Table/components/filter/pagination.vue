@@ -12,13 +12,15 @@
     "
   >
     <span class="text-xs xs:text-sm text-primary">
-      Showing 1 to 4 of 50 Entries
+      Showing {{ props.paginationInfo.currentPage }} to
+      {{ props.paginationInfo.perPage }} of
+      {{ props.paginationInfo.total }} Entries
     </span>
     <div class="inline-flex mt-2 xs:mt-0">
       <div class="btn-group">
         <button
           class="btn btn-md"
-          v-for="(item, index) in props.paginationInfo"
+          v-for="(item, index) in props.paginationInfo.links"
           :key="index"
           :class="item.active ? 'btn-active' : ''"
           @click="nextPage(item.url)"

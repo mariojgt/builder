@@ -62,12 +62,20 @@
         </div>
       </div>
     </div>
+    <div class="block relative pl-4">
+      <button class="btn btn-outline btn-accent" @click="resetFilter">
+        Reset
+      </button>
+    </div>
   </div>
 </template>
 <script setup >
 // Import vue watch
 import { watch } from "vue";
 
+/**
+ * Filter props
+ */
 const props = defineProps({
   columns: {
     type: Array,
@@ -75,14 +83,25 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["onPerPage", "onOrderBy", "onSearch", "onFilter"]);
+/**
+ * Event that we goin to emit in order to update the table
+ */
+const emit = defineEmits([
+  "onPerPage",
+  "onOrderBy",
+  "onSearch",
+  "onFilter",
+  "onFilterReset",
+]);
 
-let perPage  = $ref(10);
-let filterBy = $ref("Asc");
-let orderBy  = $ref("Asc");
-let search   = $ref("");
+let perPage = $ref(10);
+let filterBy = $ref("id");
+let orderBy = $ref("asc");
+let search = $ref("");
 
-// Peprate the filter section
+/**
+ * Peprate the filter section
+ */
 let filterColumns = $ref([]);
 const builderTableFilter = async () => {
   for (const [key, value] of Object.entries(props.columns)) {
@@ -99,8 +118,9 @@ const builderTableFilter = async () => {
 };
 builderTableFilter();
 
-
-// Watch the perPage value
+/**
+ * Watch the perPage value
+ */
 watch(
   () => perPage,
   (value) => {
@@ -108,7 +128,9 @@ watch(
   }
 );
 
-// Watch the orderBy value
+/**
+ * Watch the orderBy value
+ */
 watch(
   () => orderBy,
   (value) => {
@@ -116,7 +138,9 @@ watch(
   }
 );
 
-// Watch the filter by value
+/**
+ * Watch the filter by value
+ */
 watch(
   () => filterBy,
   (value) => {
@@ -124,13 +148,40 @@ watch(
   }
 );
 
-// Watch the search value
+/**
+ * Watch the search value
+ */
+let searchDebounce = $ref(null);
+
 watch(
   () => search,
   (value) => {
-    emit("onSearch", value);
+    // Clear any existing searchDebounce event
+    clearTimeout(searchDebounce);
+    // Update and log the counts after 500 miliseconds
+    searchDebounce = setTimeout(function () {
+      emit("onSearch", value);
+    }, 500);
   }
 );
+
+/**
+ * Clear the filter and reset the table back to normal
+ */
+const resetFilter = async () => {
+  perPage = 10;
+  filterBy = "id";
+  orderBy = "asc";
+  search = null;
+  emit("onFilterReset", [
+    {
+      perPage: perPage,
+      filterBy: filterBy,
+      orderBy: orderBy,
+      search: search,
+    },
+  ]);
+};
 </script>
 
 

@@ -1,6 +1,6 @@
 <template>
   <!-- The button to open modal -->
-  <label for="my-modal-5" class="btn btn-primary modal-button">
+  <label :for="'edit-data-' + props.id" class="btn btn-info modal-button">
     <svg
       xmlns="http://www.w3.org/2000/svg"
       class="h-6 w-6"
@@ -9,22 +9,36 @@
       stroke="currentColor"
       stroke-width="2"
     >
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+      />
     </svg>
   </label>
 
   <!-- Put this part before </body> tag -->
-  <input type="checkbox" id="my-modal-5" class="modal-toggle" />
+  <input type="checkbox" :id="'edit-data-' + props.id" class="modal-toggle" />
   <div class="modal text-center">
     <div class="modal-box w-11/12 max-w-5xl">
-      <h3 class="font-bold text-lg">New</h3>
+      <h3 class="font-bold text-lg">Edit</h3>
 
-      <FormBuilder :columns="props.columns" @onFormUpdate="onFormUpdate" />
+      <FormBuilder
+        :columns="props.columns"
+        @onFormUpdate="onFormUpdate"
+        :editMode="'true'"
+        :modelValue="props.modelValue"
+      />
 
       <div class="modal-action">
-        <label for="my-modal-5" class="btn btn-error">Close</label>
-        <label for="my-modal-5" class="btn btn-success" @click="createNew"
-          >Create</label
+        <label :for="'edit-data-' + props.id" class="btn btn-error"
+          >Close</label
+        >
+        <label
+          :for="'edit-data-' + props.id"
+          class="btn btn-success"
+          @click="editData"
+          >Edit</label
         >
       </div>
     </div>
@@ -36,7 +50,7 @@ import { watch } from "vue";
 // Import axios
 import axios from "axios";
 // Import the form builder
-import FormBuilder from "./formbuilder.vue";
+import FormBuilder from "../formbuilder.vue";
 
 import { useMessage } from "naive-ui";
 
@@ -55,6 +69,14 @@ const props = defineProps({
     type: String,
     default: () => [],
   },
+  id: {
+    type: String,
+    default: "0",
+  },
+  modelValue: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 let avaliableFields = $ref([]);
@@ -62,12 +84,13 @@ const onFormUpdate = async (formData) => {
   avaliableFields = formData;
 };
 
-const emit = defineEmits(["onCreate"]);
+const emit = defineEmits(["onEdit"]);
 
-const createNew = async () => {
+const editData = async () => {
   axios
     .post(props.endpoint, {
       model: props.model, // The model name encrypted
+      id: props.id, // The model name id
       data: avaliableFields, // Item we want to delete
     })
     .then(function (response) {
@@ -78,7 +101,7 @@ const createNew = async () => {
         message.error(value[0]);
       }
     });
-  emit("onCreate");
+  emit("onEdit");
 };
 </script>
 

@@ -16,7 +16,7 @@
       <div class="rounded-t mb-0 px-4 py-3 border-0">
         <div class="flex flex-wrap items-center">
           <div class="relative w-full px-4 max-w-full flex-grow flex-1">
-            <h1 class="text-3xl font-bold">Table name</h1>
+            <h1 class="text-3xl font-bold">{{ props.tableTitle }}</h1>
           </div>
           <div
             class="relative w-full px-4 max-w-full flex-grow flex-1 text-right"
@@ -39,6 +39,7 @@
         @onOrderBy="onOrderBy"
         @onSearch="onSearch"
         @onFilter="onFilter"
+        @onFilterReset="onFilterReset"
         :columns="props.columns"
       />
 
@@ -55,24 +56,43 @@
             </thead>
             <tbody>
               <tr v-for="(tableItem, tableKey) in tableData" :key="tableItem">
-                <th v-for="(item, index) in tableItem" :key="index">
-                  {{ item }}
-                </th>
+                <TableDisplayData :tableData="tableItem" />
                 <th>
-                  <Delete
-                    :id="tableItem.id"
-                    :endpoint="props.endpointDelete"
-                    :model="props.model"
-                    @onDelete="onDelete"
-                  />
-                  <Edit
-                    :columns="props.columns"
-                    :endpoint="props.endpointEdit"
-                    :model="props.model"
-                    :modelValue="tableItem"
-                    :id="tableItem.id"
-                    @onEdit="onEdit"
-                  />
+                  <div
+                    class="
+                      preview
+                      border-base-300
+                      bg-base-200
+                      rounded-b-box rounded-tr-box
+                      flex
+                      min-h-[6rem] min-w-[18rem]
+                      max-w-4xl
+                      flex-wrap
+                      items-center
+                      justify-center
+                      overflow-x-hidden
+                      border
+                      bg-cover bg-top
+                      p-4
+                      undefined
+                      gap-4
+                    "
+                  >
+                    <Delete
+                      :id="tableItem.id"
+                      :endpoint="props.endpointDelete"
+                      :model="props.model"
+                      @onDelete="onDelete"
+                    />
+                    <Edit
+                      :columns="props.columns"
+                      :endpoint="props.endpointEdit"
+                      :model="props.model"
+                      :modelValue="tableItem"
+                      :id="tableItem.id"
+                      @onEdit="onEdit"
+                    />
+                  </div>
                 </th>
               </tr>
             </tbody>
@@ -100,17 +120,25 @@
 // Import axios
 import axios from "axios";
 
-// Include filter
-import TableFilter from "./components/filter.vue";
-import TablePagination from "./components/pagination.vue";
 // Import the delete component
-import Delete from "./components/delete.vue";
+import Delete from "./components/crud/delete.vue";
 // Import the create component
-import Create from "./components/create.vue";
+import Create from "./components/crud/create.vue";
 // Import the edit component
-import Edit from "./components/edit.vue";
-
+import Edit from "./components/crud/edit.vue";
+// Include filter
+import TableFilter from "./components/filter/filter.vue";
+import TablePagination from "./components/filter/pagination.vue";
+// Import the table display component
+import TableDisplayData from "./components/tableDataDisplay.vue";
+/**
+ * Props required in order to the table to work properly
+ */
 const props = defineProps({
+  tableTitle: {
+    type: String,
+    default: "Table name",
+  },
   columns: {
     type: Array,
     default: () => [],
@@ -137,57 +165,109 @@ const props = defineProps({
   },
 });
 
-// When the user clicks on the pagination button
+/**
+ * ON EVENTS METHODS BEING ⚡⚡⚡⚡⚡
+ */
+
+/**
+ * When the user clicks on the pagination button
+ */
 const onPagiation = async (paginationLink) => {
   fetchData(paginationLink);
 };
 
-// When the user cahgne per page
+/**
+ * When the user cahgne per page
+ */
 let perPage = $ref(10);
 const onPerPage = async (onPerPage) => {
   perPage = onPerPage;
   fetchData();
 };
 
-// On sort field
+/**
+ * On sort field
+ */
 let filterBy = $ref("id");
 const onFilter = async (onFilter) => {
   filterBy = onFilter;
   fetchData();
 };
 
+/**
+ * When the user change order by
+ */
 let orderBy = $ref(null);
-// When the user change order by
 const onOrderBy = async (onOrderBy) => {
   orderBy = onOrderBy;
   fetchData();
 };
 
+/**
+ * Search field
+ */
 let search = $ref(null);
-// On user search
+
+/**
+ * On user search
+ */
 const onSearch = async (onSearch) => {
   // check if length is greater than 3
-  if (onSearch.length > 3) {
+  if (onSearch && onSearch.length > 3) {
     search = onSearch;
     fetchData();
   }
 };
 
-// On delete we reload the page
+/**
+ * On delete we reload the page
+ */
 const onDelete = async () => {
   fetchData();
 };
-// On create new
+
+/**
+ * On create new
+ */
 const onCreate = async () => {
   fetchData();
 };
 
-// Data we goin to display in the table
+/**
+ * On edit new
+ */
+const onEdit = async () => {
+  fetchData();
+};
+
+/**
+ * On filters get reset
+ */
+const onFilterReset = async (data) => {
+  perPage = data.perPage;
+  filterBy = data.filterBy;
+  orderBy = data.orderBy;
+  search = data.search;
+  fetchData();
+};
+
+/**
+ * ON EVENTS METHODS END ⚡⚡⚡⚡⚡
+ */
+
+/**
+ * Data we goin to display in the table
+ */
 let tableData = $ref([]);
-// Current page
+
+/**
+ * Current page
+ */
 let paginationInfo = $ref([]);
 
-// This fuction will return the data from the endpoint with the filters and etc
+/**
+ * This fuction will return the data from the endpoint with the filters and etc
+ */
 const fetchData = async (newEndPoint = null) => {
   // If the endpoint is not defined, we use the default endpoint
   if (newEndPoint === null) {
@@ -200,17 +280,21 @@ const fetchData = async (newEndPoint = null) => {
       columns: props.columns, // columns to display
       perPage: perPage, // per page
       search: search, // Search
-      sort: filterBy, // Fiel example : name
+      sort: filterBy, // Filter example : name
       direction: orderBy, // Asc or desc
     })
     .then(function (response) {
-      tableData = response.data.data;
-      paginationInfo = response.data.links;
+      tableData      = response.data.data;
+      paginationInfo = {
+        currentPage: response.data.current_page,
+        lastPage   : response.data.last_page,
+        perPage    : response.data.per_page,
+        total      : response.data.total,
+        links      : response.data.links
+      };
     })
     .catch(function (error) {});
 };
 fetchData();
-
-const tableStart = async () => {};
 </script>
 
