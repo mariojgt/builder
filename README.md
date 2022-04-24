@@ -38,6 +38,7 @@ This will copy the resource assets, run migrations and copy over some config fil
 2: in you controller you need the following array
 ```php
         // Table columns
+        // Table columns
         $columns = [
             [
                 'label'     => 'Id',    // Display name
@@ -81,13 +82,29 @@ This will copy the resource assets, run migrations and copy over some config fil
         ];
 
         return Inertia::render('BackEnd/Permissions/Index', [
-            'title' => 'Permissions | Roles',
+            'title' => 'Permissions | Permissions',
             // Required for the generic table api
-            'endpoint'       => route('admin.api.generic.table'), // Index table endpoint
-            'endpointDelete' => route('admin.api.generic.table.delete'), // Delete table endpoint
-            'endpointCreate' => route('admin.api.generic.table.create'), // Create table endpoint
-            'endpointEdit'   => route('admin.api.generic.table.update'), // Edit table endpoint
-            'columns'        => $columns, // Table columns
-            'model'          => encrypt(Role::class), // Model name encrypted
+            'endpoint'       => route('admin.api.generic.table'),
+            'endpointDelete' => route('admin.api.generic.table.delete'),
+            'endpointCreate' => route('admin.api.generic.table.create'),
+            'endpointEdit'   => route('admin.api.generic.table.update'),
+            // You table columns
+            'columns'        => $columns,
+            // The model where all those actions will take place
+            'model'          => encrypt(Permission::class),
+            // If you want to protect your crud form you can use this below not required
+            // The permission name for the crud
+            'permission'     => [
+                'guard'          => 'skeleton_admin', // Any guard name
+                // You can use permission or role up to you
+                'type'          => 'permission',
+                // The permission name or role
+                'key' => [
+                    'store'  => 'create-permission',
+                    'update' => 'edit-permission',
+                    'delete' => 'delete-permission',
+                    'index'  => 'read-permission',
+                ],
+            ],
         ]);
 ```
