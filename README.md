@@ -38,7 +38,6 @@ This will copy the resource assets, run migrations and copy over some config fil
 2: in you controller you need the following array
 ```php
         // Table columns
-        // Table columns
         $columns = [
             [
                 'label'     => 'Id',    // Display name
@@ -81,8 +80,8 @@ This will copy the resource assets, run migrations and copy over some config fil
             ],
         ];
 
-        return Inertia::render('BackEnd/Permissions/Index', [
-            'title' => 'Permissions | Permissions',
+        return Inertia::render('BackEnd/Role/Index', [
+            'title' => 'Role | Roles',
             // Required for the generic table api
             'endpoint'       => route('admin.api.generic.table'),
             'endpointDelete' => route('admin.api.generic.table.delete'),
@@ -91,11 +90,10 @@ This will copy the resource assets, run migrations and copy over some config fil
             // You table columns
             'columns'        => $columns,
             // The model where all those actions will take place
-            'model'          => encrypt(Permission::class),
+            'model'          => encrypt(Role::class),
             // If you want to protect your crud form you can use this below not required
-            // The permission name for the crud
-            'permission'     => [
-                'guard'          => 'skeleton_admin', // Any guard name
+            'permission'     => encrypt([ // Must be encrypted
+                'guard'          => 'skeleton_admin',
                 // You can use permission or role up to you
                 'type'          => 'permission',
                 // The permission name or role
@@ -105,6 +103,6 @@ This will copy the resource assets, run migrations and copy over some config fil
                     'delete' => 'delete-permission',
                     'index'  => 'read-permission',
                 ],
-            ],
+            ]),
         ]);
 ```

@@ -26,6 +26,8 @@ class TableBuilderApiController extends Controller
      */
     private function permissionCheck(Request $request, $checkType)
     {
+        // Decrypt the permission in order to avoid manupilation
+        $request->request->add(['permission' => decrypt($request->permission)]); //add request
         // Get the user based in the guard
         $user        = Auth::guard($request->permission['guard'])->user();
         $type        = $request->permission['type'];
@@ -41,15 +43,11 @@ class TableBuilderApiController extends Controller
         try {
             $autorized = $user->$classMethod($request->permission['key'][$checkType]);
         } catch (\Throwable $th) {
-            $autorized = false;
-        }
-
-        // if false return a 422 error
-        if (!$autorized) {
             throw ValidationException::withMessages([
                 'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
             ]);
         }
+
         return $autorized;
     }
 
