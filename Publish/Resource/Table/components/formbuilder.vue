@@ -1,28 +1,28 @@
 <template>
   <div v-for="(item, index) in avaliableFields" :key="index">
     <div v-if="item.type == 'text'">
-      <InputField
+      <input-field
         type="text"
         v-model="avaliableFields[index].value"
         :label="item.label"
       />
     </div>
     <div v-else-if="item.type == 'email'">
-      <InputField
+      <input-field
         type="email"
         v-model="avaliableFields[index].value"
         :label="item.label"
       />
     </div>
     <div v-else-if="item.type == 'date'">
-      <InputField
+      <input-field
         type="date"
         v-model="avaliableFields[index].value"
         :label="item.label"
       />
     </div>
     <div v-else-if="item.type == 'timestamp'">
-      <InputField
+      <input-field
         type="datetime-local"
         v-model="avaliableFields[index].value"
         :label="item.label"

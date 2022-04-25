@@ -22,7 +22,7 @@
             class="relative w-full px-4 max-w-full flex-grow flex-1 text-right"
           >
             <slot name="new">
-              <Create
+              <create
                 :columns="props.columns"
                 :endpoint="props.endpointCreate"
                 :model="props.model"
@@ -35,7 +35,7 @@
       </div>
 
       <!-- Table filter -->
-      <TableFilter
+      <table-filter
         @onPerPage="onPerPage"
         @onOrderBy="onOrderBy"
         @onSearch="onSearch"
@@ -57,7 +57,7 @@
             </thead>
             <tbody>
               <tr v-for="(tableItem, tableKey) in tableData" :key="tableItem">
-                <TableDisplayData :tableData="tableItem" />
+                <table-display-data :tableData="tableItem" />
                 <th>
                   <div
                     class="
@@ -79,14 +79,14 @@
                       gap-4
                     "
                   >
-                    <Delete
+                    <delete
                       :id="tableItem.id"
                       :endpoint="props.endpointDelete"
                       :model="props.model"
                       :permission="props.permission"
                       @onDelete="onDelete"
                     />
-                    <Edit
+                    <edit
                       :columns="props.columns"
                       :endpoint="props.endpointEdit"
                       :model="props.model"
@@ -111,7 +111,7 @@
         </div>
 
         <!-- Table Pagination -->
-        <TablePagination
+        <table-pagination
           @onPagiation="onPagiation"
           :paginationInfo="paginationInfo"
         />

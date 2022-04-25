@@ -23,7 +23,7 @@
     <div class="modal-box w-11/12 max-w-5xl">
       <h3 class="font-bold text-lg">Edit</h3>
 
-      <FormBuilder
+      <form-builder
         :columns="props.columns"
         @onFormUpdate="onFormUpdate"
         :editMode="'true'"
@@ -93,10 +93,10 @@ const emit = defineEmits(["onEdit"]);
 const editData = async () => {
   axios
     .post(props.endpoint, {
-      model     : props.model,        // The model name encrypted
-      id        : props.id,           // The model name id
-      data      : avaliableFields,    // Item we want to delete
-      permission: props.permission,   // Permission
+      model: props.model, // The model name encrypted
+      id: props.id, // The model name id
+      data: avaliableFields, // Item we want to delete
+      permission: props.permission, // Permission
     })
     .then(function (response) {
       message.success(response.data.message);
