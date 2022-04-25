@@ -2,55 +2,15 @@
 
 namespace Mariojgt\Builder\Controllers;
 
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use App\Helpers\CastleHelper;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Validation\ValidationException;
-use Mariojgt\Builder\Helpers\AutenticatorHandle;
+use Mariojgt\Builder\Helpers\BuilderHelper;
 
 /**
  * This controller will handle the crud for the table builder, note that this is a generic controller that will be use to create the forms more info check the documentation
  */
 class TableBuilderApiController extends Controller
 {
-
-    /**
-     * If the permission array is not empty then the user must have the permission to access else we need to check
-     * @param Request $request
-     * @param string $type // create | edit | delete |read
-     *
-     * @return bool [true|false]
-     */
-    private function permissionCheck(Request $request, $checkType)
-    {
-        // Decrypt the permission in order to avoid manupilation
-        $request->request->add(['permission' => decrypt($request->permission)]); //add request
-        // Get the user based in the guard
-        $user        = Auth::guard($request->permission['guard'])->user();
-        $type        = $request->permission['type'];
-        $classMethod = '';
-        // Type
-        if ($type == 'permission') {
-            $classMethod = 'hasPermissionTo';
-        } else {
-            $classMethod = 'hasRole';
-        }
-
-        // Check if the user has the permission
-        try {
-            $autorized = $user->$classMethod($request->permission['key'][$checkType]);
-        } catch (\Throwable $th) {
-            throw ValidationException::withMessages([
-                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
-            ]);
-        }
-
-        return $autorized;
-    }
-
     /**
      * This is the main table builder and will handle the data display to the table
      * @param Request $request
@@ -64,9 +24,11 @@ class TableBuilderApiController extends Controller
             'columns' => 'required',
         ]);
 
+        // Check if the permission can be checked
         if (!empty($request->permission)) {
+            $builderHelper = new BuilderHelper();
             // First check if the user has the permission to access
-            $this->permissionCheck($request, 'index');
+            $builderHelper->permissionCheck($request, 'index');
         }
 
         // Fist we need to decrypt the model and instantiate it
@@ -129,9 +91,12 @@ class TableBuilderApiController extends Controller
             ]
         );
 
+        // Check if the permission can be checked
         if (!empty($request->permission)) {
             // First check if the user has the permission to access
-            $this->permissionCheck($request, 'store');
+            $builderHelper = new BuilderHelper();
+            // First check if the user has the permission to access
+            $builderHelper->permissionCheck($request, 'store');
         }
 
         // Fist we need to decrypt the model and instantiate it
@@ -146,7 +111,7 @@ class TableBuilderApiController extends Controller
 
         // Loop the columns and set the value and validate acording to the type
         foreach ($rawColumns as $key => $column) {
-            $model = $this->generictValidation($model, $column);
+            $model = $builderHelper->generictValidation($model, $column);
         }
 
         // Save the model
@@ -180,9 +145,12 @@ class TableBuilderApiController extends Controller
             ]
         );
 
+        // Check if the permission can be checked
         if (!empty($request->permission)) {
             // First check if the user has the permission to access
-            $this->permissionCheck($request, 'update');
+            $builderHelper = new BuilderHelper();
+            // First check if the user has the permission to access
+            $builderHelper->permissionCheck($request, 'update');
         }
 
         // Fist we need to decrypt the model and instantiate it
@@ -197,7 +165,7 @@ class TableBuilderApiController extends Controller
 
         // Loop the columns and set the value and validate acording to the type
         foreach ($rawColumns as $key => $column) {
-            $model = $this->generictValidation($model, $column);
+            $model = $builderHelper->generictValidation($model, $column);
         }
 
         // Save the model
@@ -208,48 +176,6 @@ class TableBuilderApiController extends Controller
             'success' => true,
             'message' => 'Item updated successfully',
         ]);
-    }
-
-    /**
-     * Genercit assing and validation the data inforamtion
-     * @param mixed $type
-     * @param mixed $model
-     * @param mixed $key
-     * @param mixed $value
-     * @param mixed $column
-     *
-     * @return Model [model]
-     */
-    private function generictValidation($model, $column)
-    {
-        // Get the value
-        $value = $column['value'];
-        // Get the key
-        $key   = $column['key'];
-        // Get the type
-        $type  = $column['type'];
-
-        switch ($type) {
-            case 'text':
-                $model->$key = $value;
-                break;
-            case 'email':
-                // Make sure the email is valid else trow an error validation message
-                if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                    throw ValidationException::withMessages([$column['key'] => 'Must be a valid email.']);
-                } else {
-                    $model->$key = $value;
-                }
-                break;
-            case 'date':
-                // Cast the value to date
-                $model->$key = Carbon::parse($value);
-                break;
-            default:
-                $model->$key = $value;
-                break;
-        }
-        return $model;
     }
 
     /**
@@ -265,9 +191,12 @@ class TableBuilderApiController extends Controller
             'id'  => 'required',
         ]);
 
+        // Check if the permission can be checked
         if (!empty($request->permission)) {
             // First check if the user has the permission to access
-            $this->permissionCheck($request, 'delete');
+            $builderHelper = new BuilderHelper();
+            // First check if the user has the permission to access
+            $builderHelper->permissionCheck($request, 'delete');
         }
 
         // Fist we need to decrypt the model and instantiate it
