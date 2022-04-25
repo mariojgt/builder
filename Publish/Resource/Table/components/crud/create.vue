@@ -19,7 +19,7 @@
     <div class="modal-box w-11/12 max-w-5xl">
       <h3 class="font-bold text-lg">New</h3>
 
-      <FormBuilder :columns="props.columns" @onFormUpdate="onFormUpdate" />
+      <form-builder :columns="props.columns" @onFormUpdate="onFormUpdate" />
 
       <div class="modal-action">
         <label for="my-modal-5" class="btn btn-error">Close</label>
@@ -37,9 +37,8 @@ import { watch } from "vue";
 import axios from "axios";
 // Import the form builder
 import FormBuilder from "../formbuilder.vue";
-
+// Import naive ui messages
 import { useMessage } from "naive-ui";
-
 const message = useMessage();
 
 const props = defineProps({
@@ -62,6 +61,7 @@ const props = defineProps({
 });
 
 let avaliableFields = $ref([]);
+// When the form is updated get the data and sync with the avaliable fields
 const onFormUpdate = async (formData) => {
   avaliableFields = formData;
 };

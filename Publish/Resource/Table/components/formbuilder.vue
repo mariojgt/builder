@@ -7,6 +7,12 @@
         :label="item.label"
       />
     </div>
+    <div v-else-if="item.type == 'password'">
+      <input-password
+        v-model="avaliableFields[index].value"
+        :label="item.label"
+      />
+    </div>
     <div v-else-if="item.type == 'email'">
       <input-field
         type="email"
@@ -33,6 +39,12 @@
 <script setup >
 // Import vue watch
 import { watch } from "vue";
+// Import the javascrpt functions for formatting the data
+import {
+  formatDate,
+  formatTimestamp,
+  makeString,
+} from "./formHelpers/formHelper.js";
 
 // Import the from components
 import {
@@ -61,8 +73,11 @@ let avaliableFields = $ref([]);
 
 // This fuction will loop the columns and create the fields
 const createFields = () => {
+  // Empty any fields
   avaliableFields = [];
+  // Loop the table columns
   for (const [key, value] of Object.entries(props.columns)) {
+    // Check if the form is in edit mode or create mode
     if (props.editMode == "false") {
       if (value.canCreate) {
         // Create mode
@@ -78,33 +93,21 @@ const createFields = () => {
       if (value.canEdit) {
         // Variable that will hold the final value after the cast
         let finalValue = null;
-
+        // Switch the type of the value
         switch (value.type) {
           case "date":
-            // Cast the value to date
-            const tempDate = props.modelValue[value.key].split("/");
-            finalValue = new Date(
-              tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
-            );
             // Format to yyyy-mm-dd
-            finalValue = finalValue.toISOString().split("T")[0];
+            finalValue = formatDate(props.modelValue[value.key]);
             break;
           case "timestamp":
-            // Cast to a temp date
-            const tempTime = props.modelValue[value.key].split("/");
-            // Cast to datetime-local
-            finalValue = new Date(
-              tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
-            )
-              .toISOString()
-              .substr(0, 16);
+            finalValue = formatTimestamp(props.modelValue[value.key]);
             break;
           default:
             // Cast to string
-            finalValue = props.modelValue[value.key];
+            finalValue = makeString(props.modelValue[value.key]);
             break;
         }
-
+        // Push the field formate with the type and the right values for the field
         avaliableFields.push({
           key: value.key,
           label: value.label,
