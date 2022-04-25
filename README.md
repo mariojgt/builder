@@ -7,13 +7,14 @@ Laravel package to quick build generict crud operations.
 
 # Features
 
--   [ ] Ready to use datatabel api integrated with laravel.
+- [ ] Ready to use database crud api integrated with laravel.
+- [ ] Dynamic form builder.
 
 # Requirements
--   [ ] laravel.
-- [ ] tailwind.
-- [ ] daisy ui.
-- [ ] inersia js.
+- [ ] Laravel.
+- [ ] Tailwind.
+- [ ] Daisy ui.
+- [ ] Inersia js.
 
 
 ### First option via composer
@@ -82,7 +83,7 @@ This will copy the resource assets, run migrations and copy over some config fil
 
         return Inertia::render('BackEnd/Role/Index', [
             'title' => 'Role | Roles',
-            // Required for the generic table api
+            // Required for the Builder Generic table api
             'endpoint'       => route('admin.api.generic.table'),
             'endpointDelete' => route('admin.api.generic.table.delete'),
             'endpointCreate' => route('admin.api.generic.table.create'),
