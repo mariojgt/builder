@@ -44,7 +44,7 @@ import {
   formatDate,
   formatTimestamp,
   makeString,
-} from "./formHelpers/formHelper.js";
+} from "./formHelper.js";
 
 // Import the from components
 import {

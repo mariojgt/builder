@@ -36,7 +36,7 @@ import { watch } from "vue";
 // Import axios
 import axios from "axios";
 // Import the form builder
-import FormBuilder from "../formbuilder.vue";
+import FormBuilder from "../formHelpers/formbuilder.vue";
 // Import naive ui messages
 import { useMessage } from "naive-ui";
 const message = useMessage();
