@@ -15,7 +15,7 @@ class TableBuilderApiController extends Controller
      * This is the main table builder and will handle the data display to the table
      * @param Request $request
      *
-     * @return [type]
+     * @return json [$data]
      */
     public function index(Request $request)
     {
@@ -181,7 +181,7 @@ class TableBuilderApiController extends Controller
     /**
      * Dynamic delete model item.
      *
-     * @param Request $request
+     * @return json [$data]
      *
      */
     public function delete(Request $request)
