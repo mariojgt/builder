@@ -91,14 +91,14 @@ const createFields = () => {
           finalValue = makeString(props.modelValue[value.key]);
           break;
       }
-      // Push the field formate with the type and the right values for the field
-      avaliableFields.push({
-        key: value.key,
-        label: value.label,
-        type: value.type,
-        value: finalValue,
-      });
     }
+    // Push the field formate with the type and the right values for the field
+    avaliableFields.push({
+      key: value.key,
+      label: value.label,
+      type: value.type,
+      value: finalValue,
+    });
   }
 };
 
