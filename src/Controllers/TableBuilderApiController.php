@@ -2,17 +2,18 @@
 
 namespace Mariojgt\Builder\Controllers;
 
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use Mariojgt\Builder\Helpers\BuilderHelper;
 
 /**
- * This controller will handle the crud for the table builder, note that this is a generic controller that will be use to create the forms more info check the documentation
+ * This controller will handle the crud for the table builder, note that this is a generic controller that will be use to create the forms more info check the documentation.
  */
 class TableBuilderApiController extends Controller
 {
     /**
-     * This is the main table builder and will handle the data display to the table
+     * This is the main table builder and will handle the data display to the table.
+     *
      * @param Request $request
      *
      * @return json [$data]
@@ -33,16 +34,16 @@ class TableBuilderApiController extends Controller
 
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);
-        $model = new $model;
+        $model = new $model();
 
         // Get the columns
         $rawColumns = collect($request->columns);
-        $columns    = $rawColumns->pluck('key');
+        $columns = $rawColumns->pluck('key');
 
         // Check if the search is not empty
         if ($request->has('search')) {
             // Get the columns that are sortable
-            $sortableColumns = $rawColumns->filter(function ($column) use ($model) {
+            $sortableColumns = $rawColumns->filter(function ($column) {
                 // If shortalbe is true, then we can sort it
                 if ($column['sortable'] == true) {
                     return true;
@@ -54,7 +55,7 @@ class TableBuilderApiController extends Controller
             $model = $model->where(function ($query) use ($request, $columnSearch) {
                 // Search using concatination
                 foreach ($columnSearch as $column) {
-                    $query->orWhere($column, 'like', '%' . $request->search . '%');
+                    $query->orWhere($column, 'like', '%'.$request->search.'%');
                 }
             });
         }
@@ -72,7 +73,8 @@ class TableBuilderApiController extends Controller
     }
 
     /**
-     * The store method for the table when the user try to create a new row
+     * The store method for the table when the user try to create a new row.
+     *
      * @param Request $request
      *
      * @return json [type]
@@ -101,7 +103,7 @@ class TableBuilderApiController extends Controller
 
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);
-        $model = new $model;
+        $model = new $model();
 
         // Get the columns
         $rawColumns = collect($request->data);
@@ -125,7 +127,8 @@ class TableBuilderApiController extends Controller
     }
 
     /**
-     * This fuction is goin to update the datable that comes from the table
+     * This fuction is goin to update the datable that comes from the table.
+     *
      * @param Request $request
      *
      * @return json [message]
@@ -155,7 +158,7 @@ class TableBuilderApiController extends Controller
 
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);
-        $model = new $model;
+        $model = new $model();
 
         // Find the model item
         $model = $model->find($request->id);
@@ -182,13 +185,12 @@ class TableBuilderApiController extends Controller
      * Dynamic delete model item.
      *
      * @return json [$data]
-     *
      */
     public function delete(Request $request)
     {
         $request->validate([
             'model' => 'required',
-            'id'  => 'required',
+            'id'    => 'required',
         ]);
 
         // Check if the permission can be checked
@@ -201,7 +203,7 @@ class TableBuilderApiController extends Controller
 
         // Fist we need to decrypt the model and instantiate it
         $model = decrypt($request->model);
-        $model = new $model;
+        $model = new $model();
 
         // Find the model item
         $modelItem = $model->find($request->id);

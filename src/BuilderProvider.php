@@ -2,8 +2,8 @@
 
 namespace Mariojgt\Builder;
 
-use Mariojgt\Builder\Commands\Install;
 use Illuminate\Support\ServiceProvider;
+use Mariojgt\Builder\Commands\Install;
 use Mariojgt\Builder\Commands\Republish;
 
 class BuilderProvider extends ServiceProvider
@@ -38,12 +38,12 @@ class BuilderProvider extends ServiceProvider
     {
         // Publish the resource
         $this->publishes([
-            __DIR__ . '/../Publish/Resource/' => resource_path('vendor/Builder/'),
+            __DIR__.'/../Publish/Resource/' => resource_path('vendor/Builder/'),
         ]);
 
         // Publish the public folder
         $this->publishes([
-            __DIR__ . '/../Publish/Config/' => config_path('/'),
+            __DIR__.'/../Publish/Config/' => config_path('/'),
         ]);
     }
 }

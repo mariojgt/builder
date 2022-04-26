@@ -43,7 +43,7 @@ class Republish extends Command
 
         // First we move the resources where we keep the css and js files
         $targetFolderResource = resource_path('vendor/Builder/');
-        $destitionResource = __DIR__ . '/../../Publish/Resource';
+        $destitionResource = __DIR__.'/../../Publish/Resource';
         File::copyDirectory($targetFolderResource, $destitionResource);
         $bar->advance(); // Little Progress bar
 
