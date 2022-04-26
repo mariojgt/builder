@@ -55,7 +55,7 @@ class TableBuilderApiController extends Controller
             $model = $model->where(function ($query) use ($request, $columnSearch) {
                 // Search using concatination
                 foreach ($columnSearch as $column) {
-                    $query->orWhere($column, 'like', '%' . $request->search . '%');
+                    $query->orWhere($column, 'like', '%'.$request->search.'%');
                 }
             });
         }
