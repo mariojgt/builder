@@ -8,7 +8,7 @@
         "2fa verification",
         "2fa autenticator"
     ],
-    "type": "laravel",
+    "type": "package",
     "license": "MIT",
     "authors": [
         {
