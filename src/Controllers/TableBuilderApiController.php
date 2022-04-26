@@ -25,9 +25,9 @@ class TableBuilderApiController extends Controller
             'columns' => 'required',
         ]);
 
+        $builderHelper = new BuilderHelper();
         // Check if the permission can be checked
         if (!empty($request->permission)) {
-            $builderHelper = new BuilderHelper();
             // First check if the user has the permission to access
             $builderHelper->permissionCheck($request, 'index');
         }
@@ -55,7 +55,7 @@ class TableBuilderApiController extends Controller
             $model = $model->where(function ($query) use ($request, $columnSearch) {
                 // Search using concatination
                 foreach ($columnSearch as $column) {
-                    $query->orWhere($column, 'like', '%'.$request->search.'%');
+                    $query->orWhere($column, 'like', '%' . $request->search . '%');
                 }
             });
         }
@@ -93,10 +93,11 @@ class TableBuilderApiController extends Controller
             ]
         );
 
+        // First check if the user has the permission to access
+        $builderHelper = new BuilderHelper();
+
         // Check if the permission can be checked
         if (!empty($request->permission)) {
-            // First check if the user has the permission to access
-            $builderHelper = new BuilderHelper();
             // First check if the user has the permission to access
             $builderHelper->permissionCheck($request, 'store');
         }
@@ -148,10 +149,10 @@ class TableBuilderApiController extends Controller
             ]
         );
 
+        // First check if the user has the permission to access
+        $builderHelper = new BuilderHelper();
         // Check if the permission can be checked
         if (!empty($request->permission)) {
-            // First check if the user has the permission to access
-            $builderHelper = new BuilderHelper();
             // First check if the user has the permission to access
             $builderHelper->permissionCheck($request, 'update');
         }
@@ -193,10 +194,10 @@ class TableBuilderApiController extends Controller
             'id'    => 'required',
         ]);
 
+        // First check if the user has the permission to access
+        $builderHelper = new BuilderHelper();
         // Check if the permission can be checked
         if (!empty($request->permission)) {
-            // First check if the user has the permission to access
-            $builderHelper = new BuilderHelper();
             // First check if the user has the permission to access
             $builderHelper->permissionCheck($request, 'delete');
         }

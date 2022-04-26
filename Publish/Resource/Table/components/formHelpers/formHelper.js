@@ -20,7 +20,7 @@ export const formatDate = (dateToFormat) => {
  */
 export const formatTimestamp = (dateToFormat) => {
     // Cast to a temp date
-    const tempTime = dateToFormat.split("/");
+    const tempDate = dateToFormat.split("/");
     // Cast to datetime-local
     let finalValue = new Date(
         tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
