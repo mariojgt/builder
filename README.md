@@ -28,7 +28,7 @@ This will copy the resource assets, run migrations and copy over some config fil
 
 1: Go to the routes file and you first need to add the following line:
 ```php
-    // Table api controller
+    // Table api controller in where you can use your middleware
     Route::controller(TableBuilderApiController::class)->group(function () {
         Route::post('/admin/api/generic/table', 'index')->name('admin.api.generic.table');
         Route::post('/admin/api/generic/table/create', 'store')->name('admin.api.generic.table.create');

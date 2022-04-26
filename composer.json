@@ -1,6 +1,6 @@
 {
     "name": "mariojgt/builder",
-    "description": "Laravle Crud builder with dynamic tables and controller made in vue js",
+    "description": "Laravel Crud builder with dynamic tables and controller made in vue js",
     "keywords": [
         "laravel",
         "crud-builder",
