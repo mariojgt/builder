@@ -3,10 +3,8 @@
     "description": "Laravle Crud builder with dynamic tables and controller made in vue js",
     "keywords": [
         "laravel",
-        "2steps",
-        "autenticator",
-        "2fa verification",
-        "2fa autenticator"
+        "crud-builder",
+        "automated-crud"
     ],
     "type": "package",
     "license": "MIT",

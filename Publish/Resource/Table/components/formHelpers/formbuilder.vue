@@ -40,11 +40,7 @@
 // Import vue watch
 import { watch } from "vue";
 // Import the javascrpt functions for formatting the data
-import {
-  formatDate,
-  formatTimestamp,
-  makeString,
-} from "./formHelper.js";
+import { formatDate, formatTimestamp, makeString } from "./formHelper.js";
 
 // Import the from components
 import {
@@ -77,44 +73,31 @@ const createFields = () => {
   avaliableFields = [];
   // Loop the table columns
   for (const [key, value] of Object.entries(props.columns)) {
-    // Check if the form is in edit mode or create mode
-    if (props.editMode == "false") {
-      if (value.canCreate) {
-        // Create mode
-        avaliableFields.push({
-          key: value.key,
-          label: value.label,
-          type: value.type,
-          value: "",
-        });
+    // Variable that will hold the final value after the cast
+    let finalValue = null;
+    // If can be edited we need to get the value from the model and convert it
+    if (value.canEdit) {
+      // Switch the type of the value
+      switch (value.type) {
+        case "date":
+          // Format to yyyy-mm-dd
+          finalValue = formatDate(props.modelValue[value.key]);
+          break;
+        case "timestamp":
+          finalValue = formatTimestamp(props.modelValue[value.key]);
+          break;
+        default:
+          // Cast to string
+          finalValue = makeString(props.modelValue[value.key]);
+          break;
       }
-    } else {
-      // Edit mode
-      if (value.canEdit) {
-        // Variable that will hold the final value after the cast
-        let finalValue = null;
-        // Switch the type of the value
-        switch (value.type) {
-          case "date":
-            // Format to yyyy-mm-dd
-            finalValue = formatDate(props.modelValue[value.key]);
-            break;
-          case "timestamp":
-            finalValue = formatTimestamp(props.modelValue[value.key]);
-            break;
-          default:
-            // Cast to string
-            finalValue = makeString(props.modelValue[value.key]);
-            break;
-        }
-        // Push the field formate with the type and the right values for the field
-        avaliableFields.push({
-          key: value.key,
-          label: value.label,
-          type: value.type,
-          value: finalValue,
-        });
-      }
+      // Push the field formate with the type and the right values for the field
+      avaliableFields.push({
+        key: value.key,
+        label: value.label,
+        type: value.type,
+        value: finalValue,
+      });
     }
   }
 };
