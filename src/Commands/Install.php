@@ -44,15 +44,6 @@ class Install extends Command
             '--force'    => true,
         ]);
 
-        // Copy the need file to make the laravel sanctum work
-        Artisan::call('vendor:publish', [
-            '--provider' => 'PragmaRX\Google2FALaravel\ServiceProvider',
-            '--force'    => true,
-        ]);
-
-        // Migrate
-        Artisan::call('migrate');
-
         $this->newLine();
         $this->info('The command was successful!');
     }
