@@ -35,27 +35,29 @@ class BuilderHelper
             $classMethod = 'hasRole';
         }
 
-        // Check if the user has the permission
+        // Start the permission check default as false
+        $autorized = false;
+        // Try to get the user permission if the model don't have the permission then we need to check
         try {
             $autorized = $user->$classMethod($request->permission['key'][$checkType]);
         } catch (\Throwable $th) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have the permission to '.$checkType.' this item',
+                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
             ]);
         }
 
         // Check if the user has the permission
         if (!$autorized) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have the permission to '.$checkType.' this item',
+                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
             ]);
         }
-
+        // If is authorized return true
         return $autorized;
     }
 
     /**
-     * Genercit assing and validation the data inforamtion.
+     * Generict assing and validation the data information.
      *
      * @param mixed $type
      * @param mixed $model
