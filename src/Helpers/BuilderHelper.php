@@ -40,14 +40,14 @@ class BuilderHelper
             $autorized = $user->$classMethod($request->permission['key'][$checkType]);
         } catch (\Throwable $th) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
+                'permission' => 'You don\'t have the permission to '.$checkType.' this item',
             ]);
         }
 
         // Check if the user has the permission
         if (!$autorized) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
+                'permission' => 'You don\'t have the permission to '.$checkType.' this item',
             ]);
         }
 
