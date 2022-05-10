@@ -1,27 +1,23 @@
 <template>
     <div v-for="(item, index) in avaliableFields" :key="index">
         <div v-if="item.type == 'text'">
-            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" />
-        </div>
-        <div v-else-if="item.type == 'password'">
-            <input-password v-model="avaliableFields[index].value" :label="item.label" />
+            <InputField type="text" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'email'">
-            <input-field type="email" v-model="avaliableFields[index].value" :label="item.label" />
+            <InputField type="email" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'date'">
-            <input-field type="date" v-model="avaliableFields[index].value" :label="item.label" />
+            <InputField type="date" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'timestamp'">
-            <input-field type="datetime-local" v-model="avaliableFields[index].value" :label="item.label" />
+            <InputField type="datetime-local" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
     </div>
 </template>
 <script setup >
 // Import vue watch
 import { watch } from "vue";
-// Import the javascrpt functions for formatting the data
-import { formatDate, formatTimestamp, makeString } from "./formHelper.js";
+
 // Import the from components
 import {
     InputField,
@@ -29,6 +25,7 @@ import {
     Submit,
     LinkButton,
 } from "@mariojgt/masterui/packages/index";
+
 const props = defineProps({
     columns: {
         type: Array,
@@ -43,14 +40,13 @@ const props = defineProps({
         default: "false",
     },
 });
+
 let avaliableFields = $ref([]);
+
 // This fuction will loop the columns and create the fields
 const createFields = () => {
-    // Empty any fields
     avaliableFields = [];
-    // Loop the table columns
     for (const [key, value] of Object.entries(props.columns)) {
-        // Check if the form is in edit mode or create mode
         if (props.editMode == "false") {
             if (value.canCreate) {
                 // Create mode
@@ -66,21 +62,33 @@ const createFields = () => {
             if (value.canEdit) {
                 // Variable that will hold the final value after the cast
                 let finalValue = null;
-                // Switch the type of the value
+
                 switch (value.type) {
                     case "date":
+                        // Cast the value to date
+                        const tempDate = props.modelValue[value.key].split("/");
+                        finalValue = new Date(
+                            tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
+                        );
                         // Format to yyyy-mm-dd
-                        finalValue = formatDate(props.modelValue[value.key]);
+                        finalValue = finalValue.toISOString().split("T")[0];
                         break;
                     case "timestamp":
-                        finalValue = formatTimestamp(props.modelValue[value.key]);
+                        // Cast to a temp date
+                        const tempTime = props.modelValue[value.key].split("/");
+                        // Cast to datetime-local
+                        finalValue = new Date(
+                            tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
+                        )
+                            .toISOString()
+                            .substr(0, 16);
                         break;
                     default:
                         // Cast to string
-                        finalValue = makeString(props.modelValue[value.key]);
+                        finalValue = props.modelValue[value.key];
                         break;
                 }
-                // Push the field formate with the type and the right values for the field
+
                 avaliableFields.push({
                     key: value.key,
                     label: value.label,
@@ -91,11 +99,15 @@ const createFields = () => {
         }
     }
 };
+
 // Call the fuction to build the fields
 createFields();
+
 const emit = defineEmits(["onFormUpdate"]);
+
 // Debounce
 let debounce = $ref(null);
+
 // Watch any change in the avaliable fields
 watch(
     () => avaliableFields,
@@ -110,3 +122,5 @@ watch(
     { deep: true }
 );
 </script>
+
+
