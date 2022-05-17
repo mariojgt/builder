@@ -32,6 +32,9 @@
                     <h2 class="card-title">The create method has been disable</h2>
                     <p>Try to contact the administrator </p>
                 </div>
+                <div class="modal-action">
+                    <label for="my-modal-5" class="btn btn-error">Close</label>
+                </div>
             </div>
         </div>
     </div>
