@@ -32,9 +32,6 @@
                     <h2 class="card-title">The create method has been disable</h2>
                     <p>Try to contact the administrator </p>
                 </div>
-                <div class="modal-action">
-                    <label for="my-modal-5" class="btn btn-error">Close</label>
-                </div>
             </div>
         </div>
     </div>
@@ -93,13 +90,13 @@ const createNew = async () => {
         })
         .then(function (response) {
             message.success(response.data.message);
+            emit("onCreate");
         })
         .catch(function (error) {
             for (const [key, value] of Object.entries(error.response.data.errors)) {
                 message.error(value[0]);
             }
         });
-    emit("onCreate");
 };
 </script>
 

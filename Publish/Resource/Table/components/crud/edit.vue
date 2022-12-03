@@ -103,13 +103,13 @@ const editData = async () => {
         })
         .then(function (response) {
             message.success(response.data.message);
+            emit("onEdit");
         })
         .catch(function (error) {
             for (const [key, value] of Object.entries(error.response.data.errors)) {
                 message.error(value[0]);
             }
         });
-    emit("onEdit");
 };
 </script>
 
