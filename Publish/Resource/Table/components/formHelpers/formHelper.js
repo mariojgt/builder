@@ -36,5 +36,9 @@ export const formatTimestamp = (dateToFormat) => {
  */
 export const makeString = (data) => {
     // Return the data as a string
-    return data.toString();
+    if (data) {
+        return data.toString();
+    } else {
+        return "";
+    }
 }

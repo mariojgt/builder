@@ -82,6 +82,14 @@ class BuilderHelper
                 $model->$key = $value;
                 break;
             case 'slug':
+                // Make sure the slug is unique else trow an error validation message
+                if ($column['unique']) {
+                    $modelCheck = $model::class;
+                    $modelCheck = $modelCheck::where($key, Str::slug($value))->first();
+                    if ($modelCheck) {
+                        throw ValidationException::withMessages([$column['key'] => 'The slug must be unique.']);
+                    }
+                }
                 $model->$key = Str::slug($value);
                 break;
             case 'email':
