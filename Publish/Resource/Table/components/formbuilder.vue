@@ -1,23 +1,30 @@
 <template>
     <div v-for="(item, index) in avaliableFields" :key="index">
         <div v-if="item.type == 'text'">
-            <InputField type="text" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" @keyup="textFieldKeyup($event.target.value, item.type, item.key )" />
+        </div>
+        <div v-else-if="item.type == 'password'">
+            <input-password v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'email'">
-            <InputField type="email" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field type="email" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'date'">
-            <InputField type="date" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field type="date" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'timestamp'">
-            <InputField type="datetime-local" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field type="datetime-local" v-model="avaliableFields[index].value" :label="item.label" />
+        </div>
+        <div v-else-if="item.type == 'slug'">
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
     </div>
 </template>
 <script setup >
 // Import vue watch
 import { watch } from "vue";
-
+// Import the javascrpt functions for formatting the data
+import { formatDate, formatTimestamp, makeString } from "./formHelper.js";
 // Import the from components
 import {
     InputField,
@@ -40,13 +47,14 @@ const props = defineProps({
         default: "false",
     },
 });
-
 let avaliableFields = $ref([]);
-
 // This fuction will loop the columns and create the fields
 const createFields = () => {
+    // Empty any fields
     avaliableFields = [];
+    // Loop the table columns
     for (const [key, value] of Object.entries(props.columns)) {
+        // Check if the form is in edit mode or create mode
         if (props.editMode == "false") {
             if (value.canCreate) {
                 // Create mode
@@ -54,6 +62,7 @@ const createFields = () => {
                     key: value.key,
                     label: value.label,
                     type: value.type,
+                    nullable: value?.nullable,
                     value: "",
                 });
             }
@@ -62,52 +71,37 @@ const createFields = () => {
             if (value.canEdit) {
                 // Variable that will hold the final value after the cast
                 let finalValue = null;
-
+                // Switch the type of the value
                 switch (value.type) {
                     case "date":
-                        // Cast the value to date
-                        const tempDate = props.modelValue[value.key].split("/");
-                        finalValue = new Date(
-                            tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
-                        );
                         // Format to yyyy-mm-dd
-                        finalValue = finalValue.toISOString().split("T")[0];
+                        finalValue = formatDate(props.modelValue[value.key]);
                         break;
                     case "timestamp":
-                        // Cast to a temp date
-                        const tempTime = props.modelValue[value.key].split("/");
-                        // Cast to datetime-local
-                        finalValue = new Date(
-                            tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
-                        )
-                            .toISOString()
-                            .substr(0, 16);
+                        finalValue = formatTimestamp(props.modelValue[value.key]);
                         break;
                     default:
                         // Cast to string
-                        finalValue = props.modelValue[value.key];
+                        finalValue = makeString(props.modelValue[value.key]);
                         break;
                 }
-
+                // Push the field formate with the type and the right values for the field
                 avaliableFields.push({
                     key: value.key,
                     label: value.label,
                     type: value.type,
+                    nullable: value?.nullable,
                     value: finalValue,
                 });
             }
         }
     }
 };
-
 // Call the fuction to build the fields
 createFields();
-
 const emit = defineEmits(["onFormUpdate"]);
-
 // Debounce
 let debounce = $ref(null);
-
 // Watch any change in the avaliable fields
 watch(
     () => avaliableFields,
@@ -116,11 +110,30 @@ watch(
         clearTimeout(debounce);
         // Update and log the counts after 500 miliseconds
         debounce = setTimeout(function () {
+            console.log(avaliableFields);
             emit("onFormUpdate", avaliableFields);
         }, 500);
     },
     { deep: true }
 );
+
+
+// We goin to use this to setup field like the slug field
+const textFieldKeyup = async (value, type, fieldName) => {
+    if (fieldName == 'name') {
+        // Find the slug field array index based in the key
+        const slugFieldIndex = avaliableFields.findIndex((item) => item.key == 'slug');
+        // Update the value of the slug field
+        if (avaliableFields[slugFieldIndex]) {
+            // Set the value of the slug field and slugify it
+            avaliableFields[slugFieldIndex].value = value
+                .toLowerCase()
+                .trim()
+                .replace(/[^\w\s-]/g, '')
+                .replace(/[\s_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+        }
+    }
+    console.log(value, type);
+};
 </script>
-
-

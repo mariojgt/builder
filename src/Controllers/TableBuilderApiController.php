@@ -2,9 +2,10 @@
 
 namespace Mariojgt\Builder\Controllers;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 use Mariojgt\Builder\Helpers\BuilderHelper;
+use Illuminate\Validation\ValidationException;
 
 /**
  * This controller will handle the crud for the table builder, note that this is a generic controller that will be use to create the forms more info check the documentation.
@@ -81,17 +82,7 @@ class TableBuilderApiController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate(
-            [
-                'model'        => 'required',
-                'data'         => 'required',
-                'data.*.value' => 'required',
-            ],
-            [
-                'data'                  => 'Field are required',
-                'data.*.value.required' => 'The value is required',
-            ]
-        );
+        $this->dynamicFieldValidation($request);
 
         // First check if the user has the permission to access
         $builderHelper = new BuilderHelper();
@@ -136,18 +127,7 @@ class TableBuilderApiController extends Controller
      */
     public function update(Request $request)
     {
-        $request->validate(
-            [
-                'model'        => 'required',
-                'id'           => 'required',
-                'data'         => 'required',
-                'data.*.value' => 'required',
-            ],
-            [
-                'data'                  => 'Field are required',
-                'data.*.value.required' => 'The value is required',
-            ]
-        );
+        $this->dynamicFieldValidation($request);
 
         // First check if the user has the permission to access
         $builderHelper = new BuilderHelper();
@@ -225,5 +205,33 @@ class TableBuilderApiController extends Controller
             'success' => true,
             'message' => 'Item deleted successfully',
         ]);
+    }
+
+    private function dynamicFieldValidation(Request $request)
+    {
+
+        $request->validate(
+            [
+                'model'        => 'required',
+                'data'         => 'required',
+            ],
+            [
+                'data'                  => 'Field are required',
+            ]
+        );
+
+        // Loop induvidualy the fields and validate them
+        $errorMessages = [];
+        foreach ($request->data as $key => $value) {
+            if (empty($value['nullable'])) {
+                if (empty($value['value'])) {
+                    $errorMessages[] = 'The ' . $value['label'] . ' is required';
+                }
+            }
+        }
+
+        if (count($errorMessages) > 0) {
+            throw ValidationException::withMessages($errorMessages);
+        }
     }
 }

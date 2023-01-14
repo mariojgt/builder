@@ -3,6 +3,7 @@
 namespace Mariojgt\Builder\Helpers;
 
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -79,6 +80,9 @@ class BuilderHelper
         switch ($type) {
             case 'text':
                 $model->$key = $value;
+                break;
+            case 'slug':
+                $model->$key = Str::slug($value);
                 break;
             case 'email':
                 // Make sure the email is valid else trow an error validation message
