@@ -109,6 +109,23 @@ class BuilderHelper
                 // Cast the value to date
                 $model->$key = Carbon::parse($value);
                 break;
+            case 'number':
+                // Check if the value is numeric
+                if (!is_numeric($value)) {
+                    throw ValidationException::withMessages([$column['key'] => 'Must be a valid number.']);
+                }
+                // Cast the value to number
+                $model->$key = (int) $value;
+                break;
+            case 'model_search':
+                // Check if is a single relation else is a pivot table
+                $valueData = collect($value)->pluck('id');
+                if ($column['singleSearch']) {
+                    $model->$key = $valueData->first();
+                } else {
+                    $model->$key = json_encode($valueData);
+                }
+                break;
             default:
                 break;
         }
@@ -130,18 +147,42 @@ class BuilderHelper
             // Loop the columns
             foreach ($rawColumns as $key => $column) {
                 // Check if the column is media
-                if (!empty($column['type']) && $column['type'] == 'media') {
-                    $field = $column['key'];
-                    // Check if the media is not empty
-                    if ($item->media->isNotEmpty()) {
-                        $mediaData = [];
-                        foreach ($item->media as $mediaKey => $mediaItem) {
-                            $mediaData[] = new MediaResource($mediaItem->media);
-                        }
-                        $item->$field = collect($mediaData);
-                    } else {
-                        // Set the image
-                        $item->$field = null;
+                if (!empty($column['type'])) {
+                    switch ($column['type']) {
+                        case 'media':
+                            $field = $column['key'];
+                            // Check if the media is not empty
+                            if ($item->media->isNotEmpty()) {
+                                $mediaData = [];
+                                foreach ($item->media as $mediaKey => $mediaItem) {
+                                    $mediaData[] = new MediaResource($mediaItem->media);
+                                }
+                                $item->$field = collect($mediaData);
+                            } else {
+                                // Set the image
+                                $item->$field = null;
+                            }
+                            break;
+                        case 'model_search':
+                            $field         = $column['key'];
+                            $modelRelation = decrypt($column['model']);
+                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key');
+
+                            if ($column['singleSearch']) {
+                                $modelData    = $modelRelation::where('id', $item->$field)
+                                    ->select($columnFilters->toArray())
+                                    ->first();
+                                $item->$field = $modelData;
+                            } else {
+                                $modelData    = $modelRelation::whereIn('id', json_decode($item->$field))
+                                    ->select($columnFilters->toArray())
+                                    ->get();
+                                $item->$field = $modelData;
+                            }
+                            break;
+                        default:
+                            # code...
+                            break;
                     }
                 }
             }

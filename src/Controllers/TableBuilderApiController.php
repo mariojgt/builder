@@ -40,7 +40,7 @@ class TableBuilderApiController extends Controller
 
         // Get the columns
         $rawColumns = collect($request->columns);
-        $columns = $rawColumns->pluck('key');
+        $columns = $rawColumns->where('type', '!=', 'media')->pluck('key');
 
         // Check if the search is not empty
         if ($request->has('search')) {

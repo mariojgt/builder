@@ -1,7 +1,8 @@
 <template>
     <div v-for="(item, index) in avaliableFields" :key="index">
         <div v-if="item.type == 'text'">
-            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" @keyup="textFieldKeyup($event.target.value, item.type, item.key )" />
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
         </div>
         <div v-else-if="item.type == 'password'">
             <input-password v-model="avaliableFields[index].value" :label="item.label" />
@@ -18,8 +19,18 @@
         <div v-else-if="item.type == 'slug'">
             <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
-        <div v-else-if="item.type == 'media'" >
-            <Image label="image" placeholder="search" v-model="avaliableFields[index].value" :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
+        <div v-else-if="item.type == 'media'">
+            <Image label="image" placeholder="search" v-model="avaliableFields[index].value"
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
+        </div>
+        <div v-else-if="item.type == 'number'">
+            <input-field type="number" v-model="avaliableFields[index].value" :label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
+        </div>
+        <div v-else-if="item.type == 'model_search'">
+            <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
+                :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
         </div>
     </div>
 </template>
@@ -33,7 +44,7 @@ import {
     InputField,
     InputPassword,
     Submit,
-    LinkButton,
+    TextMultipleSelector,
     Image
 } from "@mariojgt/masterui/packages/index";
 
@@ -69,6 +80,9 @@ const createFields = () => {
                     nullable: value?.nullable,
                     unique: value?.unique,
                     endpoint: value?.endpoint,
+                    columns: value?.columns,
+                    model: value?.model,
+                    singleSearch: value?.singleSearch,
                     value: "",
                 });
             }
@@ -89,6 +103,9 @@ const createFields = () => {
                     case "media":
                         finalValue = props.modelValue[value.key];
                         break;
+                    case "model_search":
+                        finalValue = props.modelValue[value.key];
+                        break;
                     default:
                         // Cast to string
                         finalValue = makeString(props.modelValue[value.key]);
@@ -102,7 +119,10 @@ const createFields = () => {
                     nullable: value?.nullable,
                     unique: value?.unique,
                     value: finalValue,
-                    endpoint: value?.endpoint
+                    endpoint: value?.endpoint,
+                    columns: value?.columns,
+                    model: value?.model,
+                    singleSearch: value?.singleSearch,
                 });
             }
         }
