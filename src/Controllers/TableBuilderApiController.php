@@ -3,7 +3,9 @@
 namespace Mariojgt\Builder\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Mariojgt\Magnifier\Models\Media;
 use Mariojgt\Builder\Helpers\BuilderHelper;
 use Illuminate\Validation\ValidationException;
 
@@ -82,6 +84,8 @@ class TableBuilderApiController extends Controller
      */
     public function store(Request $request)
     {
+        DB::beginTransaction();
+
         $this->dynamicFieldValidation($request);
 
         // First check if the user has the permission to access
@@ -98,19 +102,33 @@ class TableBuilderApiController extends Controller
         $model = new $model();
 
         // Get the columns
-        $rawColumns = collect($request->data);
-
+        $rawColumns     = collect($request->data);
+        $mediaRelations = [];
         // Create the model
         $model = new $model();
 
         // Loop the columns and set the value and validate acording to the type
         foreach ($rawColumns as $key => $column) {
-            $model = $builderHelper->generictValidation($model, $column);
+            if ($column['type'] == 'media') {
+                $mediaRelations[] = $column;
+            } else {
+                $model = $builderHelper->generictValidation($model, $column);
+            }
         }
 
         // Save the model
         $model->save();
 
+        // Link the media using a polymorphic relation
+        foreach ($mediaRelations as $key => $mediaRelation) {
+            foreach ($mediaRelation['value'] as $key => $item) {
+                // Create the polymorphic relation with the media
+                $model->media()->create([
+                    'media_id' => $item['id'],
+                ]);
+            }
+        }
+        DB::commit();
         // Return the response
         return response()->json([
             'success' => true,
