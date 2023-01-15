@@ -40,7 +40,9 @@ class TableBuilderApiController extends Controller
 
         // Get the columns
         $rawColumns = collect($request->columns);
-        $columns = $rawColumns->where('type', '!=', 'media')->pluck('key');
+        $columns = $rawColumns->where('type', '!=', 'media')
+            ->where('type', '!=', 'pivot_model')
+            ->pluck('key');
 
         // Check if the search is not empty
         if ($request->has('search')) {
@@ -122,6 +124,7 @@ class TableBuilderApiController extends Controller
         // Get the columns
         $rawColumns     = collect($request->data);
         $mediaRelations = [];
+        $pivotRelations = [];
         // Create the model
         $model = new $model();
 
@@ -129,6 +132,8 @@ class TableBuilderApiController extends Controller
         foreach ($rawColumns as $key => $column) {
             if ($column['type'] == 'media') {
                 $mediaRelations[] = $column;
+            } elseif ($column['type'] == 'pivot_model') {
+                $pivotRelations[] = $column;
             } else {
                 $model = $builderHelper->generictValidation($model, $column);
             }
@@ -146,6 +151,19 @@ class TableBuilderApiController extends Controller
                 ]);
             }
         }
+
+        if (count($pivotRelations) > 0) {
+            // Link the pivot model
+            foreach ($pivotRelations as $key => $dynamicRelation) {
+                // Detach all the relations
+                $model->{$dynamicRelation['relation']}()->detach();
+                $idsSync = collect($dynamicRelation['value'])->pluck('id');
+                if ($idsSync->count() > 0) {
+                    $model->{$dynamicRelation['relation']}()->attach($idsSync);
+                }
+            }
+        }
+
         DB::commit();
         // Return the response
         return response()->json([
@@ -182,13 +200,16 @@ class TableBuilderApiController extends Controller
         $model = $model->find($request->id);
 
         // Get the columns
-        $rawColumns = collect($request->data);
+        $rawColumns     = collect($request->data);
         $mediaRelations = [];
+        $pivotRelations = [];
 
         // Loop the columns and set the value and validate acording to the type
         foreach ($rawColumns as $key => $column) {
             if ($column['type'] == 'media') {
                 $mediaRelations[] = $column;
+            } elseif ($column['type'] == 'pivot_model') {
+                $pivotRelations[] = $column;
             } else {
                 $model = $builderHelper->generictValidation($model, $column);
             }
@@ -208,6 +229,18 @@ class TableBuilderApiController extends Controller
                     $model->media()->create([
                         'media_id' => $item['id'],
                     ]);
+                }
+            }
+        }
+
+        if (count($pivotRelations) > 0) {
+            // Link the pivot model
+            foreach ($pivotRelations as $key => $dynamicRelation) {
+                // Detach all the relations
+                $model->{$dynamicRelation['relation']}()->detach();
+                $idsSync = collect($dynamicRelation['value'])->pluck('id');
+                if ($idsSync->count() > 0) {
+                    $model->{$dynamicRelation['relation']}()->attach($idsSync);
                 }
             }
         }

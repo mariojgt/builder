@@ -32,6 +32,11 @@
                 :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
                 :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
         </div>
+        <div v-else-if="item.type == 'pivot_model'">
+            <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
+                :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
+        </div>
     </div>
 </template>
 <script setup >
@@ -83,6 +88,7 @@ const createFields = () => {
                     columns: value?.columns,
                     model: value?.model,
                     singleSearch: value?.singleSearch,
+                    relation: value?.relation,
                     value: "",
                 });
             }
@@ -123,6 +129,7 @@ const createFields = () => {
                     columns: value?.columns,
                     model: value?.model,
                     singleSearch: value?.singleSearch,
+                    relation: value?.relation,
                 });
             }
         }

@@ -180,6 +180,11 @@ class BuilderHelper
                                 $item->$field = $modelData;
                             }
                             break;
+                        case 'pivot_model':
+                            $field         = $column['key'];
+                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key');
+                            $item->$field  = $item->{$column['relation']}()->select($columnFilters->toArray())->get();
+                            break;
                         default:
                             # code...
                             break;
