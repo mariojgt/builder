@@ -1,7 +1,7 @@
 <template>
     <div v-for="(item, index) in avaliableFields" :key="index">
         <div v-if="item.type == 'text'">
-            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" @keyup="textFieldKeyup($event.target.value, item.type, item.key )" />
         </div>
         <div v-else-if="item.type == 'password'">
             <input-password v-model="avaliableFields[index].value" :label="item.label" />
@@ -14,6 +14,12 @@
         </div>
         <div v-else-if="item.type == 'timestamp'">
             <input-field type="datetime-local" v-model="avaliableFields[index].value" :label="item.label" />
+        </div>
+        <div v-else-if="item.type == 'slug'">
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" />
+        </div>
+        <div v-else-if="item.type == 'media'" >
+            <Image label="image" placeholder="search" v-model="avaliableFields[index].value" :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
         </div>
     </div>
 </template>
@@ -28,7 +34,9 @@ import {
     InputPassword,
     Submit,
     LinkButton,
+    Image
 } from "@mariojgt/masterui/packages/index";
+
 const props = defineProps({
     columns: {
         type: Array,
@@ -58,6 +66,9 @@ const createFields = () => {
                     key: value.key,
                     label: value.label,
                     type: value.type,
+                    nullable: value?.nullable,
+                    unique: value?.unique,
+                    endpoint: value?.endpoint,
                     value: "",
                 });
             }
@@ -85,7 +96,10 @@ const createFields = () => {
                     key: value.key,
                     label: value.label,
                     type: value.type,
+                    nullable: value?.nullable,
+                    unique: value?.unique,
                     value: finalValue,
+                    endpoint: value?.endpoint
                 });
             }
         }
@@ -104,9 +118,30 @@ watch(
         clearTimeout(debounce);
         // Update and log the counts after 500 miliseconds
         debounce = setTimeout(function () {
+            console.log(avaliableFields);
             emit("onFormUpdate", avaliableFields);
         }, 500);
     },
     { deep: true }
 );
+
+
+// We goin to use this to setup field like the slug field
+const textFieldKeyup = async (value, type, fieldName) => {
+    if (fieldName == 'name') {
+        // Find the slug field array index based in the key
+        const slugFieldIndex = avaliableFields.findIndex((item) => item.key == 'slug');
+        // Update the value of the slug field
+        if (avaliableFields[slugFieldIndex]) {
+            // Set the value of the slug field and slugify it
+            avaliableFields[slugFieldIndex].value = value
+                .toLowerCase()
+                .trim()
+                .replace(/[^\w\s-]/g, '')
+                .replace(/[\s_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+        }
+    }
+    console.log(value, type);
+};
 </script>
