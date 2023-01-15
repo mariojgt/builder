@@ -42,7 +42,7 @@
                         </thead>
                         <tbody>
                             <tr v-for="(tableItem, tableKey) in tableData" :key="tableItem">
-                                <table-display-data :tableData="tableItem" />
+                                <table-display-data :tableData="tableItem" :columns="columns" />
                                 <th>
                                     <div class="
                       preview

@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Mariojgt\Magnifier\Resources\MediaResource;
 
 /**
  * This class will handle the autenticator 2fa authentication.
@@ -85,7 +86,11 @@ class BuilderHelper
                 // Make sure the slug is unique else trow an error validation message
                 if ($column['unique']) {
                     $modelCheck = $model::class;
-                    $modelCheck = $modelCheck::where($key, Str::slug($value))->first();
+                    if ($model->id) {
+                        $modelCheck = $modelCheck::where($key, Str::slug($value))->where('id', '!=', $model->id)->first();
+                    } else {
+                        $modelCheck = $modelCheck::where($key, Str::slug($value))->first();
+                    }
                     if ($modelCheck) {
                         throw ValidationException::withMessages([$column['key'] => 'The slug must be unique.']);
                     }
@@ -105,10 +110,42 @@ class BuilderHelper
                 $model->$key = Carbon::parse($value);
                 break;
             default:
-                $model->$key = $value;
                 break;
         }
 
         return $model;
+    }
+
+    /**
+     * Replace the column value.
+     *
+     * @param $modelPaginated // The model paginated
+     * @param $rawColumns     // The raw columns
+     *
+     * @return [Collection]
+     */
+    public function columnReplacements($modelPaginated, $rawColumns)
+    {
+        return $modelPaginated->map(function ($item) use ($rawColumns) {
+            // Loop the columns
+            foreach ($rawColumns as $key => $column) {
+                // Check if the column is media
+                if (!empty($column['type']) && $column['type'] == 'media') {
+                    $field = $column['key'];
+                    // Check if the media is not empty
+                    if ($item->media->isNotEmpty()) {
+                        $mediaData = [];
+                        foreach ($item->media as $mediaKey => $mediaItem) {
+                            $mediaData[] = new MediaResource($mediaItem->media);
+                        }
+                        $item->$field = collect($mediaData);
+                    } else {
+                        // Set the image
+                        $item->$field = null;
+                    }
+                }
+            }
+            return $item;
+        });
     }
 }

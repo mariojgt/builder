@@ -86,6 +86,9 @@ const createFields = () => {
                     case "timestamp":
                         finalValue = formatTimestamp(props.modelValue[value.key]);
                         break;
+                    case "media":
+                        finalValue = props.modelValue[value.key];
+                        break;
                     default:
                         // Cast to string
                         finalValue = makeString(props.modelValue[value.key]);

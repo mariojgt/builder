@@ -5,7 +5,6 @@ namespace Mariojgt\Builder\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
-use Mariojgt\Magnifier\Models\Media;
 use Mariojgt\Builder\Helpers\BuilderHelper;
 use Illuminate\Validation\ValidationException;
 
@@ -54,11 +53,12 @@ class TableBuilderApiController extends Controller
             });
             // Get the columns that are searchable
             $columnSearch = $sortableColumns->pluck('key');
+
             // Get the search value
             $model = $model->where(function ($query) use ($request, $columnSearch) {
                 // Search using concatination
                 foreach ($columnSearch as $column) {
-                    $query->orWhere($column, 'like', '%'.$request->search.'%');
+                    $query->orWhere($column, 'like', '%' . $request->search . '%');
                 }
             });
         }
@@ -70,9 +70,27 @@ class TableBuilderApiController extends Controller
         }
 
         // Get the data based on the columns if is date we need to format it
-        $data = $model->select($columns->toArray())->paginate($request->perPage ?? 10);
+        $modelPaginated = $model->select($columns->toArray())->paginate($request->perPage ?? 10);
 
-        return $data;
+        // Collumns replacement (usefull for media and other things)
+        $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
+
+        // Return the data using the pagination format
+        return [
+            'data'           => $data,
+            'current_page'   => $modelPaginated->currentPage(),
+            'first_page_url' => $modelPaginated->url(1),
+            'from'           => $modelPaginated->firstItem(),
+            'last_page'      => $modelPaginated->lastPage(),
+            'last_page_url'  => $modelPaginated->url($modelPaginated->lastPage()),
+            'links'          => $modelPaginated->links(),
+            'next_page_url'  => $modelPaginated->nextPageUrl(),
+            'path'           => $modelPaginated->path(),
+            'per_page'       => $modelPaginated->perPage(),
+            'prev_page_url'  => $modelPaginated->previousPageUrl(),
+            'to'             => $modelPaginated->lastItem(),
+            'total'          => $modelPaginated->total(),
+        ];
     }
 
     /**
@@ -145,6 +163,7 @@ class TableBuilderApiController extends Controller
      */
     public function update(Request $request)
     {
+        DB::beginTransaction();
         $this->dynamicFieldValidation($request);
 
         // First check if the user has the permission to access
@@ -164,15 +183,36 @@ class TableBuilderApiController extends Controller
 
         // Get the columns
         $rawColumns = collect($request->data);
+        $mediaRelations = [];
 
         // Loop the columns and set the value and validate acording to the type
         foreach ($rawColumns as $key => $column) {
-            $model = $builderHelper->generictValidation($model, $column);
+            if ($column['type'] == 'media') {
+                $mediaRelations[] = $column;
+            } else {
+                $model = $builderHelper->generictValidation($model, $column);
+            }
         }
 
         // Save the model
         $model->save();
 
+        // Handle the media polymorphic relation
+        if ($mediaRelations) {
+            // Delete the media relations
+            $model->media()->delete();
+            // Link the media using a polymorphic relation
+            foreach ($mediaRelations as $key => $mediaRelation) {
+                foreach ($mediaRelation['value'] as $key => $item) {
+                    // Create the polymorphic relation with the media
+                    $model->media()->create([
+                        'media_id' => $item['id'],
+                    ]);
+                }
+            }
+        }
+
+        DB::commit();
         // Return the response
         return response()->json([
             'success' => true,
@@ -191,7 +231,7 @@ class TableBuilderApiController extends Controller
             'model' => 'required',
             'id'    => 'required',
         ]);
-
+        DB::beginTransaction();
         // First check if the user has the permission to access
         $builderHelper = new BuilderHelper();
         // Check if the permission can be checked
@@ -218,6 +258,7 @@ class TableBuilderApiController extends Controller
         // Delete
         $modelItem->delete();
 
+        DB::commit();
         // Return the response
         return response()->json([
             'success' => true,
@@ -238,7 +279,7 @@ class TableBuilderApiController extends Controller
             ]
         );
 
-        // Loop induvidualy the fields and validate them
+        // Loop individually the fields and validate them
         $errorMessages = [];
         foreach ($request->data as $key => $value) {
             if (empty($value['nullable'])) {
