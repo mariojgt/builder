@@ -112,6 +112,9 @@ const createFields = () => {
                     case "model_search":
                         finalValue = props.modelValue[value.key];
                         break;
+                    case "pivot_model":
+                        finalValue = props.modelValue[value.key];
+                        break;
                     default:
                         // Cast to string
                         finalValue = makeString(props.modelValue[value.key]);

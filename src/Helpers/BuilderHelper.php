@@ -119,9 +119,14 @@ class BuilderHelper
                 break;
             case 'model_search':
                 // Check if is a single relation else is a pivot table
-                $valueData = collect($value)->pluck('id');
+                if ($value['id']) {
+                    $valueData = $value['id'];
+                } else {
+                    $valueData = collect($value)->pluck('id')->first();
+                }
+
                 if ($column['singleSearch']) {
-                    $model->$key = $valueData->first();
+                    $model->$key = $valueData;
                 } else {
                     $model->$key = json_encode($valueData);
                 }
@@ -167,7 +172,8 @@ class BuilderHelper
                             $field         = $column['key'];
                             $modelRelation = decrypt($column['model']);
                             $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key');
-
+                            $columnFilters->push(app($modelRelation)->getTable() . '.id');
+                            // Get the table name from the model
                             if ($column['singleSearch']) {
                                 $modelData    = $modelRelation::where('id', $item->$field)
                                     ->select($columnFilters->toArray())
@@ -182,8 +188,10 @@ class BuilderHelper
                             break;
                         case 'pivot_model':
                             $field         = $column['key'];
+                            $relation      = $item->{$column['relation']}();
                             $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key');
-                            $item->$field  = $item->{$column['relation']}()->select($columnFilters->toArray())->get();
+                            $columnFilters->push($relation->getQuery()->from . '.id');
+                            $item->$field  = $relation->select($columnFilters->toArray())->get();
                             break;
                         default:
                             # code...
