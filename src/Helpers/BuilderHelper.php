@@ -119,7 +119,7 @@ class BuilderHelper
                 break;
             case 'model_search':
                 // Check if is a single relation else is a pivot table
-                if ($value['id']) {
+                if (!empty($value['id'])) {
                     $valueData = $value['id'];
                 } else {
                     $valueData = collect($value)->pluck('id')->first();

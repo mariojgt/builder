@@ -13,7 +13,23 @@
         <!-- Build the form -->
         <div class="modal-box w-11/12 max-w-5xl" v-if="canCreate">
             <h3 class="font-bold text-lg">New</h3>
-            <form-builder :columns="props.columns" @onFormUpdate="onFormUpdate" />
+            <!-- Handle sections if avalible -->
+            <div class="w-full">
+                <div class="w-full rounded-2xl bg-white p-2">
+                    <Disclosure as="div" class="mt-2" v-slot="{ open }"
+                        v-for="(item, index) in filterSections.sectionsWithFields" :key="index">
+                        <DisclosureButton
+                            class="flex w-full justify-between rounded-lg bg-purple-100 px-4 py-2 text-left text-sm font-medium text-purple-900 hover:bg-purple-200 focus:outline-none focus-visible:ring focus-visible:ring-purple-500 focus-visible:ring-opacity-75">
+                            <span>{{ item.section }}</span>
+                        </DisclosureButton>
+                        <DisclosurePanel class="px-4 pt-4 pb-2 text-sm text-gray-500">
+                            <form-builder :columns="item.fields" @onFormUpdate="onFormUpdate" />
+                        </DisclosurePanel>
+                    </Disclosure>
+                </div>
+            </div>
+            <!-- Handle normal inputs -->
+            <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" />
             <div class="modal-action">
                 <label for="my-modal-5" class="btn btn-error">Close</label>
                 <label for="my-modal-5" class="btn btn-success" @click="createNew">Create</label>
@@ -37,6 +53,11 @@
     </div>
 </template>
 <script setup >
+import {
+    Disclosure,
+    DisclosureButton,
+    DisclosurePanel,
+} from '@headlessui/vue';
 // Import vue watch
 import { watch, computed } from "vue";
 // Import axios
@@ -72,11 +93,44 @@ const canCreate = computed(() => {
     return props.columns.filter(column => column.canCreate).length > 0;
 });
 
+// Create a computed property to filter the sections and the fields inside them
+const filterSections = computed(() => {
+    const collumnsWithSections = props.columns.filter(column => column.section);
+    const collumnsWithoutSections = props.columns.filter(column => !column.section);
+    // Now we need to get the sections and the fields inside them and return them as an object
+    const sections = collumnsWithSections.map(column => column.section);
+    const uniqueSections = [...new Set(sections)];
+    const sectionsWithFields = [];
+    uniqueSections.forEach(section => {
+        const fields = collumnsWithSections.filter(column => column.section == section);
+        sectionsWithFields.push({
+            section: section,
+            fields: fields
+        });
+    });
+    // Return the sections and the fields inside them
+    return {
+        sections: uniqueSections,
+        fields: collumnsWithoutSections,
+        sectionsWithFields: sectionsWithFields
+    };
+});
 
-let avaliableFields = $ref([]);
+// AvaliableFields is what we will send to the server but first we need to get the data from the form
+let avaliableFields = $ref(props.columns.filter(column => column.canCreate));
 // When the form is updated get the data and sync with the avaliable fields
 const onFormUpdate = async (formData) => {
-    avaliableFields = formData;
+    if (avaliableFields.length > 0) {
+        for (const [formDataIndex, formDataValue] of Object.entries(formData)) {
+            for (const [key, value] of Object.entries(avaliableFields)) {
+                if (formDataValue.key == value.key) {
+                    avaliableFields[key] = formDataValue;
+                }
+            }
+        }
+    } else {
+        avaliableFields = formData;
+    }
 };
 
 const emit = defineEmits(["onCreate"]);
@@ -85,7 +139,7 @@ const createNew = async () => {
     axios
         .post(props.endpoint, {
             model: props.model, // The model name encrypted
-            data: avaliableFields, // Item we want to delete
+            data: avaliableFields, // Item we want to create
             permission: props.permission, // Permission
         })
         .then(function (response) {

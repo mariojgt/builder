@@ -151,7 +151,6 @@ watch(
         clearTimeout(debounce);
         // Update and log the counts after 500 miliseconds
         debounce = setTimeout(function () {
-            console.log(avaliableFields);
             emit("onFormUpdate", avaliableFields);
         }, 500);
     },
@@ -175,6 +174,5 @@ const textFieldKeyup = async (value, type, fieldName) => {
                 .replace(/^-+|-+$/g, '');
         }
     }
-    console.log(value, type);
 };
 </script>
