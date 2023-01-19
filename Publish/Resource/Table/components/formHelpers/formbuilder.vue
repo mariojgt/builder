@@ -41,7 +41,7 @@
 </template>
 <script setup >
 // Import vue watch
-import { watch } from "vue";
+import { watch, onMounted } from "vue";
 // Import the javascrpt functions for formatting the data
 import { formatDate, formatTimestamp, makeString } from "./formHelper.js";
 // Import the from components
@@ -137,6 +137,9 @@ const createFields = () => {
             }
         }
     }
+    if (props.editMode == "true") {
+        emit("onFormUpdate", avaliableFields);
+    }
 };
 // Call the fuction to build the fields
 createFields();
@@ -156,7 +159,6 @@ watch(
     },
     { deep: true }
 );
-
 
 // We goin to use this to setup field like the slug field
 const textFieldKeyup = async (value, type, fieldName) => {

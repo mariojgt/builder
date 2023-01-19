@@ -5,7 +5,7 @@
         flex flex-col
         min-w-0
         break-words
-        bg-neutral-focus
+        bg-base-200
         w-full
         mb-6
         shadow-lg
@@ -14,7 +14,7 @@
             <div class="rounded-t mb-0 px-4 py-3 border-0">
                 <div class="flex flex-wrap items-center">
                     <div class="relative w-full px-4 max-w-full flex-grow flex-1">
-                        <h1 class="text-3xl font-bold">{{ props.tableTitle }}</h1>
+                        <h1 class="text-3xl font-bold text-base-content">{{ props.tableTitle }}</h1>
                     </div>
                     <div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
                         <slot name="new">

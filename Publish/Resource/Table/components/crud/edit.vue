@@ -18,12 +18,21 @@
 
             <!-- Handle sections if avalible -->
             <div class="w-full">
-                <div class="w-full rounded-2xl bg-white p-2">
+                <div class="w-full bg-base-300 p-2">
                     <Disclosure as="div" class="mt-2" v-slot="{ open }"
-                        v-for="(item, index) in filterSections.sectionsWithFields" :key="index">
-                        <DisclosureButton
-                            class="flex w-full justify-between rounded-lg bg-purple-100 px-4 py-2 text-left text-sm font-medium text-purple-900 hover:bg-purple-200 focus:outline-none focus-visible:ring focus-visible:ring-purple-500 focus-visible:ring-opacity-75">
+                        v-for="(item, index) in filterSections.sectionsWithFields" :key="index" :defaultOpen="true">
+                        <DisclosureButton class="btn btn-primary w-full">
                             <span>{{ item.section }}</span>
+                            <svg v-if="open" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                            </svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M19.5 5.25l-7.5 7.5-7.5-7.5m15 6l-7.5 7.5-7.5-7.5" />
+                            </svg>
                         </DisclosureButton>
                         <DisclosurePanel class="px-4 pt-4 pb-2 text-sm text-gray-500">
                             <form-builder :columns="item.fields" @onFormUpdate="onFormUpdate" :editMode="'true'"
@@ -33,8 +42,10 @@
                 </div>
             </div>
             <!-- Handle normal inputs -->
-            <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" :editMode="'true'"
-                :modelValue="props.modelValue" />
+            <div class="w-full bg-base-300 p-6" >
+                <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" :editMode="'true'"
+                    :modelValue="props.modelValue" />
+            </div>
 
             <div class="modal-action">
                 <label :for="'edit-data-' + props.id" class="btn btn-error">Close</label>
