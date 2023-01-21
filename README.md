@@ -3,7 +3,7 @@
 
 # Builder
 
-Laravel package to quick build generict crud operations.
+Introducing our Laravel package, the perfect solution for quickly building generic CRUD operations in your project. With just a few simple commands, you can easily generate boilerplate code for creating, reading, updating, and deleting data in your database. Our package is designed to be flexible and customizable, allowing you to easily make adjustments to fit your project's specific requirements. Say goodbye to tedious manual coding and save precious development time with our powerful and intuitive package.
 
 # Features
 
