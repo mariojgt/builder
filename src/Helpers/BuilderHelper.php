@@ -131,6 +131,9 @@ class BuilderHelper
                     $model->$key = json_encode($valueData);
                 }
                 break;
+            case 'icon':
+                $model->$key = $value;
+                break;
             default:
                 break;
         }

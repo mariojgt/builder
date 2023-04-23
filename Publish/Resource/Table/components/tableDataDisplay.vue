@@ -8,8 +8,17 @@
             </div>
         </div>
         <div v-else>
-            <div v-html="item.value" v-if="item.type != 'icon'" ></div>
-            <div v-html="item.value" class="bg-white flex justify-center p-10" v-else ></div>
+            <div v-html="item.value" v-if="item.type == 'icon'" class="bg-white flex justify-center p-10" ></div>
+            <div v-else-if="item.type === 'toogle'">
+                <div class="badge badge-success mt-3" v-if="item.value == 1" >Enable</div>
+                <div class="badge badge-error mt-3" v-else >Disable</div>
+            </div>
+            <div v-else-if="item.type === 'model_search'">
+                <div class="flex flex-col" >
+                    <div class="badge badge-primary mt-3" v-for="(item, index) in item.value" :key="index" >{{ index }} > {{ item }}</div>
+                </div>
+            </div>
+            <div v-html="item.value"  v-else ></div>
         </div>
     </th>
 </template>
