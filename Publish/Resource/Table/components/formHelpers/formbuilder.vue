@@ -30,18 +30,21 @@
         <div v-else-if="item.type == 'model_search'">
             <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
                 :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
-                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
         </div>
         <div v-else-if="item.type == 'pivot_model'">
             <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
                 :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
-                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
+        </div>
+        <div v-else-if="item.type == 'toogle'">
+            <toogle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
     </div>
 </template>
 <script setup >
 // Import vue watch
-import { watch, onMounted } from "vue";
+import { watch, computed } from "vue";
 // Import the javascrpt functions for formatting the data
 import { formatDate, formatTimestamp, makeString } from "./formHelper.js";
 // Import the from components
@@ -50,7 +53,8 @@ import {
     InputPassword,
     Submit,
     TextMultipleSelector,
-    Image
+    Image,
+    Toogle
 } from "@mariojgt/masterui/packages/index";
 
 const props = defineProps({
@@ -67,6 +71,7 @@ const props = defineProps({
         default: "false",
     },
 });
+
 let avaliableFields = $ref([]);
 // This fuction will loop the columns and create the fields
 const createFields = () => {
@@ -77,6 +82,10 @@ const createFields = () => {
         // Check if the form is in edit mode or create mode
         if (props.editMode == "false") {
             if (value.canCreate) {
+                let FieldValue = "";
+                if (value.type == "toogle") {
+                    FieldValue = false;
+                }
                 // Create mode
                 avaliableFields.push({
                     key: value.key,
@@ -85,11 +94,12 @@ const createFields = () => {
                     nullable: value?.nullable,
                     unique: value?.unique,
                     endpoint: value?.endpoint,
+                    displayKey: value?.displayKey,
                     columns: value?.columns,
                     model: value?.model,
                     singleSearch: value?.singleSearch,
                     relation: value?.relation,
-                    value: "",
+                    value: FieldValue,
                 });
             }
         } else {
@@ -126,6 +136,7 @@ const createFields = () => {
                     label: value.label,
                     type: value.type,
                     nullable: value?.nullable,
+                    displayKey: value?.displayKey,
                     unique: value?.unique,
                     value: finalValue,
                     endpoint: value?.endpoint,
@@ -162,7 +173,7 @@ watch(
 
 // We goin to use this to setup field like the slug field
 const textFieldKeyup = async (value, type, fieldName) => {
-    if (fieldName == 'name') {
+    if (fieldName == 'name' || fieldName == 'title') {
         // Find the slug field array index based in the key
         const slugFieldIndex = avaliableFields.findIndex((item) => item.key == 'slug');
         // Update the value of the slug field

@@ -37,7 +37,7 @@ const nextPage = async (pageLink) => {
 
 const props = defineProps({
     paginationInfo: {
-        type: Array,
+        type: Object,
         default: () => [],
     },
 });
