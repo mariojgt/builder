@@ -8,7 +8,8 @@
             </div>
         </div>
         <div v-else>
-            {{ item.value }}
+            <div v-html="item.value" v-if="item.type != 'icon'" ></div>
+            <div v-html="item.value" class="bg-white flex justify-center p-10" v-else ></div>
         </div>
     </th>
 </template>

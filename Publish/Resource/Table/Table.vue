@@ -32,7 +32,7 @@
             <div class="overflow-x-auto p-6">
                 <div class="overflow-x-auto">
                     <table class="table table-compact w-full">
-                        <thead>
+                        <thead >
                             <tr>
                                 <th v-for="(item, index) in columns" :key="index">
                                     {{ item.label }}

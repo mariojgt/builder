@@ -40,6 +40,11 @@
         <div v-else-if="item.type == 'toogle'">
             <toogle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
+        <div v-if="item.type == 'icon'">
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
+            <div class="bg-white flex justify-center p-10" v-html="avaliableFields[index].value"></div>
+        </div>
     </div>
 </template>
 <script setup >
