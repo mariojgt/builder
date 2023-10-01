@@ -87,7 +87,9 @@ class BuilderHelper
                 if ($column['unique']) {
                     $modelCheck = $model::class;
                     if ($model->id) {
-                        $modelCheck = $modelCheck::where($key, Str::slug($value))->where('id', '!=', $model->id)->first();
+                        $modelCheck = $modelCheck::where($key, Str::slug($value))
+                            ->where('id', '!=', $model->id)
+                            ->first();
                     } else {
                         $modelCheck = $modelCheck::where($key, Str::slug($value))->first();
                     }
@@ -132,6 +134,9 @@ class BuilderHelper
                 }
                 break;
             case 'icon':
+                $model->$key = $value;
+                break;
+            case 'select':
                 $model->$key = $value;
                 break;
             default:

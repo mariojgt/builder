@@ -45,6 +45,10 @@
                 @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
             <div class="bg-white flex justify-center p-10" v-html="avaliableFields[index].value"></div>
         </div>
+        <div v-if="item.type == 'select'">
+            <select-input type="text" v-model="avaliableFields[index].value" :label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" :options="item.select_options" />
+        </div>
     </div>
 </template>
 <script setup >
@@ -56,7 +60,7 @@ import { formatDate, formatTimestamp, makeString } from "./formHelper.js";
 import {
     InputField,
     InputPassword,
-    Submit,
+    SelectInput,
     TextMultipleSelector,
     Image,
     Toogle
@@ -91,6 +95,7 @@ const createFields = () => {
                 if (value.type == "toogle") {
                     FieldValue = false;
                 }
+
                 // Create mode
                 avaliableFields.push({
                     key: value.key,
@@ -105,6 +110,7 @@ const createFields = () => {
                     singleSearch: value?.singleSearch,
                     relation: value?.relation,
                     value: FieldValue,
+                    select_options: value?.select_options,
                 });
             }
         } else {
@@ -149,6 +155,7 @@ const createFields = () => {
                     model: value?.model,
                     singleSearch: value?.singleSearch,
                     relation: value?.relation,
+                    select_options: value?.select_options,
                 });
             }
         }
