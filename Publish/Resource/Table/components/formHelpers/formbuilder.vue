@@ -1,57 +1,95 @@
 <template>
     <div v-for="(item, index) in avaliableFields" :key="index">
         <div v-if="item.type == 'text'">
-            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
+            <input-field
+v-model="avaliableFields[index].value"
+type="text"
+:label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
+/>
         </div>
         <div v-else-if="item.type == 'password'">
             <input-password v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'email'">
-            <input-field type="email" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field v-model="avaliableFields[index].value" type="email" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'date'">
-            <input-field type="date" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field v-model="avaliableFields[index].value" type="date" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'timestamp'">
-            <input-field type="datetime-local" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field v-model="avaliableFields[index].value" type="datetime-local" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'slug'">
-            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" />
+            <input-field v-model="avaliableFields[index].value" type="text" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'media'">
-            <Image label="image" placeholder="search" v-model="avaliableFields[index].value"
-                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
+            <Image
+v-model="avaliableFields[index].value"
+label="image"
+placeholder="search"
+                :load-data="avaliableFields[index].value"
+:endpoint="item.endpoint"
+/>
         </div>
         <div v-else-if="item.type == 'number'">
-            <input-field type="number" v-model="avaliableFields[index].value" :label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
+            <input-field
+v-model="avaliableFields[index].value"
+type="number"
+:label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
+/>
         </div>
         <div v-else-if="item.type == 'model_search'">
-            <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
-                :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
-                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
+            <TextMultipleSelector
+v-model="avaliableFields[index].value"
+:label="item.label"
+placeholder="search"
+:model="item.model"
+                :columns="item.columns"
+:single-mode="item.singleSearch"
+                :load-data="avaliableFields[index].value"
+:endpoint="item.endpoint"
+:display-key="item.displayKey"
+/>
         </div>
         <div v-else-if="item.type == 'pivot_model'">
-            <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
-                :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
-                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
+            <TextMultipleSelector
+v-model="avaliableFields[index].value"
+:label="item.label"
+placeholder="search"
+:model="item.model"
+                :columns="item.columns"
+:single-mode="item.singleSearch"
+                :load-data="avaliableFields[index].value"
+:endpoint="item.endpoint"
+:display-key="item.displayKey"
+/>
         </div>
         <div v-else-if="item.type == 'toogle'">
             <toogle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-if="item.type == 'icon'">
-            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
-            <div class="bg-white flex justify-center p-10" v-html="avaliableFields[index].value"></div>
+            <input-field
+v-model="avaliableFields[index].value"
+type="text"
+:label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
+/>
+            <div class="bg-white flex justify-center p-10" v-html="avaliableFields[index].value" />
         </div>
         <div v-if="item.type == 'select'">
-            <select-input type="text" v-model="avaliableFields[index].value" :label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" :options="item.select_options" />
+            <select-input
+v-model="avaliableFields[index].value"
+type="text"
+:label="item.label"
+                :options="item.select_options"
+@keyup="textFieldKeyup($event.target.value, item.type, item.key)"
+/>
         </div>
     </div>
 </template>
-<script setup >
+<script setup>
 // Import vue watch
 import { watch, computed } from "vue";
 // Import the javascrpt functions for formatting the data
@@ -65,6 +103,9 @@ import {
     Image,
     Toogle
 } from "@mariojgt/masterui/packages/index";
+
+// Declare emit before using it
+const emit = defineEmits(["onFormUpdate"]);
 
 const props = defineProps({
     columns: {
@@ -166,7 +207,7 @@ const createFields = () => {
 };
 // Call the fuction to build the fields
 createFields();
-const emit = defineEmits(["onFormUpdate"]);
+
 // Debounce
 let debounce = $ref(null);
 // Watch any change in the avaliable fields
