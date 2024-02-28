@@ -10,15 +10,18 @@
 
     <!-- Put this part before </body> tag -->
     <input type="checkbox" :id="'edit-data-' + props.id" class="modal-toggle" />
-    <div class="modal text-center">
+    <div class="modal">
 
         <!-- Build the form -->
-        <div class="modal-box w-11/12 max-w-5xl" v-if="canEdit">
-            <h3 class="font-bold text-lg">Edit</h3>
+        <div class="modal-box w-11/12 max-w-5xl border border-info shadow-lg shadow-info" v-if="canEdit">
+            <div class="modal-header">
+                <h3 class="font-bold text-lg">Edit</h3>
+                <label :for="'edit-data-' + props.id" class="btn btn-sm btn-circle absolute right-2 top-2">✕</label>
+            </div>
 
             <!-- Handle sections if avalible -->
-            <div class="w-full">
-                <div class="w-full bg-base-300 p-2">
+            <div class="w-full mt-2">
+                <div class="w-full rounded-lg bg-base-300 p-2">
                     <Disclosure as="div" class="mt-2" v-slot="{ open }"
                         v-for="(item, index) in filterSections.sectionsWithFields" :key="index" :defaultOpen="true">
                         <DisclosureButton class="btn btn-primary w-full">
@@ -46,10 +49,9 @@
                 <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" :editMode="'true'"
                     :modelValue="props.modelValue" />
             </div>
-
-            <div class="modal-action">
-                <label :for="'edit-data-' + props.id" class="btn btn-error">Close</label>
-                <label :for="'edit-data-' + props.id" class="btn btn-success" @click="editData">Edit</label>
+            <div class="flex justify-end gap-2 pt-3">
+                <label :for="'edit-data-' + props.id" class="btn btn-error font-bold text-lg text-white">Close</label>
+                <label :for="'edit-data-' + props.id" class="btn btn-info font-bold text-lg text-white" @click="editData">Submit</label>
             </div>
         </div>
         <!-- Display a error message in case the form has no create permission -->
@@ -69,7 +71,7 @@
         </div>
     </div>
 </template>
-<script setup >
+<script setup lang="ts" >
 import {
     Disclosure,
     DisclosureButton,
@@ -100,11 +102,11 @@ const props = defineProps({
         default: () => [],
     },
     id: {
-        type: String,
-        default: "0",
+        type: Number,
+        default: 0,
     },
     modelValue: {
-        type: Array,
+        type: Object,
         default: () => [],
     },
     permission: {

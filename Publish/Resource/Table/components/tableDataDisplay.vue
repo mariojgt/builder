@@ -28,7 +28,7 @@ import { watch, computed } from "vue";
 
 const props = defineProps({
     tableData: {
-        type: Array,
+        type: Object,
         default: () => [],
     },
     columns: {

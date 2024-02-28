@@ -1,6 +1,6 @@
 <template>
     <!-- The button to open modal -->
-    <label :for="'my-modal-' + props.id" class="btn btn-error modal-button">
+    <label :for="'my-modal-delete-' + props.id" class="btn btn-error modal-button">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"
             stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round"
@@ -9,21 +9,24 @@
     </label>
 
     <!-- Put this part before </body> tag -->
-    <input type="checkbox" :id="'my-modal-' + props.id" class="modal-toggle" />
+    <input type="checkbox" :id="'my-modal-delete-' + props.id" class="modal-toggle" />
     <div class="modal">
-        <div class="modal-box w-11/12 max-w-5xl ">
-            <label :for="'my-modal-' + props.id" class="btn btn-sm btn-circle absolute right-2 top-2">✕</label>
-
-            <h3 class="text-lg font-bold">This action cannot be undone.</h3>
-            <p class="py-4">Are you sure you want to delete this item?</p>
-            <div class="modal-action">
-                <label :for="'my-modal-' + props.id" class="btn btn-success">Close!</label>
-                <label :for="'my-modal-' + props.id" @click="deleteItem" class="btn btn-error">Delete</label>
+        <div class="border border-error shadow-error shadow-lg modal-box w-11/12 max-w-5xl">
+            <div class="modal-header">
+                <h2 class="text-xl font-bold">Delete Item #{{ props.id }}</h2>
+                <label :for="'my-modal-delete-' + props.id" class="btn btn-sm btn-circle absolute right-2 top-2">✕</label>
+            </div>
+            <div class="p-2 bg-base-300 rounded-lg mt-3 text-center text-sm md:text-2xl">
+                <p class="py-4">Are you sure you want to delete this item?</p>
+            </div>
+            <div class="flex justify-end gap-2 pt-3">
+                <label :for="'my-modal-delete-' + props.id" class="btn btn-success font-bold text-lg text-white">Close!</label>
+                <label :for="'my-modal-delete-' + props.id" @click="deleteItem" class="btn btn-error font-bold text-lg text-white">Delete</label>
             </div>
         </div>
     </div>
 </template>
-<script setup >
+<script setup lang="ts">
 // Import vue watch
 import { watch } from "vue";
 // Import axios
@@ -34,8 +37,8 @@ const message = useMessage();
 
 const props = defineProps({
     id: {
-        type: Array,
-        default: () => [],
+        type: Number,
+        default: 0,
     },
     model: {
         type: String,

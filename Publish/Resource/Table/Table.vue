@@ -1,27 +1,17 @@
 <template>
-    <div class="w-full mb-12 xl:mb-0">
-        <div class="
-        relative
-        flex flex-col
-        min-w-0
-        break-words
-        bg-base-200
-        w-full
-        mb-6
-        shadow-lg
-        rounded
-      ">
-            <div class="rounded-t mb-0 px-4 py-3 border-0">
-                <div class="flex flex-wrap items-center">
-                    <div class="relative w-full px-4 max-w-full flex-grow flex-1">
-                        <h1 class="text-3xl font-bold text-base-content">{{ props.tableTitle }}</h1>
-                    </div>
-                    <div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
-                        <slot name="new">
-                            <create :columns="props.columns" :endpoint="props.endpointCreate" :model="props.model"
-                                :permission="props.permission" @onCreate="onCreate" />
-                        </slot>
-                    </div>
+    <div class="w-full">
+        <div class="relative flex flex-col min-w-0 break-words bg-base-300 w-full mb-6 shadow-lg rounded">
+            <div class="flex flex-wrap items-center">
+                <div class="relative w-full px-4 max-w-full flex-grow flex-1">
+                    <h1 class="text-3xl font-extrabold text-base-content">
+                        {{ props.tableTitle }}
+                    </h1>
+                </div>
+                <div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
+                    <slot name="new">
+                        <create :columns="props.columns" :endpoint="props.endpointCreate" :model="props.model"
+                            :permission="props.permission" @onCreate="onCreate" />
+                    </slot>
                 </div>
             </div>
 
@@ -30,9 +20,9 @@
                 @onFilterReset="onFilterReset" :columns="props.columns" />
 
             <div class="overflow-x-auto p-6">
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto bg-base-100">
                     <table class="table table-compact w-full">
-                        <thead >
+                        <thead class="font-bold bg-primary text-neutral" >
                             <tr>
                                 <th v-for="(item, index) in columns" :key="index">
                                     {{ item.label }}
@@ -41,37 +31,24 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(tableItem, tableKey) in tableData" :key="tableItem">
+                            <tr v-for="(tableItem, tableKey) in tableData" :key="tableItem" class="bg-base-300 hover:bg-black hover:text-neutral-content" >
                                 <table-display-data :tableData="tableItem" :columns="columns" />
                                 <th>
-                                    <div class="
-                      preview
-                      border-base-300
-                      bg-base-200
-                      rounded-b-box rounded-tr-box
-                      flex
-                      min-h-[6rem] min-w-[18rem]
-                      max-w-4xl
-                      flex-wrap
-                      items-center
-                      justify-center
-                      overflow-x-hidden
-                      border
-                      bg-cover bg-top
-                      p-4
-                      undefined
-                      gap-4
-                    ">
+                                    <div class="flex justify-start overflow-x-hidden gap-2">
                                         <delete :id="tableItem.id" :endpoint="props.endpointDelete" :model="props.model"
                                             :permission="props.permission" @onDelete="onDelete" />
-                                        <edit :columns="props.columns" :endpoint="props.endpointEdit"
-                                            :model="props.model" :modelValue="tableItem" :id="tableItem.id"
-                                            :permission="props.permission" @onEdit="onEdit" v-if="!custom_edit_route" />
-                                        <div v-else >
-                                            <Link :href="custom_edit_route + tableItem.id">
-                                                <label :for="'edit-data-' + tableItem.id" class="btn btn-info modal-button">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                                        stroke-width="2">
+                                        <edit :columns="props.columns" :endpoint="props.endpointEdit" :model="props.model"
+                                            :modelValue="tableItem" :id="tableItem.id" :permission="props.permission"
+                                            @onEdit="onEdit" v-if="!custom_edit_route" />
+                                        <div v-else>
+                                            <Link :href="custom_edit_route +
+                                                tableItem.id
+                                                ">
+                                                <label :for="'edit-data-' +
+                                                    tableItem.id
+                                                    " class="btn btn-info modal-button">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+                                                        viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
                                                             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                     </svg>
@@ -82,7 +59,7 @@
                                 </th>
                             </tr>
                         </tbody>
-                        <tfoot>
+                        <tfoot class="font-bold bg-primary text-neutral" >
                             <tr>
                                 <th v-for="(item, index) in columns" :key="index">
                                     {{ item.label }}
@@ -99,14 +76,14 @@
         </div>
     </div>
 </template>
-<script setup >
+<script setup lang="ts">
 // Import axios
 import axios from "axios";
 // improt flash message
 import { useMessage } from "naive-ui";
 const message = useMessage();
 
-import { Link } from '@inertiajs/vue3'
+import { Link } from "@inertiajs/vue3";
 // Import the delete component
 import Delete from "./components/crud/delete.vue";
 // Import the create component
@@ -251,7 +228,7 @@ const onFilterReset = async (data) => {
  */
 
 /**
- * Data we goin to display in the table
+ * Data we goin to display in the table as a object
  */
 let tableData = $ref([]);
 
@@ -271,16 +248,17 @@ const fetchData = async (newEndPoint = null) => {
 
     axios
         .post(newEndPoint, {
-            model: props.model,        // The model name encrypted
-            columns: props.columns,      // columns to display
-            perPage: perPage,            // per page
-            search: search,             // Search
-            sort: filterBy,           // Filter example : name
-            direction: orderBy,            // Asc or desc
-            permission: props.permission,   // Permission
+            model: props.model, // The model name encrypted
+            columns: props.columns, // columns to display
+            perPage: perPage, // per page
+            search: search, // Search
+            sort: filterBy, // Filter example : name
+            direction: orderBy, // Asc or desc
+            permission: props.permission, // Permission
         })
         .then(function (response) {
             tableData = response.data.data;
+
             paginationInfo = {
                 currentPage: response.data.current_page,
                 lastPage: response.data.last_page,
@@ -290,11 +268,12 @@ const fetchData = async (newEndPoint = null) => {
             };
         })
         .catch(function (error) {
-            for (const [key, value] of Object.entries(error.response.data.errors)) {
+            for (const [key, value] of Object.entries(
+                error.response.data.errors
+            )) {
                 message.error(value[0]);
             }
         });
 };
 fetchData();
 </script>
-

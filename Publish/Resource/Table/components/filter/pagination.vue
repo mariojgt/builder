@@ -9,7 +9,7 @@
       items-center
       xs:justify-between
     ">
-        <span class="text-xs xs:text-sm text-primary">
+        <span class="xs:text-sm text-primary font-bold text-sm md:text-lg">
             Showing {{ props.paginationInfo.currentPage }} to
             {{ props.paginationInfo.perPage }} of
             {{ props.paginationInfo.total }} Entries

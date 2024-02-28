@@ -1,95 +1,57 @@
 <template>
     <div v-for="(item, index) in avaliableFields" :key="index">
         <div v-if="item.type == 'text'">
-            <input-field
-v-model="avaliableFields[index].value"
-type="text"
-:label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
-/>
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
         </div>
         <div v-else-if="item.type == 'password'">
             <input-password v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'email'">
-            <input-field v-model="avaliableFields[index].value" type="email" :label="item.label" />
+            <input-field type="email" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'date'">
-            <input-field v-model="avaliableFields[index].value" type="date" :label="item.label" />
+            <input-field type="date" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'timestamp'">
-            <input-field v-model="avaliableFields[index].value" type="datetime-local" :label="item.label" />
+            <input-field type="datetime-local" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'slug'">
-            <input-field v-model="avaliableFields[index].value" type="text" :label="item.label" />
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'media'">
-            <Image
-v-model="avaliableFields[index].value"
-label="image"
-placeholder="search"
-                :load-data="avaliableFields[index].value"
-:endpoint="item.endpoint"
-/>
+            <Image label="image" placeholder="search" v-model="avaliableFields[index].value"
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" />
         </div>
         <div v-else-if="item.type == 'number'">
-            <input-field
-v-model="avaliableFields[index].value"
-type="number"
-:label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
-/>
+            <input-field type="number" v-model="avaliableFields[index].value" :label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
         </div>
         <div v-else-if="item.type == 'model_search'">
-            <TextMultipleSelector
-v-model="avaliableFields[index].value"
-:label="item.label"
-placeholder="search"
-:model="item.model"
-                :columns="item.columns"
-:single-mode="item.singleSearch"
-                :load-data="avaliableFields[index].value"
-:endpoint="item.endpoint"
-:display-key="item.displayKey"
-/>
+            <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
+                :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
         </div>
         <div v-else-if="item.type == 'pivot_model'">
-            <TextMultipleSelector
-v-model="avaliableFields[index].value"
-:label="item.label"
-placeholder="search"
-:model="item.model"
-                :columns="item.columns"
-:single-mode="item.singleSearch"
-                :load-data="avaliableFields[index].value"
-:endpoint="item.endpoint"
-:display-key="item.displayKey"
-/>
+            <TextMultipleSelector :label="item.label" placeholder="search" :model="item.model" :columns="item.columns"
+                :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
+                :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
         </div>
         <div v-else-if="item.type == 'toogle'">
-            <toogle v-model="avaliableFields[index].value" :label="item.label" />
+            <Toggle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
-        <div v-if="item.type == 'icon'">
-            <input-field
-v-model="avaliableFields[index].value"
-type="text"
-:label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
-/>
-            <div class="bg-white flex justify-center p-10" v-html="avaliableFields[index].value" />
+        <div v-else-if="item.type == 'icon'">
+            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label"
+                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
+            <div class="bg-white flex justify-center p-10" v-html="avaliableFields[index].value"></div>
         </div>
-        <div v-if="item.type == 'select'">
-            <select-input
-v-model="avaliableFields[index].value"
-type="text"
-:label="item.label"
-                :options="item.select_options"
-@keyup="textFieldKeyup($event.target.value, item.type, item.key)"
-/>
+        <div v-else-if="item.type == 'select'">
+            <select-input v-model="avaliableFields[index].value" :label="item.label"
+                :options="item.select_options" />
         </div>
     </div>
 </template>
-<script setup>
+<script setup >
 // Import vue watch
 import { watch, computed } from "vue";
 // Import the javascrpt functions for formatting the data
@@ -101,11 +63,8 @@ import {
     SelectInput,
     TextMultipleSelector,
     Image,
-    Toogle
+    Toggle
 } from "@mariojgt/masterui/packages/index";
-
-// Declare emit before using it
-const emit = defineEmits(["onFormUpdate"]);
 
 const props = defineProps({
     columns: {
@@ -113,7 +72,7 @@ const props = defineProps({
         default: () => [],
     },
     modelValue: {
-        type: Array,
+        type: Object,
         default: () => [],
     },
     editMode: {
@@ -121,7 +80,7 @@ const props = defineProps({
         default: "false",
     },
 });
-
+const emit = defineEmits(["onFormUpdate"]);
 let avaliableFields = $ref([]);
 // This fuction will loop the columns and create the fields
 const createFields = () => {
@@ -207,7 +166,6 @@ const createFields = () => {
 };
 // Call the fuction to build the fields
 createFields();
-
 // Debounce
 let debounce = $ref(null);
 // Watch any change in the avaliable fields
