@@ -8,7 +8,7 @@
             </div>
         </div>
         <div v-else>
-            <div v-html="item.value" v-if="item.type == 'icon'" class="bg-white flex justify-center p-10" ></div>
+            <div v-html="item.value" v-if="item.type == 'icon'" class="bg-base-100 rounded-lg flex justify-center "></div>
             <div v-else-if="item.type === 'toogle'">
                 <div class="badge badge-success mt-3" v-if="item.value == 1" >Enable</div>
                 <div class="badge badge-error mt-3" v-else >Disable</div>

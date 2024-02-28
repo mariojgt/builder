@@ -41,13 +41,18 @@
             <Toggle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'icon'">
-            <input-field type="text" v-model="avaliableFields[index].value" :label="item.label"
-                @keyup="textFieldKeyup($event.target.value, item.type, item.key)" />
-            <div class="bg-white flex justify-center p-10" v-html="avaliableFields[index].value"></div>
+            <label class="form-control mt-1">
+                <div class="label">
+                    <span class="label-text">{{ item.label }}</span>
+                </div>
+                <textarea class="textarea textarea-primary h-24" @keyup="textFieldKeyup($event.target.value, item.type, item.key)" v-model="avaliableFields[index].value"  placeholder="Bio"></textarea>
+            </label>
+            <div class="flex justify-center bg-base-100 rounded mt-5">
+                <div class="flex p-10 w-52" v-html="avaliableFields[index].value"></div>
+            </div>
         </div>
         <div v-else-if="item.type == 'select'">
-            <select-input v-model="avaliableFields[index].value" :label="item.label"
-                :options="item.select_options" />
+            <select-input v-model="avaliableFields[index].value" :label="item.label" :options="item.select_options" />
         </div>
     </div>
 </template>
