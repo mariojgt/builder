@@ -38,7 +38,7 @@
                 :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
         </div>
         <div v-else-if="item.type == 'toogle'">
-            <Toggle v-model="avaliableFields[index].value" :label="item.label" />
+            <Toogle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'icon'">
             <label class="form-control mt-1">
@@ -68,7 +68,7 @@ import {
     SelectInput,
     TextMultipleSelector,
     Image,
-    Toggle
+    Toogle
 } from "@mariojgt/masterui/packages/index";
 
 const props = defineProps({
