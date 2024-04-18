@@ -10,18 +10,18 @@
 
     <!-- Put this part before </body> tag -->
     <input type="checkbox" :id="'my-modal-delete-' + props.id" class="modal-toggle" />
-    <div class="modal">
-        <div class="border border-error shadow-error shadow-lg modal-box w-11/12 max-w-5xl">
+    <div class="modal text-neutral-content">
+        <div class="border border-primary shadow-primary shadow-lg modal-box w-11/12 max-w-5xl">
             <div class="modal-header">
                 <h2 class="text-xl font-bold">Delete Item #{{ props.id }}</h2>
                 <label :for="'my-modal-delete-' + props.id" class="btn btn-sm btn-circle absolute right-2 top-2">✕</label>
             </div>
-            <div class="p-2 bg-base-300 rounded-lg mt-3 text-center text-sm md:text-2xl">
-                <p class="py-4">Are you sure you want to delete this item?</p>
+            <div class="rounded-lg text-center text-sm md:text-2xl">
+                <p>Are you sure you want to delete this item?</p>
             </div>
             <div class="flex justify-end gap-2 pt-3">
-                <label :for="'my-modal-delete-' + props.id" class="btn btn-success font-bold text-lg text-white">Close!</label>
-                <label :for="'my-modal-delete-' + props.id" @click="deleteItem" class="btn btn-error font-bold text-lg text-white">Delete</label>
+                <label :for="'my-modal-delete-' + props.id" class="btn btn-primary font-bold text-lg text-white">Close!</label>
+                <label :for="'my-modal-delete-' + props.id" @click="deleteItem" class="btn btn-secondary font-bold text-lg text-white">Delete</label>
             </div>
         </div>
     </div>

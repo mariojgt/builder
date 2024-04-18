@@ -1,67 +1,125 @@
 <template>
     <div class="w-full">
-        <div class="relative flex flex-col min-w-0 break-words bg-base-300 w-full mb-6 shadow-lg rounded">
-            <div class="flex flex-wrap items-center">
+        <div
+            class="relative flex flex-col min-w-0 break-words bg-base-300 w-full mb-6 shadow-lg rounded"
+        >
+            <div class="flex flex-wrap items-center mt-5">
                 <div class="relative w-full px-4 max-w-full flex-grow flex-1">
                     <h1 class="text-3xl font-extrabold text-base-content">
                         {{ props.tableTitle }}
                     </h1>
                 </div>
-                <div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
+                <div
+                    class="relative w-full px-4 max-w-full flex-grow flex-1 text-right"
+                >
                     <slot name="new">
-                        <create :columns="props.columns" :endpoint="props.endpointCreate" :model="props.model"
-                            :permission="props.permission" @onCreate="onCreate" />
+                        <create
+                            :columns="props.columns"
+                            :endpoint="props.endpointCreate"
+                            :model="props.model"
+                            :permission="props.permission"
+                            @onCreate="onCreate"
+                        />
                     </slot>
                 </div>
             </div>
 
             <!-- Table filter -->
-            <table-filter @onPerPage="onPerPage" @onOrderBy="onOrderBy" @onSearch="onSearch" @onFilter="onFilter"
-                @onFilterReset="onFilterReset" :columns="props.columns" />
+            <table-filter
+                @onPerPage="onPerPage"
+                @onOrderBy="onOrderBy"
+                @onSearch="onSearch"
+                @onFilter="onFilter"
+                @onFilterReset="onFilterReset"
+                :columns="props.columns"
+            />
 
             <div class="overflow-x-auto p-6">
                 <div class="overflow-x-auto bg-base-100">
                     <table class="table table-compact w-full">
-                        <thead class="font-bold bg-primary text-neutral" >
+                        <thead class="font-bold bg-primary text-neutral">
                             <tr>
-                                <th v-for="(item, index) in columns" :key="index">
+                                <th
+                                    v-for="(item, index) in columns"
+                                    :key="index"
+                                >
                                     {{ item.label }}
                                 </th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(tableItem, tableKey) in tableData" :key="tableItem" class="bg-base-300 hover:bg-black hover:text-neutral-content" >
-                                <table-display-data :tableData="tableItem" :columns="columns" />
+                            <tr
+                                v-for="(tableItem, tableKey) in tableData"
+                                :key="tableItem"
+                                class="font-thin bg-base-300 hover:bg-secondary hover:text-neutral hover:font-bold"
+                            >
+                                <table-display-data
+                                    :tableData="tableItem"
+                                    :columns="columns"
+                                />
                                 <th>
-                                    <div class="flex justify-start overflow-x-hidden gap-2">
-                                        <delete :id="tableItem.id" :endpoint="props.endpointDelete" :model="props.model"
-                                            :permission="props.permission" @onDelete="onDelete" />
-                                        <edit :columns="props.columns" :endpoint="props.endpointEdit" :model="props.model"
-                                            :modelValue="tableItem" :id="tableItem.id" :permission="props.permission"
-                                            @onEdit="onEdit" v-if="!custom_edit_route" />
+                                    <div
+                                        class="flex justify-start overflow-x-hidden gap-2"
+                                    >
+                                        <edit
+                                            :columns="props.columns"
+                                            :endpoint="props.endpointEdit"
+                                            :model="props.model"
+                                            :modelValue="tableItem"
+                                            :id="tableItem.id"
+                                            :permission="props.permission"
+                                            @onEdit="onEdit"
+                                            v-if="!custom_edit_route"
+                                        />
                                         <div v-else>
-                                            <Link :href="custom_edit_route +
-                                                tableItem.id
-                                                ">
-                                                <label :for="'edit-data-' +
+                                            <Link
+                                                :href="
+                                                    custom_edit_route +
                                                     tableItem.id
-                                                    " class="btn btn-info modal-button">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                                                        viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                "
+                                            >
+                                                <label
+                                                    :for="
+                                                        'edit-data-' +
+                                                        tableItem.id
+                                                    "
+                                                    class="btn btn-info modal-button"
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        class="h-6 w-6"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                    >
+                                                        <path
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                                        />
                                                     </svg>
                                                 </label>
                                             </Link>
                                         </div>
+                                        <delete
+                                            :id="tableItem.id"
+                                            :endpoint="props.endpointDelete"
+                                            :model="props.model"
+                                            :permission="props.permission"
+                                            @onDelete="onDelete"
+                                        />
                                     </div>
                                 </th>
                             </tr>
                         </tbody>
-                        <tfoot class="font-bold bg-primary text-neutral" >
+                        <tfoot class="font-bold bg-primary text-neutral">
                             <tr>
-                                <th v-for="(item, index) in columns" :key="index">
+                                <th
+                                    v-for="(item, index) in columns"
+                                    :key="index"
+                                >
                                     {{ item.label }}
                                 </th>
                                 <th>Action</th>
@@ -71,7 +129,10 @@
                 </div>
 
                 <!-- Table Pagination -->
-                <table-pagination @onPagiation="onPagiation" :paginationInfo="paginationInfo" />
+                <table-pagination
+                    @onPagiation="onPagiation"
+                    :paginationInfo="paginationInfo"
+                />
             </div>
         </div>
     </div>

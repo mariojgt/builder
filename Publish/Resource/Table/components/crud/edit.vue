@@ -13,7 +13,7 @@
     <div class="modal">
 
         <!-- Build the form -->
-        <div class="modal-box w-11/12 max-w-5xl border border-info shadow-lg shadow-info" v-if="canEdit">
+        <div class="modal-box w-11/12 max-w-5xl border border-primary shadow-lg shadow-primary text-neutral-content" v-if="canEdit">
             <div class="modal-header">
                 <h3 class="font-bold text-lg">Edit</h3>
                 <label :for="'edit-data-' + props.id" class="btn btn-sm btn-circle absolute right-2 top-2">✕</label>
@@ -21,7 +21,7 @@
 
             <!-- Handle sections if avalible -->
             <div class="w-full mt-2">
-                <div class="w-full rounded-lg bg-base-300 p-2">
+                <div class="w-full rounded-lg p-2">
                     <Disclosure as="div" class="mt-2" v-slot="{ open }"
                         v-for="(item, index) in filterSections.sectionsWithFields" :key="index" :defaultOpen="true">
                         <DisclosureButton class="btn btn-primary w-full">
@@ -45,13 +45,13 @@
                 </div>
             </div>
             <!-- Handle normal inputs -->
-            <div class="w-full bg-base-300 p-6" >
+            <div class="w-full bg-primary rounded-lg p-6 text-neutral-content" >
                 <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" :editMode="'true'"
                     :modelValue="props.modelValue" />
             </div>
-            <div class="flex justify-end gap-2 pt-3">
-                <label :for="'edit-data-' + props.id" class="btn btn-error font-bold text-lg text-white">Close</label>
-                <label :for="'edit-data-' + props.id" class="btn btn-info font-bold text-lg text-white" @click="editData">Submit</label>
+            <div class="flex justify-end gap-4 mt-5">
+                <label :for="'edit-data-' + props.id" class="btn btn-primary font-bold text-lg text-white">Close</label>
+                <label :for="'edit-data-' + props.id" class="btn btn-secondary font-bold text-lg text-white" @click="editData">Submit</label>
             </div>
         </div>
         <!-- Display a error message in case the form has no create permission -->
