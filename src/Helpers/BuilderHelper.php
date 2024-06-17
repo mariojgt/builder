@@ -6,138 +6,99 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Mariojgt\Builder\Enums\FieldTypes;
 use Illuminate\Validation\ValidationException;
 use Mariojgt\Magnifier\Resources\MediaResource;
 
-/**
- * This class will handle the autenticator 2fa authentication.
- */
 class BuilderHelper
 {
     /**
-     * If the permission array is not empty then the user must have the permission to access else we need to check.
+     * Check if the user has the necessary permission.
      *
      * @param Request $request
-     * @param string  $type    // create | edit | delete |read
+     * @param string  $checkType // create | edit | delete | read
      *
-     * @return bool [true|false]
+     * @return bool
      */
     public function permissionCheck(Request $request, $checkType)
     {
-        // Decrypt the permission in order to avoid manupilation
-        $request->request->add(['permission' => decrypt($request->permission)]); //add request
-        // Get the user based in the guard
+        $request->request->add(['permission' => decrypt($request->permission)]);
         $user = Auth::guard($request->permission['guard'])->user();
         $type = $request->permission['type'];
-        $classMethod = '';
-        // Type
-        if ($type == 'permission') {
-            $classMethod = 'hasPermissionTo';
-        } else {
-            $classMethod = 'hasRole';
-        }
+        $classMethod = ($type == 'permission') ? 'hasPermissionTo' : 'hasRole';
 
-        // Start the permission check default as false
-        $autorized = false;
-        // Try to get the user permission if the model don't have the permission then we need to check
         try {
-            $autorized = $user->$classMethod($request->permission['key'][$checkType]);
+            $authorized = $user->$classMethod($request->permission['key'][$checkType]);
         } catch (\Throwable $th) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
+                'permission' => 'You don\'t have permission to ' . $checkType . ' this item',
             ]);
         }
 
-        // Check if the user has the permission
-        if (!$autorized) {
+        if (!$authorized) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have the permission to ' . $checkType . ' this item',
+                'permission' => 'You don\'t have permission to ' . $checkType . ' this item',
             ]);
         }
-        // If is authorized return true
-        return $autorized;
+
+        return $authorized;
     }
 
     /**
-     * Generict assing and validation the data information.
+     * Generic assignment and validation of data.
      *
-     * @param mixed $type
      * @param mixed $model
-     * @param mixed $key
-     * @param mixed $value
      * @param mixed $column
      *
-     * @return Model [model]
+     * @return Model
      */
-    public function generictValidation($model, $column)
+    public function genericValidation($model, $column)
     {
-        // Get the value
         $value = $column['value'];
-        // Get the key
         $key = $column['key'];
-        // Get the type
         $type = $column['type'];
 
         switch ($type) {
-            case 'text':
+            case FieldTypes::TEXT->value:
                 $model->$key = $value;
                 break;
-            case 'slug':
-                // Make sure the slug is unique else trow an error validation message
+            case FieldTypes::SLUG->value:
                 if ($column['unique']) {
                     $modelCheck = $model::class;
-                    if ($model->id) {
-                        $modelCheck = $modelCheck::where($key, Str::slug($value))
-                            ->where('id', '!=', $model->id)
-                            ->first();
-                    } else {
-                        $modelCheck = $modelCheck::where($key, Str::slug($value))->first();
-                    }
+                    $modelCheck = $model->id ?
+                        $modelCheck::where($key, Str::slug($value))->where('id', '!=', $model->id)->first() :
+                        $modelCheck::where($key, Str::slug($value))->first();
                     if ($modelCheck) {
                         throw ValidationException::withMessages([$column['key'] => 'The slug must be unique.']);
                     }
                 }
                 $model->$key = Str::slug($value);
                 break;
-            case 'email':
-                // Make sure the email is valid else trow an error validation message
+            case FieldTypes::EMAIL->value:
                 if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
                     throw ValidationException::withMessages([$column['key'] => 'Must be a valid email.']);
-                } else {
-                    $model->$key = $value;
                 }
+                $model->$key = $value;
                 break;
-            case 'date':
-                // Cast the value to date
+            case FieldTypes::DATE->value:
                 $model->$key = Carbon::parse($value);
                 break;
-            case 'number':
-                // Check if the value is numeric
+            case FieldTypes::NUMBER->value:
                 if (!is_numeric($value)) {
                     throw ValidationException::withMessages([$column['key'] => 'Must be a valid number.']);
                 }
-                // Cast the value to number
                 $model->$key = (int) $value;
                 break;
-            case 'model_search':
-                // Check if is a single relation else is a pivot table
-                if (!empty($value['id'])) {
-                    $valueData = $value['id'];
-                } else {
-                    $valueData = collect($value)->pluck('id')->first();
-                }
-
-                if ($column['singleSearch']) {
-                    $model->$key = $valueData;
-                } else {
-                    $model->$key = json_encode($valueData);
-                }
+            case FieldTypes::MODEL_SEARCH->value:
+                $valueData = !empty($value['id']) ? $value['id'] : collect($value)->pluck('id')->first();
+                $model->$key = $column['singleSearch'] ? $valueData : json_encode($valueData);
                 break;
-            case 'icon':
+            case FieldTypes::ICON->value:
+            case FieldTypes::SELECT->value:
                 $model->$key = $value;
                 break;
-            case 'select':
-                $model->$key = $value;
+            case FieldTypes::PASSWORD->value:
+                $model->$key = bcrypt($value);
                 break;
             default:
                 break;
@@ -147,62 +108,40 @@ class BuilderHelper
     }
 
     /**
-     * Replace the column value.
+     * Replace the column values.
      *
-     * @param $modelPaginated // The model paginated
-     * @param $rawColumns     // The raw columns
+     * @param $modelPaginated
+     * @param $rawColumns
      *
-     * @return [Collection]
+     * @return Collection
      */
     public function columnReplacements($modelPaginated, $rawColumns)
     {
         return $modelPaginated->map(function ($item) use ($rawColumns) {
-            // Loop the columns
-            foreach ($rawColumns as $key => $column) {
-                // Check if the column is media
+            foreach ($rawColumns as $column) {
                 if (!empty($column['type'])) {
                     switch ($column['type']) {
-                        case 'media':
+                        case FieldTypes::MEDIA->value:
                             $field = $column['key'];
-                            // Check if the media is not empty
-                            if ($item->media->isNotEmpty()) {
-                                $mediaData = [];
-                                foreach ($item->media as $mediaKey => $mediaItem) {
-                                    $mediaData[] = new MediaResource($mediaItem->media);
-                                }
-                                $item->$field = collect($mediaData);
-                            } else {
-                                // Set the image
-                                $item->$field = null;
-                            }
+                            $item->$field = $item->media->isNotEmpty() ? collect($item->media->map(function ($mediaItem) {
+                                return new MediaResource($mediaItem->media);
+                            })) : null;
                             break;
-                        case 'model_search':
-                            $field         = $column['key'];
+                        case FieldTypes::MODEL_SEARCH->value:
+                            $field = $column['key'];
                             $modelRelation = decrypt($column['model']);
-                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key');
-                            $columnFilters->push(app($modelRelation)->getTable() . '.id');
-                            // Get the table name from the model
-                            if ($column['singleSearch']) {
-                                $modelData    = $modelRelation::where('id', $item->$field)
-                                    ->select($columnFilters->toArray())
-                                    ->first();
-                                $item->$field = $modelData;
-                            } else {
-                                $modelData    = $modelRelation::whereIn('id', json_decode($item->$field))
-                                    ->select($columnFilters->toArray())
-                                    ->get();
-                                $item->$field = $modelData;
-                            }
+                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push(app($modelRelation)->getTable() . '.id');
+                            $item->$field = $column['singleSearch'] ?
+                                $modelRelation::where('id', $item->$field)->select($columnFilters->toArray())->first() :
+                                $modelRelation::whereIn('id', json_decode($item->$field))->select($columnFilters->toArray())->get();
                             break;
-                        case 'pivot_model':
-                            $field         = $column['key'];
-                            $relation      = $item->{$column['relation']}();
-                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key');
-                            $columnFilters->push($relation->getQuery()->from . '.id');
-                            $item->$field  = $relation->select($columnFilters->toArray())->get();
+                        case FieldTypes::PIVOT_MODEL->value:
+                            $field = $column['key'];
+                            $relation = $item->{$column['relation']}();
+                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push($relation->getQuery()->from . '.id');
+                            $item->$field = $relation->select($columnFilters->toArray())->get();
                             break;
                         default:
-                            # code...
                             break;
                     }
                 }
