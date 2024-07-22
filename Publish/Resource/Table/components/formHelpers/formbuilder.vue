@@ -37,8 +37,8 @@
                 :singleMode="item.singleSearch" v-model="avaliableFields[index].value"
                 :loadData="avaliableFields[index].value" :endpoint="item.endpoint" :displayKey="item.displayKey" />
         </div>
-        <div v-else-if="item.type == 'toogle'">
-            <Toogle v-model="avaliableFields[index].value" :label="item.label" />
+        <div v-else-if="item.type == 'Toggle'">
+            <Toggle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
         <div v-else-if="item.type == 'icon'">
             <label class="form-control mt-1">
@@ -68,7 +68,7 @@ import {
     SelectInput,
     TextMultipleSelector,
     Image,
-    Toogle
+    Toggle
 } from "@mariojgt/masterui/packages/index";
 
 const props = defineProps({
@@ -97,7 +97,7 @@ const createFields = () => {
         if (props.editMode == "false") {
             if (value.canCreate) {
                 let FieldValue = "";
-                if (value.type == "toogle") {
+                if (value.type == "Toggle") {
                     FieldValue = false;
                 }
 
