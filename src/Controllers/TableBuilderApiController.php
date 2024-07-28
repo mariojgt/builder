@@ -257,6 +257,9 @@ class TableBuilderApiController extends Controller
         $errorMessages = [];
         foreach ($request->data as $value) {
             if (empty($value['nullable']) && empty($value['value'])) {
+                if ($value['type'] === 'boolean' && $value['value'] === false) {
+                    continue;
+                }
                 $errorMessages[] = 'The ' . $value['label'] . ' is required';
             }
         }

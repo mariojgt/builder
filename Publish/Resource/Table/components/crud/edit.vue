@@ -45,7 +45,7 @@
                 </div>
             </div>
             <!-- Handle normal inputs -->
-            <div class="w-full bg-primary rounded-lg p-6 text-neutral-content" >
+            <div class="w-full bg-secondary rounded-lg p-6 text-neutral-content" >
                 <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" :editMode="'true'"
                     :modelValue="props.modelValue" />
             </div>

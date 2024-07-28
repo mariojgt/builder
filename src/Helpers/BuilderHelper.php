@@ -100,6 +100,9 @@ class BuilderHelper
             case FieldTypes::PASSWORD->value:
                 $model->$key = bcrypt($value);
                 break;
+            case FieldTypes::BOOLEAN->value:
+                $model->$key = $value;
+                break;
             default:
                 break;
         }

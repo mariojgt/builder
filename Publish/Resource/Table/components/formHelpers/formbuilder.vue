@@ -40,6 +40,9 @@
         <div v-else-if="item.type == 'Toggle'">
             <Toggle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
+        <div v-else-if="item.type == 'boolean'">
+            <Toggle v-model="avaliableFields[index].value" :label="item.label" />
+        </div>
         <div v-else-if="item.type == 'icon'">
             <label class="form-control mt-1">
                 <div class="label">
@@ -97,6 +100,7 @@ const createFields = () => {
         if (props.editMode == "false") {
             if (value.canCreate) {
                 let FieldValue = "";
+
                 if (value.type == "Toggle") {
                     FieldValue = false;
                 }
@@ -139,6 +143,9 @@ const createFields = () => {
                         finalValue = props.modelValue[value.key];
                         break;
                     case "pivot_model":
+                        finalValue = props.modelValue[value.key];
+                        break;
+                    case "boolean":
                         finalValue = props.modelValue[value.key];
                         break;
                     default:

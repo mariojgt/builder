@@ -18,4 +18,5 @@ enum FieldTypes: string
     case PASSWORD = 'password';
     case MEDIA = 'media';
     case PIVOT_MODEL = 'pivot_model';
+    case BOOLEAN = 'boolean';
 }

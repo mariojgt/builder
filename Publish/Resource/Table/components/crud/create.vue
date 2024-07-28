@@ -42,7 +42,7 @@
                 </div>
             </div>
             <!-- Handle normal inputs -->
-            <div class="w-full bg-primary rounded-lg text-neutral-content p-6" >
+            <div class="w-full bg-secondary rounded-lg text-neutral-content p-6" >
                 <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" />
             </div>
             <div class="flex justify-end gap-2 pt-3">
