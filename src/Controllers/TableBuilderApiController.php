@@ -15,7 +15,7 @@ class TableBuilderApiController extends Controller
      *
      * @param Request $request
      *
-     * @return json
+     * @return array
      */
     public function index(Request $request)
     {
@@ -80,7 +80,7 @@ class TableBuilderApiController extends Controller
      *
      * @param Request $request
      *
-     * @return json
+     * @return array
      */
     public function store(Request $request)
     {
@@ -141,7 +141,7 @@ class TableBuilderApiController extends Controller
      *
      * @param Request $request
      *
-     * @return json
+     * @return array
      */
     public function update(Request $request)
     {
@@ -205,7 +205,7 @@ class TableBuilderApiController extends Controller
     /**
      * Dynamic delete model item.
      *
-     * @return json
+     * @return array
      */
     public function delete(Request $request)
     {
