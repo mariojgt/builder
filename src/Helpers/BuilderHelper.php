@@ -63,7 +63,7 @@ class BuilderHelper
                 $model->$key = $value;
                 break;
             case FieldTypes::SLUG->value:
-                if ($column['unique']) {
+                if (isset($column['unique']) && $column['unique']) {
                     $modelCheck = $model::class;
                     $modelCheck = $model->id ?
                         $modelCheck::where($key, Str::slug($value))->where('id', '!=', $model->id)->first() :
