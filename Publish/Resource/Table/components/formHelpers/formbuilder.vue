@@ -101,7 +101,7 @@ const createFields = () => {
             if (value.canCreate) {
                 let FieldValue = "";
 
-                if (value.type == "Toggle") {
+                if (value.type == "Toggle" || value.type == "boolean") {
                     FieldValue = false;
                 }
 
