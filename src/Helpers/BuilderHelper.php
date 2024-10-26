@@ -103,6 +103,9 @@ class BuilderHelper
             case FieldTypes::BOOLEAN->value:
                 $model->$key = $value;
                 break;
+            case FieldTypes::CHIPS->value:
+                $model->$key = $value;
+                break;
             default:
                 break;
         }
