@@ -43,6 +43,9 @@
         <div v-else-if="item.type == 'boolean'">
             <Toggle v-model="avaliableFields[index].value" :label="item.label" />
         </div>
+        <div v-else-if="item.type == 'chips'">
+            <Chips v-model="avaliableFields[index].value" :label="item.label" />
+        </div>
         <div v-else-if="item.type == 'icon'">
             <label class="form-control mt-1">
                 <div class="label">
@@ -71,7 +74,8 @@ import {
     SelectInput,
     TextMultipleSelector,
     Image,
-    Toggle
+    Toggle,
+    Chips
 } from "@mariojgt/masterui/packages/index";
 
 const props = defineProps({
@@ -146,6 +150,9 @@ const createFields = () => {
                         finalValue = props.modelValue[value.key];
                         break;
                     case "boolean":
+                        finalValue = props.modelValue[value.key];
+                        break;
+                    case "chips":
                         finalValue = props.modelValue[value.key];
                         break;
                     default:

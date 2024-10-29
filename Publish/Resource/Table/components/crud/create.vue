@@ -22,7 +22,7 @@
                     <Disclosure as="div" class="mt-2" v-slot="{ open }"
                         v-for="(item, index) in filterSections.sectionsWithFields" :key="index">
                         <DisclosureButton
-                            class="btn btn-primary w-full">
+                            class="btn w-full">
                             <span>{{ item.section }}</span>
                             <svg v-if="open" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                                 stroke="currentColor" class="w-6 h-6">
@@ -42,7 +42,7 @@
                 </div>
             </div>
             <!-- Handle normal inputs -->
-            <div class="w-full bg-secondary rounded-lg text-neutral-content p-6" >
+            <div class="w-full bg-base-300 border border-secondary rounded-3xl text-neutral-content p-6">
                 <form-builder :columns="filterSections.fields" @onFormUpdate="onFormUpdate" />
             </div>
             <div class="flex justify-end gap-2 pt-3">
