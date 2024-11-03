@@ -123,7 +123,7 @@ const createFields = () => {
                     singleSearch: value?.singleSearch,
                     relation: value?.relation,
                     value: FieldValue,
-                    select_options: value?.select_options,
+                    select_options: value?.options?.select_options,
                 });
             }
         } else {
@@ -174,7 +174,7 @@ const createFields = () => {
                     model: value?.model,
                     singleSearch: value?.singleSearch,
                     relation: value?.relation,
-                    select_options: value?.select_options,
+                    select_options: value?.options?.select_options,
                 });
             }
         }

@@ -5,14 +5,28 @@
  * @returns
  */
 export const formatDate = (dateToFormat) => {
-    // Cast the value to date
-    const tempDate = dateToFormat.split("/");
-    let finalValue = new Date(
-        tempDate[2] + "/" + tempDate[1] + "/" + tempDate[0]
-    );
-    // Format to yyyy-mm-dd
-    return finalValue.toISOString().split("T")[0];
-}
+    // Check if the input is empty
+    if (!dateToFormat) {
+        return "";
+    }
+
+    let finalDate;
+
+    // Check if the date format is ISO (contains 'T')
+    if (dateToFormat.includes("T")) {
+        finalDate = new Date(dateToFormat);
+    } else {
+        // Parse as 'dd/mm/yyyy'
+        const tempDate = dateToFormat.split("/");
+        finalDate = new Date(
+            `${tempDate[2]}-${tempDate[1]}-${tempDate[0]}`
+        );
+    }
+
+    // Format to 'yyyy-mm-dd'
+    return finalDate.toISOString().split("T")[0];
+};
+
 /**
  * Return the string in to a valid timestamp format
  * @param {*} dateToFormat
