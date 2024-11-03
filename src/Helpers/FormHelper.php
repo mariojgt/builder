@@ -258,6 +258,33 @@ class FormHelper
         );
     }
 
+     /**
+     * Add an icon field
+     *
+     * @param string $label
+     * @param string $key
+     * @param bool $sortable
+     * @param bool $canCreate
+     * @param bool $canEdit
+     * @return self
+     */
+    public function addIconField(
+        string $label,
+        string $key,
+        bool $sortable = true,
+        bool $canCreate = false,
+        bool $canEdit = true
+    ): self {
+        return $this->addField(
+            label: $label,
+            key: $key,
+            type: FieldTypes::ICON->value,
+            sortable: $sortable,
+            canCreate: $canCreate,
+            canEdit: $canEdit
+        );
+    }
+
     /**
      * Get all form fields
      *
