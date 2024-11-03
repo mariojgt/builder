@@ -109,6 +109,12 @@ const createFields = () => {
                     FieldValue = false;
                 }
 
+                let options = null;
+                if (value?.options?.select_options) {
+                    options = value?.options?.select_options;
+                } else {
+                    options = value?.select_options;
+                }
                 // Create mode
                 avaliableFields.push({
                     key: value.key,
@@ -159,6 +165,13 @@ const createFields = () => {
                         // Cast to string
                         finalValue = makeString(props.modelValue[value.key]);
                         break;
+                }
+
+                let options = null;
+                if (value?.options?.select_options) {
+                    options = value?.options?.select_options;
+                } else {
+                    options = value?.select_options;
                 }
                 // Push the field formate with the type and the right values for the field
                 avaliableFields.push({
