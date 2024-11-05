@@ -286,6 +286,33 @@ class FormHelper
     }
 
     /**
+     * Add a boolean field
+     *
+     * @param string $label
+     * @param string $key
+     * @param bool $sortable
+     * @param bool $canCreate
+     * @param bool $canEdit
+     * @return self
+     */
+    public function addBooleanField(
+        string $label,
+        string $key,
+        bool $sortable = true,
+        bool $canCreate = false,
+        bool $canEdit = true
+    ): self {
+        return $this->addField(
+            label: $label,
+            key: $key,
+            type: FieldTypes::BOOLEAN->value,
+            sortable: $sortable,
+            canCreate: $canCreate,
+            canEdit: $canEdit
+        );
+    }
+
+    /**
      * Get all form fields
      *
      * @return array
