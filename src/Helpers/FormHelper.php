@@ -35,7 +35,14 @@ class FormHelper
         bool $canCreate = true,
         bool $canEdit = true,
         ?string $type = FieldTypes::TEXT->value,
-        array $options = []
+        array $options = [],
+        bool $unique = false,
+        bool $nullable = false,
+        ?string $endpoint = null,
+        array $columns = [],
+        ?string $model = null,
+        bool $singleSearch = false,
+        ?string $displayKey = null
     ): self {
         $field = [
             'label' => $label,
@@ -43,6 +50,13 @@ class FormHelper
             'sortable' => $sortable,
             'canCreate' => $canCreate,
             'canEdit' => $canEdit,
+            'unique' => $unique,
+            'nullable' => $nullable,
+            'endpoint' => $endpoint,
+            'columns' => $columns,
+            'model' => $model,
+            'singleSearch' => $singleSearch,
+            'displayKey' => $displayKey
         ];
 
         if ($type !== null) {
@@ -100,33 +114,20 @@ class FormHelper
     }
 
     /**
-     * Add name fields (first and last name)
-     *
-     * @param bool $sortable
-     * @param bool $canEdit
      * @return self
      */
-    public function addNameFields(
-        bool $sortable = true,
-        bool $canEdit = true
-    ): self {
-        $this->addField(
-            label: 'First Name',
-            key: 'first_name',
-            type: FieldTypes::TEXT->value,
-            sortable: $sortable,
-            canEdit: $canEdit
+    public function addImageField(): self
+    {
+        return $this->addField(
+            label: 'Image',
+            key: 'image',
+            sortable: false,
+            canCreate: true,
+            canEdit: true,
+            nullable: true,
+            type: FieldTypes::MEDIA->value,
+            endpoint: route('admin.api.media.search')
         );
-
-        $this->addField(
-            label: 'Last Name',
-            key: 'last_name',
-            type: FieldTypes::TEXT->value,
-            sortable: $sortable,
-            canEdit: $canEdit
-        );
-
-        return $this;
     }
 
     /**
