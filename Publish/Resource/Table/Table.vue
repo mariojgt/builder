@@ -1,17 +1,13 @@
 <template>
     <div class="w-full">
-        <div
-            class="relative flex flex-col min-w-0 break-words bg-base-300 w-full mb-6 rounded-3xl"
-        >
+        <div class="relative flex flex-col min-w-0 break-words bg-base-300 w-full mb-6 rounded-3xl">
             <div class="flex flex-wrap items-center mt-5">
                 <div class="relative w-full px-4 max-w-full flex-grow flex-1">
                     <h1 class="text-3xl font-extrabold text-base-content">
                         {{ props.tableTitle }}
                     </h1>
                 </div>
-                <div
-                    class="relative w-full px-4 max-w-full flex-grow flex-1 text-right"
-                >
+                <div class="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
                     <slot name="new">
                         <create
                             :columns="props.columns"
@@ -39,10 +35,7 @@
                     <table class="table table-compact w-full">
                         <thead class="font-bold bg-primary text-neutral">
                             <tr>
-                                <th
-                                    v-for="(item, index) in columns"
-                                    :key="index"
-                                >
+                                <th v-for="(item, index) in columns" :key="index">
                                     {{ item.label }}
                                 </th>
                                 <th>Action</th>
@@ -51,7 +44,7 @@
                         <tbody>
                             <tr
                                 v-for="(tableItem, tableKey) in tableData"
-                                :key="tableItem"
+                                :key="tableKey"
                                 class="font-thin bg-base-300 hover:bg-secondary hover:text-neutral hover:font-bold"
                             >
                                 <table-display-data
@@ -59,9 +52,7 @@
                                     :columns="columns"
                                 />
                                 <th>
-                                    <div
-                                        class="flex justify-start overflow-x-hidden gap-2"
-                                    >
+                                    <div class="flex justify-start overflow-x-hidden gap-2">
                                         <edit
                                             :columns="props.columns"
                                             :endpoint="props.endpointEdit"
@@ -74,16 +65,10 @@
                                         />
                                         <div v-else>
                                             <Link
-                                                :href="
-                                                    custom_edit_route +
-                                                    tableItem.id
-                                                "
+                                                :href="custom_edit_route + tableItem.id"
                                             >
                                                 <label
-                                                    :for="
-                                                        'edit-data-' +
-                                                        tableItem.id
-                                                    "
+                                                    :for="'edit-data-' + tableItem.id"
                                                     class="btn btn-info modal-button"
                                                 >
                                                     <svg
@@ -116,10 +101,7 @@
                         </tbody>
                         <tfoot class="font-bold bg-primary text-neutral">
                             <tr>
-                                <th
-                                    v-for="(item, index) in columns"
-                                    :key="index"
-                                >
+                                <th v-for="(item, index) in columns" :key="index">
                                     {{ item.label }}
                                 </th>
                                 <th>Action</th>
@@ -132,15 +114,17 @@
                 <table-pagination
                     @onPagiation="onPagiation"
                     :paginationInfo="paginationInfo"
+                    :endpoint="props.endpoint"
                 />
             </div>
         </div>
     </div>
 </template>
-<script setup lang="ts">
+
+<script setup>
 // Import axios
 import axios from "axios";
-// improt flash message
+// Import flash message
 import { useMessage } from "naive-ui";
 const message = useMessage();
 
@@ -156,6 +140,15 @@ import TableFilter from "./components/filter/filter.vue";
 import TablePagination from "./components/filter/pagination.vue";
 // Import the table display component
 import TableDisplayData from "./components/tableDataDisplay.vue";
+
+// Reactivity Transforms
+let tableData = $ref([]);
+let paginationInfo = $ref([]);
+let perPage = $ref(10);
+let filterBy = $ref("id");
+let orderBy = $ref(null);
+let search = $ref(null);
+
 /**
  * Props required in order to the table to work properly
  */
@@ -199,8 +192,43 @@ const props = defineProps({
 });
 
 /**
- * ON EVENTS METHODS BEING ⚡⚡⚡⚡⚡
+ * This function will return the data from the endpoint with the filters and etc
  */
+const fetchData = async (newEndPoint = null) => {
+    // If the endpoint is not defined, we use the default endpoint
+    if (newEndPoint === null) {
+        newEndPoint = props.endpoint;
+    }
+
+    axios
+        .post(newEndPoint, {
+            model: props.model, // The model name encrypted
+            columns: props.columns, // columns to display
+            perPage: perPage, // per page
+            search: search, // Search
+            sort: filterBy, // Filter example : name
+            direction: orderBy, // Asc or desc
+            permission: props.permission, // Permission
+        })
+        .then(function (response) {
+            tableData = response.data.data;
+
+            paginationInfo = {
+                currentPage: response.data.current_page,
+                lastPage: response.data.last_page,
+                perPage: response.data.per_page,
+                total: response.data.total,
+                links: response.data.links,
+            };
+        })
+        .catch(function (error) {
+            for (const [key, value] of Object.entries(
+                error.response.data.errors
+            )) {
+                message.error(value[0]);
+            }
+        });
+};
 
 /**
  * When the user clicks on the pagination button
@@ -210,9 +238,8 @@ const onPagiation = async (paginationLink) => {
 };
 
 /**
- * When the user cahgne per page
+ * When the user changes per page
  */
-let perPage = $ref(10);
 const onPerPage = async (onPerPage) => {
     perPage = onPerPage;
     fetchData();
@@ -221,25 +248,18 @@ const onPerPage = async (onPerPage) => {
 /**
  * On sort field
  */
-let filterBy = $ref("id");
 const onFilter = async (onFilter) => {
     filterBy = onFilter;
     fetchData();
 };
 
 /**
- * When the user change order by
+ * When the user changes order by
  */
-let orderBy = $ref(null);
 const onOrderBy = async (onOrderBy) => {
     orderBy = onOrderBy;
     fetchData();
 };
-
-/**
- * Search field
- */
-let search = $ref(null);
 
 /**
  * On user search
@@ -284,57 +304,6 @@ const onFilterReset = async (data) => {
     fetchData();
 };
 
-/**
- * ON EVENTS METHODS END ⚡⚡⚡⚡⚡
- */
-
-/**
- * Data we goin to display in the table as a object
- */
-let tableData = $ref([]);
-
-/**
- * Current page
- */
-let paginationInfo = $ref([]);
-
-/**
- * This fuction will return the data from the endpoint with the filters and etc
- */
-const fetchData = async (newEndPoint = null) => {
-    // If the endpoint is not defined, we use the default endpoint
-    if (newEndPoint === null) {
-        newEndPoint = props.endpoint;
-    }
-
-    axios
-        .post(newEndPoint, {
-            model: props.model, // The model name encrypted
-            columns: props.columns, // columns to display
-            perPage: perPage, // per page
-            search: search, // Search
-            sort: filterBy, // Filter example : name
-            direction: orderBy, // Asc or desc
-            permission: props.permission, // Permission
-        })
-        .then(function (response) {
-            tableData = response.data.data;
-
-            paginationInfo = {
-                currentPage: response.data.current_page,
-                lastPage: response.data.last_page,
-                perPage: response.data.per_page,
-                total: response.data.total,
-                links: response.data.links,
-            };
-        })
-        .catch(function (error) {
-            for (const [key, value] of Object.entries(
-                error.response.data.errors
-            )) {
-                message.error(value[0]);
-            }
-        });
-};
+// Initial data fetch
 fetchData();
 </script>

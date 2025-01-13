@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Mariojgt\Builder\Enums\FieldTypes;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 use Mariojgt\Magnifier\Resources\MediaResource;
 
@@ -87,7 +88,7 @@ class BuilderHelper
                 if (!is_numeric($value)) {
                     throw ValidationException::withMessages([$column['key'] => 'Must be a valid number.']);
                 }
-                $model->$key = (int) $value;
+                $model->$key = $value;
                 break;
             case FieldTypes::MODEL_SEARCH->value:
                 $valueData = !empty($value['id']) ? $value['id'] : collect($value)->pluck('id')->first();
@@ -116,14 +117,15 @@ class BuilderHelper
     /**
      * Replace the column values.
      *
-     * @param $modelPaginated
-     * @param $rawColumns
+     * @param mixed $modelPaginated
+     * @param mixed $rawColumns
      *
-     * @return Collection
+     * @return mixed
      */
     public function columnReplacements($modelPaginated, $rawColumns)
     {
-        return $modelPaginated->map(function ($item) use ($rawColumns) {
+        // Create a clone of the collection to avoid modifying the original
+        $collection = $modelPaginated->getCollection()->map(function ($item) use ($rawColumns) {
             foreach ($rawColumns as $column) {
                 if (!empty($column['type'])) {
                     switch ($column['type']) {
@@ -154,5 +156,7 @@ class BuilderHelper
             }
             return $item;
         });
+
+        return $collection;
     }
 }
