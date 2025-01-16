@@ -63,6 +63,9 @@ class BuilderHelper
             case FieldTypes::TEXT->value:
                 $model->$key = $value;
                 break;
+            case FieldTypes::EDITOR->value:
+                $model->$key = $value;
+                break;
             case FieldTypes::SLUG->value:
                 if (isset($column['unique']) && $column['unique']) {
                     $modelCheck = $model::class;
@@ -82,6 +85,9 @@ class BuilderHelper
                 $model->$key = $value;
                 break;
             case FieldTypes::DATE->value:
+                $model->$key = Carbon::parse($value);
+                break;
+            case FieldTypes::TIMESTAMP->value:
                 $model->$key = Carbon::parse($value);
                 break;
             case FieldTypes::NUMBER->value:

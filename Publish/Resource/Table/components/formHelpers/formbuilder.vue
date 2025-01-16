@@ -30,11 +30,16 @@
           />
         </div>
         <div v-else-if="item.type == 'timestamp'">
-          <input-field
-            type="datetime-local"
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
+          <Timestamp
+                :label="item.label"
+                :name="item.key"
+                id="scheduled_at"
+                v-model="avaliableFields[index].value"
+                placeholder="Select date and time"
+                required
+                min="2024-01-16T00:00"
+                max="2025-12-31T23:59"
+            />
         </div>
         <div v-else-if="item.type == 'slug'">
           <input-field
@@ -85,6 +90,18 @@
             :endpoint="item.endpoint"
             :displayKey="item.displayKey"
           />
+        </div>
+        <div v-else-if="item.type == 'editor'">
+            <editor
+                label="Content"
+                name="content"
+                id="content-editor"
+                placeholder="Start typing..."
+                v-model="avaliableFields[index].value"
+                required
+                :minLength="10"
+                :maxLength="1000"
+            />
         </div>
         <div v-else-if="item.type == 'Toggle'">
           <Toggle
@@ -138,6 +155,7 @@
     formatTimestamp,
     makeString
   } from "./formHelper.js";
+
   import {
     InputField,
     InputPassword,
@@ -145,7 +163,9 @@
     TextMultipleSelector,
     Image,
     Toggle,
-    Chips
+    Chips,
+    Editor,
+    Timestamp
   } from "@mariojgt/masterui/packages/index";
 
   // Props definition
@@ -199,8 +219,8 @@
         }
 
         // Determine options
-        const options = value?.options?.select_options ||
-                        value?.select_options;
+        const options = value?.options?.options ||
+                        value?.options;
 
         // Create field object
         const field = {

@@ -11,6 +11,7 @@ enum FieldTypes: string
     case SLUG = 'slug';
     case EMAIL = 'email';
     case DATE = 'date';
+    case EDITOR = 'editor';
     case NUMBER = 'number';
     case MODEL_SEARCH = 'model_search';
     case ICON = 'icon';
