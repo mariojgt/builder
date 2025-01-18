@@ -391,7 +391,7 @@ const tableDisplayInformation = computed(() => {
 
                     case 'number':
                         // Format numbers
-                        return typeof value === 'number' ? formatNumber(value) : 0;
+                        return typeof value === 'number' ? formatNumber(value) : value;
                     case 'timestamp':
                         // Format laravel timestamps
                         return typeof value === 'string' ? formatDate(value) : '';
