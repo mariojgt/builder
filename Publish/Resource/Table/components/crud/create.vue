@@ -1,256 +1,447 @@
+# Template Section
 <template>
-    <!-- Create Button -->
-    <label
-      for="my-modal-5"
-      class="btn btn-primary modal-button flex items-center space-x-2 group"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        class="h-6 w-6 transition-transform group-hover:rotate-45"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M12 4v16m8-8H4"
-        />
-      </svg>
-      <span class="hidden md:inline">Create New</span>
-    </label>
+  <!-- Create Button with improved animation -->
+  <button
+    @click="isOpen = true"
+    class="btn btn-primary gap-2 group relative overflow-hidden hover:shadow-lg transition-all duration-300"
+  >
+    <PlusCircle
+      class="w-5 h-5 transform transition-all duration-300 group-hover:rotate-90"
+    />
+    <span class="hidden md:inline">Create New</span>
+    <div class="absolute inset-0 bg-white/20 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+  </button>
 
-    <!-- Modal Structure -->
-    <input type="checkbox" id="my-modal-5" class="modal-toggle" />
-    <div class="modal text-left">
-      <!-- Modal Box for Create Permissions -->
+  <!-- Modal with improved transitions -->
+  <Transition
+    enter-active-class="transition-all duration-300 ease-out"
+    enter-from-class="opacity-0"
+    enter-to-class="opacity-100"
+    leave-active-class="transition-all duration-200 ease-in"
+    leave-from-class="opacity-100"
+    leave-to-class="opacity-0"
+  >
+    <div v-if="isOpen" class="fixed inset-0 z-50 overflow-hidden">
+      <!-- Enhanced Backdrop with blur -->
       <div
-        v-if="canCreate"
-        class="modal-box w-11/12 max-w-5xl border border-primary shadow-primary shadow-2xl relative"
-      >
-        <!-- Modal Header -->
-        <div class="modal-header flex justify-between items-center mb-4">
-          <h3 class="font-bold text-lg text-base-content">Create New Entry</h3>
-          <label
-            for="my-modal-5"
-            class="btn btn-sm btn-circle absolute right-2 top-2 hover:bg-base-200"
-          >
-            ✕
-          </label>
-        </div>
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        @click="isOpen = false"
+      />
 
-        <!-- Sections Container -->
-        <div class="w-full space-y-4">
-          <!-- Sectioned Fields -->
-          <div
-            v-if="filterSections.sectionsWithFields.length > 0"
-            class="w-full rounded-lg"
-          >
-            <Disclosure
-              v-for="(item, index) in filterSections.sectionsWithFields"
-              :key="index"
-              as="div"
-              class="mb-2"
-              v-slot="{ open }"
-            >
-              <DisclosureButton
-                class="btn btn-ghost w-full justify-between hover:bg-base-200"
+      <!-- Responsive Modal Container -->
+      <div class="relative min-h-screen flex items-center justify-center p-0 md:p-4">
+        <Transition
+          enter-active-class="transition-all duration-300 ease-out"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <div v-if="canCreate"
+               class="relative bg-base-100 rounded-none md:rounded-2xl shadow-2xl flex flex-col w-full min-h-screen md:min-h-[80vh] md:max-h-[90vh] md:w-11/12 max-w-7xl transform transition-all">
+
+            <!-- Loading Overlay with improved animation -->
+            <div v-if="isSubmitting"
+                 class="absolute inset-0 bg-base-100/70 backdrop-blur-sm flex items-center justify-center z-50">
+              <div class="flex flex-col items-center gap-4">
+                <div class="loading loading-spinner loading-lg text-primary"></div>
+                <p class="text-sm font-medium text-base-content/70">Processing...</p>
+              </div>
+            </div>
+
+            <!-- Enhanced Header with better spacing -->
+            <div class="sticky top-0 z-10 bg-base-200 px-6 py-4 border-b border-base-content/10">
+              <div class="flex flex-col sm:flex-row justify-between gap-4">
+                <h2 class="text-lg font-semibold flex items-center gap-3 text-base-content">
+                  <button
+                    @click="isOpen = false"
+                    class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 hover:rotate-90 transition-all duration-200"
+                  >
+                    <X class="w-5 h-5" />
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <FileEdit class="w-5 h-5 text-primary" />
+                    <span>Create New Entry</span>
+                  </div>
+                </h2>
+
+                <div class="flex items-center gap-3">
+                  <button
+                    @click="isOpen = false"
+                    class="btn btn-ghost btn-sm hover:bg-base-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    @click="createNew"
+                    :disabled="isSubmitting"
+                    class="btn btn-primary btn-sm gap-2 min-w-[100px]"
+                  >
+                    <Save class="w-4 h-4" :class="{ 'animate-spin': isSubmitting }" />
+                    {{ isSubmitting ? 'Creating...' : 'Create' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Improved Error Alert -->
+              <TransitionGroup
+                enter-active-class="transition-all duration-300"
+                enter-from-class="opacity-0 -translate-y-4"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition-all duration-200"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 -translate-y-4"
               >
-                <span class="text-left">{{ item.section }}</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-6 w-6 transition-transform"
-                  :class="{ 'rotate-180': open }"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+                <div
+                  v-if="Object.keys(formErrors).length > 0"
+                  class="mt-4 alert alert-error shadow-lg"
+                  key="error-alert"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </DisclosureButton>
-              <DisclosurePanel class="p-2 bg-base-100 rounded-b-lg">
-                <form-builder
-                  :columns="item.fields"
-                  @onFormUpdate="onFormUpdate"
-                />
-              </DisclosurePanel>
-            </Disclosure>
+                  <AlertTriangle class="w-5 h-5 flex-shrink-0" />
+                  <div>
+                    <h3 class="font-bold">Please correct the following errors</h3>
+                    <div class="text-xs opacity-75">Review the highlighted fields below</div>
+                  </div>
+                </div>
+              </TransitionGroup>
+            </div>
+
+            <!-- Enhanced Content Area with better scrolling -->
+            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+              <div class="container mx-auto max-w-5xl">
+                <div class="grid gap-6 lg:grid-cols-12">
+                  <!-- Form Fields Section -->
+                  <div class="lg:col-span-8 space-y-6">
+                    <TransitionGroup
+                      enter-active-class="transition-all duration-300"
+                      enter-from-class="opacity-0 translate-y-4"
+                      enter-to-class="opacity-100 translate-y-0"
+                      leave-active-class="transition-all duration-200"
+                      leave-from-class="opacity-100 translate-y-0"
+                      leave-to-class="opacity-0 translate-y-4"
+                    >
+                      <!-- Enhanced Sections -->
+                      <div
+                        v-if="filterSections.sectionsWithFields.length > 0"
+                        class="w-full space-y-4"
+                      >
+                        <div
+                          v-for="(item, index) in filterSections.sectionsWithFields"
+                          :key="item.section"
+                          class="collapse collapse-plus bg-base-200 rounded-box border border-base-content/10 hover:border-primary/30 transition-all duration-200 shadow-sm hover:shadow-md"
+                        >
+                          <input type="checkbox" :checked="index === 0" />
+                          <div class="collapse-title text-lg font-medium flex items-center gap-3 pr-12">
+                            <Folder class="w-5 h-5 text-primary" />
+                            {{ item.section }}
+                          </div>
+                          <div class="collapse-content bg-base-100/50">
+                            <div class="pt-4">
+                              <form-builder
+                                :columns="item.fields"
+                                :errors="formErrors"
+                                @onFormUpdate="onFormUpdate"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Enhanced Standard Fields -->
+                      <div
+                        v-if="filterSections.fields.length > 0"
+                        class="card bg-base-200 shadow-lg border border-base-content/10 hover:shadow-xl transition-all duration-200"
+                      >
+                        <div class="card-body">
+                          <form-builder
+                            :columns="filterSections.fields"
+                            :errors="formErrors"
+                            @onFormUpdate="onFormUpdate"
+                          />
+                        </div>
+                      </div>
+                    </TransitionGroup>
+                  </div>
+
+                  <!-- Enhanced Sidebar -->
+                  <div class="lg:col-span-4 space-y-4">
+                    <!-- Info Card -->
+                    <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                      <div class="card-body">
+                        <h3 class="text-sm font-medium text-base-content flex items-center gap-2">
+                          <Info class="w-4 h-4 text-primary" />
+                          Information
+                        </h3>
+                        <div class="text-sm text-base-content/70 mt-2 space-y-2">
+                          <p>Fill in the required information to create a new entry.</p>
+                          <p>All fields marked with <span class="text-error">*</span> are required.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Enhanced Quick Tips -->
+                    <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                      <div class="card-body">
+                        <h3 class="text-sm font-medium text-base-content flex items-center gap-2">
+                          <HelpCircle class="w-4 h-4 text-primary" />
+                          Quick Tips
+                        </h3>
+                        <ul class="text-sm text-base-content/70 mt-2 space-y-3">
+                          <li class="flex items-start gap-2">
+                            <div class="rounded-full bg-success/20 p-1 mt-0.5">
+                              <Check class="w-3 h-3 text-success" />
+                            </div>
+                            <span>Use sections to organize related fields</span>
+                          </li>
+                          <li class="flex items-start gap-2">
+                            <div class="rounded-full bg-success/20 p-1 mt-0.5">
+                              <Check class="w-3 h-3 text-success" />
+                            </div>
+                            <span>Preview changes before submitting</span>
+                          </li>
+                          <li class="flex items-start gap-2">
+                            <div class="rounded-full bg-success/20 p-1 mt-0.5">
+                              <Check class="w-3 h-3 text-success" />
+                            </div>
+                            <span>All changes are saved automatically</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Standard Fields -->
-          <div
-            v-if="filterSections.fields.length > 0"
-            class="w-full bg-base-300 border border-secondary rounded-3xl text-neutral-content p-6"
-          >
-            <form-builder
-              :columns="filterSections.fields"
-              @onFormUpdate="onFormUpdate"
-            />
+          <!-- Enhanced No Permission Message -->
+          <div v-else class="modal-box w-11/12 max-w-lg bg-base-100">
+            <div class="card shadow-xl">
+              <div class="card-body items-center text-center space-y-6">
+                <div class="w-20 h-20 rounded-full bg-warning/20 flex items-center justify-center animate-pulse">
+                  <ShieldAlert class="w-10 h-10 text-warning" />
+                </div>
+                <div class="space-y-2">
+                  <h2 class="text-2xl font-bold text-error">Access Denied</h2>
+                  <p class="text-base-content/80">You don't have permission to create new entries.</p>
+                  <p class="text-base-content/60 text-sm">Please contact your system administrator for access.</p>
+                </div>
+                <button
+                  @click="isOpen = false"
+                  class="btn btn-ghost btn-sm hover:bg-base-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <!-- Modal Actions -->
-        <div class="modal-action flex justify-end gap-2 pt-3">
-          <label
-            for="my-modal-5"
-            class="btn btn-secondary text-white"
-          >
-            Close
-          </label>
-          <button
-            @click="createNew"
-            class="btn btn-primary text-white flex items-center space-x-2"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            <span>Create</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- No Create Permission Message -->
-      <div
-        v-else
-        class="modal-box w-11/12 max-w-5xl"
-      >
-        <div class="card w-full bg-base-100 shadow-xl">
-          <figure class="px-10 pt-10">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-12 w-12 text-warning"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-              />
-            </svg>
-          </figure>
-          <div class="card-body items-center text-center">
-            <h2 class="card-title text-error">Creation Disabled</h2>
-            <p class="text-base-content">You do not have permission to create entries.</p>
-            <p class="text-base-content">Please contact your administrator.</p>
-          </div>
-        </div>
+        </Transition>
       </div>
     </div>
-  </template>
+  </Transition>
+</template>
 
-  <script setup>
-  import {
-      Disclosure,
-      DisclosureButton,
-      DisclosurePanel,
-  } from '@headlessui/vue';
-  import { computed } from "vue";
-  import axios from "axios";
-  import { useMessage } from "naive-ui";
+# Script Section
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useMessage } from 'naive-ui';
+import axios from 'axios';
+import FormBuilder from '../formHelpers/FormBuilder.vue';
+import {
+  PlusCircle,
+  X,
+  Save,
+  FileEdit,
+  Folder,
+  AlertTriangle,
+  ShieldAlert,
+  Info,
+  HelpCircle,
+  Check
+} from 'lucide-vue-next';
 
-  import FormBuilder from "../formHelpers/formbuilder.vue";
+const message = useMessage();
+const isOpen = ref(false);
+const isSubmitting = ref(false);
+const formErrors = ref({});
 
-  const message = useMessage();
+const props = defineProps({
+  columns: {
+    type: Array,
+    default: () => [],
+  },
+  model: {
+    type: String,
+    default: '',
+  },
+  endpoint: {
+    type: String,
+    default: '',
+  },
+  permission: {
+    type: String,
+    default: null,
+  },
+});
 
-  const props = defineProps({
-      columns: {
-          type: Array,
-          default: () => [],
-      },
-      model: {
-          type: String,
-          default: () => [],
-      },
-      endpoint: {
-          type: String,
-          default: () => [],
-      },
-      permission: {
-          type: String,
-          default: null,
-      },
-  });
+const emit = defineEmits(['onCreate']);
 
-  const emit = defineEmits(["onCreate"]);
+const canCreate = computed(() => {
+  return props.columns.some(column => column.canCreate);
+});
 
-  // Create ability check
-  const canCreate = computed(() => {
-      return props.columns.some(column => column.canCreate);
-  });
+const filterSections = computed(() => {
+  const columnsWithSections = props.columns.filter(column => column.section);
+  const columnsWithoutSections = props.columns.filter(column => !column.section);
+  const sections = [...new Set(columnsWithSections.map(column => column.section))];
 
-  // Section filtering
-  const filterSections = computed(() => {
-      const columnsWithSections = props.columns.filter(column => column.section);
-      const columnsWithoutSections = props.columns.filter(column => !column.section);
-
-      const sections = [...new Set(columnsWithSections.map(column => column.section))];
-
-      const sectionsWithFields = sections.map(section => ({
-          section,
-          fields: columnsWithSections.filter(column => column.section === section)
-      }));
-
-      return {
-          sections,
-          fields: columnsWithoutSections,
-          sectionsWithFields
-      };
-  });
-
-  // Available fields for creation
-  let avaliableFields = $ref(props.columns.filter(column => column.canCreate));
-
-  // Form update handler
-  const onFormUpdate = (formData) => {
-      if (avaliableFields.length > 0) {
-          formData.forEach(formDataValue => {
-              const index = avaliableFields.findIndex(value => value.key === formDataValue.key);
-              if (index !== -1) {
-                  avaliableFields[index] = formDataValue;
-              }
-          });
-      } else {
-          avaliableFields = formData;
-      }
+  return {
+    sections,
+    fields: columnsWithoutSections,
+    sectionsWithFields: sections.map(section => ({
+      section,
+      fields: columnsWithSections.filter(column => column.section === section)
+    }))
   };
+});
 
-  // Create new entry
-  const createNew = async () => {
-      try {
-          const response = await axios.post(props.endpoint, {
-              model: props.model,
-              data: avaliableFields,
-              permission: props.permission,
-          });
+const availableFields = ref(props.columns.filter(column => column.canCreate));
 
-          message.success(response.data.message);
-          emit("onCreate");
-
-          // Programmatically close the modal
-          document.getElementById('my-modal-5').checked = false;
-      } catch (error) {
-          const errors = error.response?.data?.errors || {};
-          Object.values(errors).forEach(errorMsg => {
-              message.error(errorMsg[0]);
-          });
+const onFormUpdate = (formData) => {
+  if (availableFields.value.length > 0) {
+    formData.forEach(formDataValue => {
+      const index = availableFields.value.findIndex(value => value.key === formDataValue.key);
+      if (index !== -1) {
+        availableFields.value[index] = formDataValue;
       }
-  };
-  </script>
+    });
+  } else {
+    availableFields.value = formData;
+  }
+};
+
+const createNew = async () => {
+  if (isSubmitting.value) return;
+
+  try {
+    isSubmitting.value = true;
+    formErrors.value = {};
+
+    const response = await axios.post(props.endpoint, {
+      model: props.model,
+      data: availableFields.value,
+      permission: props.permission,
+    });
+
+    message.success(response.data.message);
+    emit('onCreate');
+    isOpen.value = false;
+  } catch (error: any) {
+    formErrors.value = {};
+    if (error.response?.data?.errors) {
+      const errors = error.response.data.errors;
+
+      if (Array.isArray(errors)) {
+        errors.forEach((errorArray) => {
+          if (Array.isArray(errorArray) && errorArray.length > 0) {
+            const errorMessage = errorArray[0];
+            const fieldMatch = errorMessage.match(/The (.*?) (field )?(is required|must be|invalid|already exists)/i);
+            if (fieldMatch) {
+              const fieldName = fieldMatch[1].toLowerCase().replace(' ', '_');
+              formErrors.value[fieldName] = errorMessage;
+            }
+          }
+        });
+      } else if (typeof errors === 'object') {
+        // Handle object-style errors
+        Object.entries(errors).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) {
+            formErrors.value[key] = value[0];
+          }
+        });
+      }
+
+      // Display error messages using notification system
+      Object.values(formErrors.value).forEach((errorMsg: string) => {
+        message.error(errorMsg);
+      });
+    } else if (error.message) {
+      // Handle generic error
+      message.error('An error occurred while creating the entry. Please try again.');
+    }
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+</script>
+
+<style scoped>
+/* Enhanced Custom Scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--p) / 0.3) hsl(var(--b2) / 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--b2) / 0.5);
+  border-radius: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--p) / 0.3);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: background-color 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--p) / 0.5);
+}
+
+/* Smooth Section Transitions */
+.section-enter-active,
+.section-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.section-enter-from,
+.section-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* Card Hover Effects */
+.card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+/* Modal Transitions */
+.modal-enter-active,
+.modal-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Button Animation */
+.btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:active {
+  transform: scale(0.95);
+}
+</style>

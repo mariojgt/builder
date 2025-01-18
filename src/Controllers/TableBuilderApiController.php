@@ -20,7 +20,7 @@ class TableBuilderApiController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'model'   => 'required',
+            'model' => 'required',
             'columns' => 'required',
         ]);
 
@@ -31,18 +31,27 @@ class TableBuilderApiController extends Controller
 
         $model = decrypt($request->model);
         $model = new $model();
-
         $rawColumns = collect($request->columns);
+
+        // Get the base columns
         $columns = $rawColumns->where('type', '!=', 'media')
             ->where('type', '!=', 'pivot_model')
             ->pluck('key');
+
+        // Check if updated_at exists in the model's table
+        $hasTimestamps = $model->timestamps;
+        if ($hasTimestamps) {
+            // Add updated_at to the columns if it's not already included
+            if (!$columns->contains('updated_at')) {
+                $columns->push('updated_at');
+            }
+        }
 
         if ($request->has('search')) {
             $sortableColumns = $rawColumns->filter(function ($column) {
                 return $column['sortable'] == true;
             });
             $columnSearch = $sortableColumns->pluck('key');
-
             $model = $model->where(function ($query) use ($request, $columnSearch) {
                 foreach ($columnSearch as $column) {
                     $query->orWhere($column, 'like', '%' . $request->search . '%');
@@ -55,23 +64,22 @@ class TableBuilderApiController extends Controller
         }
 
         $modelPaginated = $model->select($columns->toArray())->paginate($request->perPage ?? 10);
-
         $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
 
         return [
-            'data'           => $data,
-            'current_page'   => $modelPaginated->currentPage(),
+            'data' => $data,
+            'current_page' => $modelPaginated->currentPage(),
             'first_page_url' => $modelPaginated->url(1),
-            'from'           => $modelPaginated->firstItem(),
-            'last_page'      => $modelPaginated->lastPage(),
-            'last_page_url'  => $modelPaginated->url($modelPaginated->lastPage()),
-            'links'          => $modelPaginated->links(),
-            'next_page_url'  => $modelPaginated->nextPageUrl(),
-            'path'           => $modelPaginated->path(),
-            'per_page'       => $modelPaginated->perPage(),
-            'prev_page_url'  => $modelPaginated->previousPageUrl(),
-            'to'             => $modelPaginated->lastItem(),
-            'total'          => $modelPaginated->total(),
+            'from' => $modelPaginated->firstItem(),
+            'last_page' => $modelPaginated->lastPage(),
+            'last_page_url' => $modelPaginated->url($modelPaginated->lastPage()),
+            'links' => $modelPaginated->links(),
+            'next_page_url' => $modelPaginated->nextPageUrl(),
+            'path' => $modelPaginated->path(),
+            'per_page' => $modelPaginated->perPage(),
+            'prev_page_url' => $modelPaginated->previousPageUrl(),
+            'to' => $modelPaginated->lastItem(),
+            'total' => $modelPaginated->total(),
         ];
     }
 

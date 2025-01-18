@@ -1,310 +1,192 @@
 <template>
     <div>
-      <div v-for="(item, index) in avaliableFields" :key="index">
-        <div v-if="item.type == 'text'">
-          <input-field
-            type="text"
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-            @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
-          />
+      <!-- Tabs Navigation if tabs exist -->
+      <div v-if="hasTabs" class="mb-4">
+        <div class="tabs tabs-boxed bg-base-300 p-1">
+          <button
+            v-for="tab in tabList"
+            :key="tab"
+            class="tab flex-1 transition-all duration-200"
+            :class="{ 'tab-active': currentTab === tab }"
+            @click="currentTab = tab"
+          >
+            {{ tab }}
+          </button>
         </div>
-        <div v-else-if="item.type == 'password'">
-          <input-password
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
-        </div>
-        <div v-else-if="item.type == 'email'">
-          <input-field
-            type="email"
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
-        </div>
-        <div v-else-if="item.type == 'date'">
-          <input-field
-            type="date"
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
-        </div>
-        <div v-else-if="item.type == 'timestamp'">
-          <Timestamp
-                :label="item.label"
-                :name="item.key"
-                id="scheduled_at"
-                v-model="avaliableFields[index].value"
-                placeholder="Select date and time"
-                required
-                min="2024-01-16T00:00"
-                max="2025-12-31T23:59"
+
+        <!-- Tab Content -->
+        <div class="mt-4">
+          <div v-for="tab in tabList" :key="tab" v-show="currentTab === tab">
+            <FormFields
+              :fields="getFieldsByTab(tab)"
+              @update:fields="handleFieldsUpdate"
             />
-        </div>
-        <div v-else-if="item.type == 'slug'">
-          <input-field
-            type="text"
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
-        </div>
-        <div v-else-if="item.type == 'media'">
-          <Image
-            label="image"
-            placeholder="search"
-            v-model="avaliableFields[index].value"
-            :loadData="avaliableFields[index].value"
-            :endpoint="item.endpoint"
-          />
-        </div>
-        <div v-else-if="item.type == 'number'">
-          <input-field
-            type="number"
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-            @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
-          />
-        </div>
-        <div v-else-if="item.type == 'model_search'">
-          <TextMultipleSelector
-            :label="item.label"
-            placeholder="search"
-            :model="item.model"
-            :columns="item.columns"
-            :singleMode="item.singleSearch"
-            v-model="avaliableFields[index].value"
-            :loadData="avaliableFields[index].value"
-            :endpoint="item.endpoint"
-            :displayKey="item.displayKey"
-          />
-        </div>
-        <div v-else-if="item.type == 'pivot_model'">
-          <TextMultipleSelector
-            :label="item.label"
-            placeholder="search"
-            :model="item.model"
-            :columns="item.columns"
-            :singleMode="item.singleSearch"
-            v-model="avaliableFields[index].value"
-            :loadData="avaliableFields[index].value"
-            :endpoint="item.endpoint"
-            :displayKey="item.displayKey"
-          />
-        </div>
-        <div v-else-if="item.type == 'editor'">
-            <editor
-                label="Content"
-                name="content"
-                id="content-editor"
-                placeholder="Start typing..."
-                v-model="avaliableFields[index].value"
-                required
-                :minLength="10"
-                :maxLength="1000"
-            />
-        </div>
-        <div v-else-if="item.type == 'Toggle'">
-          <Toggle
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
-        </div>
-        <div v-else-if="item.type == 'boolean'">
-          <Toggle
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
-        </div>
-        <div v-else-if="item.type == 'chips'">
-          <Chips
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-          />
-        </div>
-        <div v-else-if="item.type == 'icon'">
-          <label class="form-control mt-1">
-            <div class="label">
-              <span class="label-text">{{ item.label }}</span>
-            </div>
-            <textarea
-              class="textarea textarea-primary h-24"
-              @keyup="textFieldKeyup($event.target.value, item.type, item.key)"
-              v-model="avaliableFields[index].value"
-              placeholder="Bio"
-            ></textarea>
-          </label>
-          <div class="flex justify-center bg-base-100 rounded mt-5">
-            <div class="flex p-10 w-52" v-html="avaliableFields[index].value"></div>
           </div>
         </div>
-        <div v-else-if="item.type == 'select'">
-          <select-input
-            v-model="avaliableFields[index].value"
-            :label="item.label"
-            :options="item.select_options"
-          />
-        </div>
+      </div>
+
+      <!-- No tabs - show all fields -->
+      <div v-else>
+        <FormFields
+          :fields="avaliableFields"
+          @update:fields="handleFieldsUpdate"
+        />
       </div>
     </div>
   </template>
 
   <script setup>
-  import { watch, onMounted } from "vue";
-  import {
-    formatDate,
-    formatTimestamp,
-    makeString
-  } from "./formHelper.js";
+import { ref, computed, watch, onMounted } from "vue";
+import FormFields from './FormFields.vue';
+import {
+  formatDate,
+  formatTimestamp,
+  makeString
+} from "./formHelper.js";
 
-  import {
-    InputField,
-    InputPassword,
-    SelectInput,
-    TextMultipleSelector,
-    Image,
-    Toggle,
-    Chips,
-    Editor,
-    Timestamp
-  } from "@mariojgt/masterui/packages/index";
+const props = defineProps({
+  columns: {
+    type: Array,
+    default: () => [],
+  },
+  modelValue: {
+    type: Object,
+    default: () => ({}),
+  },
+  editMode: {
+    type: String,
+    default: "false",
+  },
+  errors: {
+    type: Object,
+    default: () => ({})
+  }
+});
 
-  // Props definition
-  const props = defineProps({
-    columns: {
-      type: Array,
-      default: () => [],
-    },
-    modelValue: {
-      type: Object,
-      default: () => ({}),
-    },
-    editMode: {
-      type: String,
-      default: "false",
-    },
+const emit = defineEmits(["onFormUpdate"]);
+
+// Make avaliableFields reactive using ref instead of $ref
+const avaliableFields = ref([]);
+const currentTab = ref('');
+
+// Computed properties for tabs
+const hasTabs = computed(() => {
+  return avaliableFields.value.some(field => field.tab);
+});
+
+const tabList = computed(() => {
+  const tabs = [...new Set(avaliableFields.value.filter(field => field.tab).map(field => field.tab))];
+  if (tabs.length > 0 && !currentTab.value) {
+    currentTab.value = tabs[0];
+  }
+  return tabs;
+});
+
+// Get fields for a specific tab
+const getFieldsByTab = (tab) => {
+  return avaliableFields.value.filter(field => field.tab === tab);
+};
+
+// Handle fields updates from child component
+const handleFieldsUpdate = (updatedFields) => {
+  updatedFields.forEach(updatedField => {
+    const index = avaliableFields.value.findIndex(field => field.key === updatedField.key);
+    if (index !== -1) {
+      avaliableFields.value[index] = updatedField;
+    }
   });
 
-  // Emit definition
-  const emit = defineEmits(["onFormUpdate"]);
+  emit("onFormUpdate", avaliableFields.value);
+};
 
-  // Reactive fields using $ref
-  let avaliableFields = $ref([]);
+// Field creation function
+const createFields = () => {
+  const fields = [];
 
-  // Field creation function
-  const createFields = () => {
-    // Reset fields
-    avaliableFields = [];
+  props.columns.forEach(value => {
+    const isCreateMode = props.editMode === "false";
+    const isEditMode = props.editMode === "true";
 
-    // Loop through columns
-    props.columns.forEach(value => {
-      const isCreateMode = props.editMode === "false";
-      const isEditMode = props.editMode === "true";
+    const shouldInclude = (isCreateMode && value.canCreate) ||
+                         (isEditMode && value.canEdit);
 
-      // Determine if field should be included
-      const shouldInclude = (isCreateMode && value.canCreate) ||
-                            (isEditMode && value.canEdit);
+    if (shouldInclude) {
+      let fieldValue = "";
 
-      if (shouldInclude) {
-        // Determine initial value
-        let fieldValue = "";
-
-        if (isCreateMode) {
-          // Default values for specific types
-          if (value.type === "Toggle" || value.type === "boolean") {
-            fieldValue = false;
-          }
-        } else if (isEditMode) {
-          // Determine value for edit mode
-          fieldValue = determineFieldValue(value, props.modelValue);
+      if (isCreateMode) {
+        if (value.type === "Toggle" || value.type === "boolean") {
+          fieldValue = false;
         }
-
-        // Determine options
-        const options = value?.options?.options ||
-                        value?.options;
-
-        // Create field object
-        const field = {
-          key: value.key,
-          label: value.label,
-          type: value.type,
-          nullable: value?.nullable,
-          unique: value?.unique,
-          endpoint: value?.endpoint,
-          displayKey: value?.displayKey,
-          columns: value?.columns,
-          model: value?.model,
-          singleSearch: value?.singleSearch,
-          relation: value?.relation,
-          value: fieldValue,
-          select_options: options,
-        };
-
-        avaliableFields.push(field);
+      } else if (isEditMode) {
+        fieldValue = determineFieldValue(value, props.modelValue);
       }
-    });
 
-    // Emit form update for edit mode
-    if (props.editMode === "true") {
-      emit("onFormUpdate", avaliableFields);
+      const field = {
+        ...value,
+        value: fieldValue,
+        select_options: value?.options?.options || value?.options,
+        error: props.errors[value.key.toLowerCase()] || null
+      };
+
+      fields.push(field);
     }
-  };
+  });
 
-  // Determine field value for edit mode
-  const determineFieldValue = (value, modelValue) => {
-    switch (value.type) {
-      case "date":
-        return formatDate(modelValue[value.key]);
-      case "timestamp":
-        return formatTimestamp(modelValue[value.key]);
-      case "media":
-      case "model_search":
-      case "pivot_model":
-      case "boolean":
-      case "chips":
-        return modelValue[value.key];
-      default:
-        return makeString(modelValue[value.key]);
+  avaliableFields.value = fields;
+
+  if (props.editMode === "true") {
+    emit("onFormUpdate", avaliableFields.value);
+  }
+};
+
+// Watch for error changes
+watch(
+  () => props.errors,
+  (newErrors) => {
+    if (Object.keys(newErrors).length > 0) {
+      const updatedFields = avaliableFields.value.map(field => ({
+        ...field,
+        error: newErrors[field.key.toLowerCase()] || null
+      }));
+      avaliableFields.value = updatedFields;
+      emit("onFormUpdate", avaliableFields.value);
     }
-  };
+  },
+  { deep: true, immediate: true }
+);
 
-  // Debounce variable
-  let debounce = $ref(null);
+// Determine field value for edit mode
+const determineFieldValue = (value, modelValue) => {
+  switch (value.type) {
+    case "date":
+      return formatDate(modelValue[value.key]);
+    case "timestamp":
+      return formatTimestamp(modelValue[value.key]);
+    case "media":
+    case "model_search":
+    case "pivot_model":
+    case "boolean":
+    case "chips":
+      return modelValue[value.key];
+    default:
+      return makeString(modelValue[value.key]);
+  }
+};
 
-  // Watch for changes in available fields
-  watch(
-    () => avaliableFields,
-    () => {
-      // Clear existing debounce
-      clearTimeout(debounce);
-
-      // Set new debounce
-      debounce = setTimeout(() => {
-        emit("onFormUpdate", avaliableFields);
-      }, 500);
-    },
-    { deep: true }
-  );
-
-  // Text field keyup handler (slug generation)
-  const textFieldKeyup = (value, type, fieldName) => {
-    if (fieldName === 'name' || fieldName === 'title') {
-      // Find slug field index
-      const slugFieldIndex = avaliableFields.findIndex(
-        item => item.key === 'slug'
-      );
-
-      // Update slug if field exists
-      if (slugFieldIndex !== -1) {
-        avaliableFields[slugFieldIndex].value = value
-          .toLowerCase()
-          .trim()
-          .replace(/[^\w\s-]/g, '')
-          .replace(/[\s_-]+/g, '-')
-          .replace(/^-+|-+$/g, '');
-      }
-    }
-  };
-
-  // Initialize fields on mount
-  onMounted(createFields);
+// Initialize fields on mount
+onMounted(createFields);
   </script>
+
+  <style scoped>
+  .tabs-boxed .tab-active {
+    @apply bg-primary text-white;
+  }
+
+  .tab {
+    @apply font-medium;
+  }
+
+  .tab:not(.tab-active):hover {
+    @apply bg-base-100/[0.12];
+  }
+  </style>

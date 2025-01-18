@@ -10,6 +10,16 @@ class FormHelper
      * Store the form columns/fields
      */
     private array $columns = [];
+    private ?string $currentTab = null;
+
+    /**
+     * Set the current tab for subsequent fields
+     */
+    public function tab(string $tabName): self
+    {
+        $this->currentTab = $tabName;
+        return $this;
+    }
 
     /**
      * Store the form configuration
@@ -56,7 +66,8 @@ class FormHelper
             'columns' => $columns,
             'model' => $model,
             'singleSearch' => $singleSearch,
-            'displayKey' => $displayKey
+            'displayKey' => $displayKey,
+            'tab' => $this->currentTab
         ];
 
         if ($type !== null) {
