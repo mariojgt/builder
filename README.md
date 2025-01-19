@@ -97,7 +97,17 @@ class AlertController extends Controller
                 key: 'title',
                 sortable: true,
                 type: FieldTypes::TEXT->value
-            )
+            )->withRules([ // You can pass laravel validation rules in the withRules method
+                'required',
+                'min:3',
+                new AlertTitleValidator()
+            ])
+            // Example 2 with custom error message
+            ->withRules([
+                'required',
+                'min:3',
+                new AlertTitleValidator()
+            ], ['min' => 'Please add at least 3 characters'])
             ->addField(
                 label: 'HTML Content',
                 key: 'html_content',

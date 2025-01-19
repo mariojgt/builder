@@ -10,6 +10,7 @@ use Mariojgt\Builder\Enums\FieldTypes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 use Mariojgt\Magnifier\Resources\MediaResource;
+use Illuminate\Support\Facades\Validator;
 
 class BuilderHelper
 {
@@ -48,72 +49,122 @@ class BuilderHelper
     /**
      * Generic assignment and validation of data.
      *
-     * @param mixed $model
-     * @param mixed $column
-     *
+     * @param Model $model
+     * @param array $column
      * @return Model
+     * @throws ValidationException
      */
     public function genericValidation($model, $column)
     {
         $value = $column['value'];
         $key = $column['key'];
         $type = $column['type'];
+        $messages = [];
 
+        if (!empty($column['rules'])) {
+            $validationRules = [];
+
+            foreach ($column['rules'] as $rule) {
+                if ($rule['type'] === 'validator') {
+                    try {
+                        $validatorClass = decrypt($rule['class']);
+                        // Create new instance with parameters if they exist
+                        if (!empty($rule['params'])) {
+                            $validationRules[] = new $validatorClass(...$rule['params']);
+                        } else {
+                            $validationRules[] = new $validatorClass();
+                        }
+                    } catch (\Exception $e) {
+                        throw ValidationException::withMessages([
+                            $key => 'Invalid validation rule'
+                        ]);
+                    }
+                } else {
+                    $validationRules[] = $rule['value'];
+                    // Format messages for this specific rule
+                    if (!empty($column['messages'])) {
+                        $ruleKey = explode(':', $rule['value'])[0];
+                        $messageKey = "{$key}.{$ruleKey}";
+                        if (isset($column['messages'][$messageKey])) {
+                            $messages[$messageKey] = $column['messages'][$messageKey];
+                        }
+                    }
+                }
+            }
+
+            $validator = Validator::make(
+                [$key => $value],
+                [$key => $validationRules],
+                $messages
+            );
+
+            if ($validator->fails()) {
+                throw new ValidationException($validator);
+            }
+        }
+
+        // Handle field type specific validation and assignment
         switch ($type) {
             case FieldTypes::TEXT->value:
-                $model->$key = $value;
-                break;
             case FieldTypes::EDITOR->value:
                 $model->$key = $value;
                 break;
+
             case FieldTypes::SLUG->value:
                 if (isset($column['unique']) && $column['unique']) {
                     $modelCheck = $model::class;
                     $modelCheck = $model->id ?
                         $modelCheck::where($key, Str::slug($value))->where('id', '!=', $model->id)->first() :
                         $modelCheck::where($key, Str::slug($value))->first();
+
                     if ($modelCheck) {
-                        throw ValidationException::withMessages([$column['key'] => 'The slug must be unique.']);
+                        $errorMessage = $column['messages'][$key . '.unique'] ?? 'The slug must be unique.';
+                        throw ValidationException::withMessages([$key => $errorMessage]);
                     }
                 }
                 $model->$key = Str::slug($value);
                 break;
+
             case FieldTypes::EMAIL->value:
                 if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                    throw ValidationException::withMessages([$column['key'] => 'Must be a valid email.']);
+                    $errorMessage = $column['messages'][$key . '.email'] ?? 'Must be a valid email.';
+                    throw ValidationException::withMessages([$key => $errorMessage]);
                 }
                 $model->$key = $value;
                 break;
+
             case FieldTypes::DATE->value:
-                $model->$key = Carbon::parse($value);
-                break;
             case FieldTypes::TIMESTAMP->value:
-                $model->$key = Carbon::parse($value);
+                try {
+                    $model->$key = Carbon::parse($value);
+                } catch (\Exception $e) {
+                    $errorMessage = $column['messages'][$key . '.date'] ?? 'Invalid date format.';
+                    throw ValidationException::withMessages([$key => $errorMessage]);
+                }
                 break;
+
             case FieldTypes::NUMBER->value:
                 if (!is_numeric($value)) {
-                    throw ValidationException::withMessages([$column['key'] => 'Must be a valid number.']);
+                    $errorMessage = $column['messages'][$key . '.numeric'] ?? 'Must be a valid number.';
+                    throw ValidationException::withMessages([$key => $errorMessage]);
                 }
                 $model->$key = $value;
                 break;
+
             case FieldTypes::MODEL_SEARCH->value:
                 $valueData = !empty($value['id']) ? $value['id'] : collect($value)->pluck('id')->first();
                 $model->$key = $column['singleSearch'] ? $valueData : json_encode($valueData);
                 break;
-            case FieldTypes::ICON->value:
-            case FieldTypes::SELECT->value:
-                $model->$key = $value;
-                break;
+
             case FieldTypes::PASSWORD->value:
                 $model->$key = bcrypt($value);
                 break;
+
             case FieldTypes::BOOLEAN->value:
-                $model->$key = $value;
-                break;
+            case FieldTypes::ICON->value:
+            case FieldTypes::SELECT->value:
             case FieldTypes::CHIPS->value:
                 $model->$key = $value;
-                break;
-            default:
                 break;
         }
 

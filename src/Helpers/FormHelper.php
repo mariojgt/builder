@@ -2,15 +2,31 @@
 
 namespace Mariojgt\Builder\Helpers;
 
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
 use Mariojgt\Builder\Enums\FieldTypes;
+use Illuminate\Contracts\Validation\ValidationRule;
 
 class FormHelper
 {
     /**
      * Store the form columns/fields
+     *
+     * @var array<int, array>
      */
     private array $columns = [];
+
+    /**
+     * Current active tab
+     */
     private ?string $currentTab = null;
+
+    /**
+     * Store the form configuration
+     *
+     * @var array<string, mixed>
+     */
+    private array $config = [];
 
     /**
      * Set the current tab for subsequent fields
@@ -22,21 +38,109 @@ class FormHelper
     }
 
     /**
-     * Store the form configuration
+     * Encrypt a validator class name
+     *
+     * @throws \RuntimeException When encryption fails
      */
-    private array $config = [];
+    private function encryptValidatorClass(string $validatorClass): string
+    {
+        try {
+            return Crypt::encrypt($validatorClass);
+        } catch (\Exception $e) {
+            throw new \RuntimeException("Failed to encrypt validator class: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Process a validation rule
+     *
+     * @param mixed $rule The rule to process
+     * @param array<string, mixed> $params Additional parameters for the rule
+     * @return array{type: string, class?: string, value?: mixed, params?: array}
+     */
+    private function processRule(mixed $rule, array $params = []): array
+    {
+        // Handle ValidationRule objects
+        if (is_object($rule)) {
+            $class = get_class($rule);
+            if ($rule instanceof ValidationRule) {
+                return [
+                    'type' => 'validator',
+                    'class' => $this->encryptValidatorClass($class),
+                    'params' => $params
+                ];
+            }
+        }
+
+        // Handle ValidationRule class names
+        if (is_string($rule) && class_exists($rule)) {
+            $reflection = new \ReflectionClass($rule);
+            if ($reflection->implementsInterface(ValidationRule::class)) {
+                return [
+                    'type' => 'validator',
+                    'class' => $this->encryptValidatorClass($rule),
+                    'params' => $params
+                ];
+            }
+        }
+
+        return [
+            'type' => 'rule',
+            'value' => $rule
+        ];
+    }
+
+    /**
+     * Add validation rules and messages to the last added field
+     */
+    public function withRules(mixed $rules, array $messages = []): self
+    {
+        $lastIndex = count($this->columns) - 1;
+        if ($lastIndex < 0) {
+            throw new \InvalidArgumentException('No fields exist to add rules to');
+        }
+
+        $processedRules = [];
+        $formattedMessages = [];
+        $fieldKey = $this->columns[$lastIndex]['key'];
+
+        if (is_array($rules)) {
+            foreach ($rules as $rule) {
+                if (is_array($rule) && isset($rule[0])) {
+                    $processedRules[] = $this->processRule($rule[0], $rule[1] ?? []);
+                } else {
+                    $processedRules[] = $this->processRule($rule);
+                }
+            }
+        } elseif (is_string($rules)) {
+            foreach (explode('|', $rules) as $rule) {
+                $processedRules[] = $this->processRule(trim($rule));
+            }
+        } elseif ($rules instanceof ValidationRule) {
+            $processedRules[] = $this->processRule($rules);
+        } else {
+            throw new \InvalidArgumentException('Invalid rules format provided');
+        }
+
+        // Format messages with field key
+        if (!empty($messages)) {
+            foreach ($messages as $rule => $message) {
+                $formattedMessages["$fieldKey.$rule"] = $message;
+            }
+        }
+
+        $this->columns[$lastIndex]['rules'] = $processedRules;
+        if (!empty($formattedMessages)) {
+            $this->columns[$lastIndex]['messages'] = $formattedMessages;
+        }
+
+        return $this;
+    }
 
     /**
      * Add a new field to the form
      *
-     * @param string $label
-     * @param string $key
-     * @param bool $sortable
-     * @param bool $canCreate
-     * @param bool $canEdit
-     * @param string|null $type
-     * @param array $options
-     * @return self
+     * @throws \InvalidArgumentException When invalid parameters are provided
      */
     public function addField(
         string $label,
@@ -44,7 +148,7 @@ class FormHelper
         bool $sortable = true,
         bool $canCreate = true,
         bool $canEdit = true,
-        ?string $type = FieldTypes::TEXT->value,
+        ?string $type = null,
         array $options = [],
         bool $unique = false,
         bool $nullable = false,
@@ -52,8 +156,34 @@ class FormHelper
         array $columns = [],
         ?string $model = null,
         bool $singleSearch = false,
-        ?string $displayKey = null
+        ?string $displayKey = null,
+        mixed $rules = null,
+        array $messages = []
     ): self {
+        if (empty($key)) {
+            throw new \InvalidArgumentException('Field key cannot be empty');
+        }
+
+        $type ??= FieldTypes::TEXT->value;
+
+        $processedRules = [];
+        if ($rules !== null) {
+            if (is_object($rules) && $rules instanceof ValidationRule) {
+                $processedRules[] = $this->processRule($rules);
+            } elseif (is_array($rules)) {
+                foreach ($rules as $rule) {
+                    $processedRules[] = $this->processRule($rule);
+                }
+            } elseif (is_string($rules)) {
+                foreach (explode('|', $rules) as $rule) {
+                    $processedRules[] = [
+                        'type' => 'rule',
+                        'value' => trim($rule)
+                    ];
+                }
+            }
+        }
+
         $field = [
             'label' => $label,
             'key' => $key,
@@ -67,19 +197,17 @@ class FormHelper
             'model' => $model,
             'singleSearch' => $singleSearch,
             'displayKey' => $displayKey,
-            'tab' => $this->currentTab
+            'tab' => $this->currentTab,
+            'type' => $type,
+            'rules' => $processedRules,
+            'messages' => $messages
         ];
-
-        if ($type !== null) {
-            $field['type'] = $type;
-        }
 
         if (!empty($options)) {
             $field['options'] = $options;
         }
 
         $this->columns[] = $field;
-
         return $this;
     }
 
@@ -417,23 +545,29 @@ class FormHelper
 
     /**
      * Set the model for the table
-     *
-     * @param string $modelClass
-     * @return self
      */
     public function setModel(string $modelClass): self
     {
+        if (!class_exists($modelClass)) {
+            throw new \InvalidArgumentException("Model class {$modelClass} does not exist");
+        }
+
         $this->config['model'] = encrypt($modelClass);
         return $this;
     }
 
     /**
+     * Convert fields to collection
+     */
+    public function toCollection(): Collection
+    {
+        return collect($this->columns);
+    }
+
+    /**
      * Set permissions for CRUD operations
      *
-     * @param string $guard
-     * @param string $type
-     * @param array $permissions
-     * @return self
+     * @param array<string, string> $permissions
      */
     public function setPermissions(
         string $guard,
@@ -498,10 +632,10 @@ class FormHelper
         return $this;
     }
 
-    /**
+     /**
      * Build the complete configuration array
      *
-     * @return array
+     * @return array<string, mixed>
      */
     public function build(): array
     {
