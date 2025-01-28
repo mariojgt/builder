@@ -28,6 +28,13 @@ class FormHelper
      */
     private array $config = [];
 
+
+    /**
+     * Default sort key
+     * @var string|null|null
+     */
+    private ?string $defaultIdKey = null;
+
     /**
      * Set the current tab for subsequent fields
      */
@@ -158,7 +165,9 @@ class FormHelper
         bool $singleSearch = false,
         ?string $displayKey = null,
         mixed $rules = null,
-        array $messages = []
+        array $messages = [],
+        bool $filterable = false,
+        array $filterOptions = []
     ): self {
         if (empty($key)) {
             throw new \InvalidArgumentException('Field key cannot be empty');
@@ -200,7 +209,9 @@ class FormHelper
             'tab' => $this->currentTab,
             'type' => $type,
             'rules' => $processedRules,
-            'messages' => $messages
+            'messages' => $messages,
+            'filterable' => $filterable,
+            'filter_options' => $filterOptions
         ];
 
         if (!empty($options)) {
@@ -222,6 +233,7 @@ class FormHelper
         string $label = 'Id',
         string $key = 'id'
     ): self {
+        $this->defaultIdKey = $key;
         return $this->addField(
             label: $label,
             key: $key,
@@ -641,6 +653,7 @@ class FormHelper
     {
         return array_merge($this->config, [
             'columns' => $this->getFields(),
+            'defaultIdKey' => $this->defaultIdKey,
         ]);
     }
 }

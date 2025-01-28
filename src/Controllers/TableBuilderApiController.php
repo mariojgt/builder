@@ -2,6 +2,7 @@
 
 namespace Mariojgt\Builder\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -47,23 +48,83 @@ class TableBuilderApiController extends Controller
             }
         }
 
+        // Start the query
+        $query = $model->query();
+
+        // Handle filters
+        if ($request->has('filters')) {
+            $filters = $request->filters;
+
+            foreach ($filters as $key => $value) {
+                if (empty($value)) {
+                    continue;
+                }
+
+                $column = $rawColumns->firstWhere('key', $key);
+                if (!$column) {
+                    continue;
+                }
+
+                switch ($column['type']) {
+                    case 'model_search':
+                        $query->where($key, $value);
+                        break;
+
+                    case 'boolean':
+                        $query->where($key, $value === 'true');
+                        break;
+
+                    case 'date':
+                        if (!empty($value['from'])) {
+                            $query->whereDate($key, '>=', Carbon::parse($value['from']));
+                        }
+                        if (!empty($value['to'])) {
+                            $query->whereDate($key, '<=', Carbon::parse($value['to']));
+                        }
+                        break;
+
+                    case 'select':
+                        $query->where($key, $value);
+                        break;
+
+                    default:
+                        $query->where($key, 'LIKE', "%{$value}%");
+                        break;
+                }
+            }
+        }
+
+        // Handle search
         if ($request->has('search')) {
             $sortableColumns = $rawColumns->filter(function ($column) {
                 return $column['sortable'] == true;
             });
             $columnSearch = $sortableColumns->pluck('key');
-            $model = $model->where(function ($query) use ($request, $columnSearch) {
+            $query->where(function ($q) use ($request, $columnSearch) {
                 foreach ($columnSearch as $column) {
-                    $query->orWhere($column, 'like', '%' . $request->search . '%');
+                    $q->orWhere($column, 'like', '%' . $request->search . '%');
                 }
             });
         }
 
+        // Handle sorting
         if (!empty($request->sort)) {
-            $model = $model->orderBy($request->sort, $request->direction ?? 'asc');
+            $query->orderBy($request->sort, $request->direction ?? 'asc');
         }
 
-        $modelPaginated = $model->select($columns->toArray())->paginate($request->perPage ?? 10);
+        // Add any needed relationships for model_search
+        $relationships = $rawColumns->where('type', 'model_search')
+            ->pluck('relation')
+            ->filter();
+
+        if ($relationships->isNotEmpty()) {
+            $query->with($relationships->toArray());
+        }
+
+        // Execute query with pagination and column selection
+        $modelPaginated = $query->select($columns->toArray())->paginate($request->perPage ?? 10);
+
+        // Process the data through builder helper
         $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
 
         return [
