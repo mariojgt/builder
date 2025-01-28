@@ -293,6 +293,42 @@ Builder requires the following Node dependencies:
 - `"@mariojgt/wind-notify": "1.0.0"`
 - `"lucide-vue-next": "^0.474.0",`
 
+Vite configuration:
+
+```js
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite'
+import path from 'path';
+
+export default defineConfig({
+    resolve: {
+        alias: {
+            '@': path.resolve(__dirname, './resources'),
+            '@css': path.resolve(__dirname, './resources/css'), // Used in the builder plugins to point ot the css
+            '@components': path.resolve(__dirname, './resources/js/components'),
+            '@builder': '/resources/vendor/Builder/Table',
+        },
+    },
+    server: {
+        host: '0.0.0.0',
+        hmr: {
+            host: 'localhost'
+        },
+    },
+    plugins: [
+        tailwindcss(),
+        laravel({
+            input: ['resources/js/app.js', 'resources/css/app.css'],
+            refresh: true,
+        }),
+        vue(),
+    ],
+});
+
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
