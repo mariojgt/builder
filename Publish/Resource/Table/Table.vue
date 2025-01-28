@@ -158,7 +158,7 @@
 
   <script setup lang="ts">
   import { ref, computed } from 'vue';
-  import { useMessage } from 'naive-ui';
+  import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
   import axios from 'axios';
   import { Link } from '@inertiajs/vue3';
   import {
@@ -178,8 +178,6 @@
   import TableFilter from './components/filter/filter.vue';
   import TablePagination from './components/filter/pagination.vue';
   import TableDisplayData from './components/tableDataDisplay.vue';
-
-  const message = useMessage();
 
   // State
   const isLoading = ref(false);
@@ -261,11 +259,13 @@
       if (error.response?.data?.errors) {
         Object.values(error.response.data.errors).forEach((errorMessages: any) => {
           if (Array.isArray(errorMessages)) {
-            errorMessages.forEach(msg => message.error(msg));
+            errorMessages.forEach(msg => {
+              startWindToast('error', msg);
+            });
           }
         });
       } else {
-        message.error('Failed to fetch data');
+        startWindToast('error', 'Failed to fetch data');
       }
     } finally {
       isLoading.value = false;

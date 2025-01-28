@@ -166,6 +166,8 @@ const textFieldKeyup = (value, type, fieldName) => {
 </script>
 
 <style scoped>
+@reference "../../../../../css/app.css";
+
 .form-control {
     @apply space-y-2;
 }

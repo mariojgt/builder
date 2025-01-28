@@ -2,7 +2,7 @@
 
 namespace Mariojgt\Builder\Enums;
 
-use Mariojgt\SkeletonAdmin\Enums\EnumToArray;
+use Mariojgt\Builder\Trailt\EnumToArray;
 
 enum FieldTypes: string
 {

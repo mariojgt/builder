@@ -109,7 +109,7 @@
 
   <script setup lang="ts">
   import { ref } from 'vue';
-  import { useMessage } from 'naive-ui';
+  import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
   import axios from 'axios';
   import {
     Trash2,
@@ -117,7 +117,6 @@
     AlertTriangle
   } from 'lucide-vue-next';
 
-  const message = useMessage();
   const isOpen = ref(false);
   const isDeleting = ref(false);
 
@@ -154,7 +153,7 @@
         permission: props.permission,
       });
 
-      message.success(response.data.message);
+      startWindToast('success', response.data.message, 'success');
 
       emit('onDelete');
       isOpen.value = false;
@@ -165,11 +164,11 @@
         const errors = error.response.data.errors;
         Object.values(errors).forEach((errorMsg: any) => {
           if (Array.isArray(errorMsg)) {
-            message.error(errorMsg[0]);
+            startWindToast('error', errorMsg[0], 'error');
           }
         });
       } else {
-        message.error(errorMessage);
+        startWindToast('error', errorMessage, 'error');
       }
     } finally {
       isDeleting.value = false;

@@ -178,6 +178,8 @@ onMounted(createFields);
   </script>
 
   <style scoped>
+  @reference "../../../../../css/app.css";
+
   .tabs-boxed .tab-active {
     @apply bg-primary text-white;
   }

@@ -245,7 +245,7 @@
 # Script Section
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useMessage } from 'naive-ui';
+import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import axios from 'axios';
 import FormBuilder from '../formHelpers/FormBuilder.vue';
 import {
@@ -261,7 +261,6 @@ import {
   Check
 } from 'lucide-vue-next';
 
-const message = useMessage();
 const isOpen = ref(false);
 const isSubmitting = ref(false);
 const formErrors = ref({});
@@ -334,7 +333,7 @@ const createNew = async () => {
       permission: props.permission,
     });
 
-    message.success(response.data.message);
+    startWindToast('success', 'Entry created successfully', 'success');
     emit('onCreate');
     isOpen.value = false;
   } catch (error: any) {
@@ -364,11 +363,11 @@ const createNew = async () => {
 
       // Display error messages using notification system
       Object.values(formErrors.value).forEach((errorMsg: string) => {
-        message.error(errorMsg);
+        startWindToast('error', errorMsg, 'error');
       });
     } else if (error.message) {
       // Handle generic error
-      message.error('An error occurred while creating the entry. Please try again.');
+      startWindToast('error', error.message, 'error');
     }
   } finally {
     isSubmitting.value = false;

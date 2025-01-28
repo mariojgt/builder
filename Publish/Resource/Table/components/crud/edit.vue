@@ -232,8 +232,8 @@
 
   <script setup lang="ts">
   import { ref, computed } from 'vue';
-  import { useMessage } from 'naive-ui';
   import axios from 'axios';
+  import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
   import FormBuilder from '../formHelpers/FormBuilder.vue';
   import {
     X as XIcon,
@@ -247,7 +247,6 @@
     Folder
   } from 'lucide-vue-next';
 
-  const message = useMessage();
   const isOpen = ref(false);
   const isSubmitting = ref(false);
   const formErrors = ref({});
@@ -325,7 +324,7 @@
         permission: props.permission,
       });
 
-      message.success(response.data.message);
+      startWindToast('success', response.data.message, 'success');
       emit('onEdit');
       isOpen.value = false;
     } catch (error: any) {
@@ -352,10 +351,10 @@
         }
 
         Object.values(formErrors.value).forEach((errorMsg: string) => {
-          message.error(errorMsg);
+            startWindToast('error', errorMsg, 'error');
         });
       } else {
-        message.error('An error occurred while saving changes. Please try again.');
+        startWindToast('error', 'An error occurred while saving changes. Please try again.', 'error');
       }
     } finally {
       isSubmitting.value = false;

@@ -75,7 +75,7 @@ use Mariojgt\GameDev\Models\Alert;
 use App\Http\Controllers\Controller;
 use Mariojgt\Builder\Enums\FieldTypes;
 use Mariojgt\Builder\Helpers\FormHelper;
-use Mariojgt\SkeletonAdmin\Enums\PermissionEnum;
+use Mariojgt\Builder\Enums\PermissionEnum;;
 
 class AlertController extends Controller
 {
@@ -282,6 +282,16 @@ You can customize:
 - Form layouts and sections
 - Error handling and display
 - Loading states and animations
+
+## Node Dependencies
+
+Builder requires the following Node dependencies:
+
+- `"@headlessui/vue": "^1.7.23"`
+- `"@inertiajs/vue3": "^2.0.3"`
+- `"@mariojgt/masterui": "^0.5.6"`
+- `"@mariojgt/wind-notify": "1.0.0"`
+- `"lucide-vue-next": "^0.474.0",`
 
 ## Contributing
 
