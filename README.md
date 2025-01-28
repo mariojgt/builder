@@ -91,6 +91,7 @@ class AlertController extends Controller
         $form = new FormHelper();
         $formConfig = $form
             ->addIdField()
+            // ->addIdField(label: 'product_id', key: 'product_id') // custom id field
             ->tab('General Info')
             ->addField(
                 label: 'Title',
@@ -241,6 +242,107 @@ class AlertController extends Controller
         ]);
     }
 }
+
+
+// Table filters example
+$form = new FormHelper();
+$formConfig = $form
+    ->addIdField()
+    ->tab('General Info')
+    ->addField(
+        label: 'Name',
+        key: 'name',
+        sortable: true,
+        canCreate: true,
+        canEdit: true,
+        type: FieldTypes::TEXT->value,
+        filterable: true  // Enable filtering for this field
+    )
+    ->addField(
+        label: 'Is Active',
+        key: 'is_active',
+        sortable: true,
+        type: FieldTypes::BOOLEAN->value,
+        canCreate: true,
+        canEdit: true,
+        filterable: true
+    )
+    ->addField(
+        label: 'Created At',
+        key: 'created_at',
+        type: FieldTypes::DATE->value,
+        filterable: true,
+        filterOptions: ['type' => 'date-range']
+    )
+    ->addField(
+        label: 'Status',
+        key: 'status',
+        type: FieldTypes::SELECT->value,
+        options: [
+            'select_options' => [
+                ['value' => 'active', 'label' => 'Active'],
+                ['value' => 'inactive', 'label' => 'Inactive'],
+                ['value' => 'pending', 'label' => 'Pending']
+            ]
+        ],
+        filterable: true
+    )
+    // ... rest of your fields
+```
+
+Vue js example
+
+```js
+<template>
+    <Table :columns="props.columns" :model="props.model" :endpoint="props.endpoint"
+        :endpoint-delete="props.endpointDelete" :endpoint-create="props.endpointCreate"
+        :endpoint-edit="props.endpointEdit" :table-title="props.title" :permission="props.permission"
+        :defaultSortKey="props.defaultSortKey" />
+</template>
+
+<script setup>
+// Import the table component from the builder api
+import Table from "@builder/Table.vue";
+
+const props = defineProps({
+    endpoint: {
+        type: String,
+        default: "",
+    },
+    columns: {
+        type: Object,
+        default: () => ({}),
+    },
+    model: {
+        type: String,
+        default: "",
+    },
+    endpointDelete: {
+        type: String,
+        default: "",
+    },
+    endpointCreate: {
+        type: String,
+        default: "",
+    },
+    endpointEdit: {
+        type: String,
+        default: "",
+    },
+    permission: {
+        type: String,
+        default: "",
+    },
+    title: {
+        type: String,
+        default: "",
+    },
+    defaultSortKey: {
+        type: String,
+        default: "",
+    },
+});
+</script>
 ```
 
 ## Field Types
