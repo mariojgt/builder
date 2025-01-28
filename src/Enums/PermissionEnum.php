@@ -1,6 +1,6 @@
 <?php
 
-namespace Mariojgt\SkeletonAdmin\Enums;
+namespace Mariojgt\Builder\Enums;
 
 use Mariojgt\Builder\Trailt\EnumToArray;
 
