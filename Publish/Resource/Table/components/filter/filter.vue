@@ -219,11 +219,6 @@
     sortable: boolean;
   }
 
-  interface FilterColumn {
-    label: string;
-    value: string;
-  }
-
   interface Props {
     columns: Column[];
   }
@@ -244,7 +239,7 @@
   const filterBy = ref<string>('');
   const orderBy = ref<string>('asc');
   const search = ref<string>('');
-  const filterColumns = ref<FilterColumn[]>([]);
+  const filterColumns = ref<{ label: string; value: string; }[]>([]);
 
   // Computed
   const selectedFilterLabel = computed(() => {

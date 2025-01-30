@@ -51,6 +51,7 @@
             <table-filter @onPerPage="handlePerPageChange" @onOrderBy="handleOrderChange" @onSearch="handleSearch"
                 @onFilter="handleFilterChange" @onFilterReset="handleFilterReset" :columns="props.columns" />
             <AdvancedFilter
+                class="mt-3"
                 :columns="props.columns"
                 @onFilterChange="handleAdvancedFilterChange"
             />
