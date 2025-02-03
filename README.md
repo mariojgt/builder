@@ -392,7 +392,7 @@ Builder requires the following Node dependencies:
 - `"@headlessui/vue": "^1.7.23"`
 - `"@inertiajs/vue3": "^2.0.3"`
 - `"@mariojgt/masterui": "^0.5.6"`
-- `"@mariojgt/wind-notify": "1.0.0"`
+- `"@mariojgt/wind-notify": "^1.0.3"`
 - `"lucide-vue-next": "^0.474.0",`
 
 Vite configuration:
