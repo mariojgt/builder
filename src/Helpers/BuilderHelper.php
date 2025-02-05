@@ -196,9 +196,21 @@ class BuilderHelper
                             $field = $column['key'];
                             $modelRelation = decrypt($column['model']);
                             $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push(app($modelRelation)->getTable() . '.id');
-                            $item->$field = $column['singleSearch'] ?
-                                $modelRelation::where('id', $item->$field)->select($columnFilters->toArray())->first() :
-                                $modelRelation::whereIn('id', json_decode($item->$field))->select($columnFilters->toArray())->get();
+
+                            // Fix for MODEL_SEARCH
+                            if ($column['singleSearch']) {
+                                $item->$field = $modelRelation::where('id', $item->$field)->select($columnFilters->toArray())->first();
+                            } else {
+                                // Make sure we have a valid array of IDs
+                                $ids = json_decode($item->$field);
+                                if ($ids && is_array($ids) && count($ids) > 0) {
+                                    $item->$field = $modelRelation::whereIn('id', $ids)
+                                        ->select($columnFilters->toArray())
+                                        ->get();
+                                } else {
+                                    $item->$field = collect(); // Return empty collection if no valid IDs
+                                }
+                            }
                             break;
                         case FieldTypes::PIVOT_MODEL->value:
                             $field = $column['key'];
