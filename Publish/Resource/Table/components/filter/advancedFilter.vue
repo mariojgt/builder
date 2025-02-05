@@ -173,18 +173,27 @@
 
   const activeFilters = computed(() => {
     return Object.entries(filters.value).reduce((acc, [key, value]) => {
-      if (value) {
-        if (typeof value === 'string' && value.trim()) {
-          acc[key] = value;
-        } else if (typeof value === 'object') {
-          if (value.from || value.to) {
+        if (value !== null && value !== undefined) {
+        // Handle strings (including empty strings)
+        if (typeof value === 'string') {
+            if (value.trim()) {
             acc[key] = value;
-          }
+            }
         }
-      }
-      return acc;
+        // Handle numbers (including 0)
+        else if (typeof value === 'number') {
+            acc[key] = value;
+        }
+        // Handle objects (for date ranges)
+        else if (typeof value === 'object') {
+            if (value.from || value.to) {
+            acc[key] = value;
+            }
+        }
+        }
+        return acc;
     }, {});
-  });
+    });
 
   const hasActiveFilters = computed(() => {
     return Object.keys(activeFilters.value).length > 0;
