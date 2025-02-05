@@ -19,42 +19,40 @@
                 <!-- Action Buttons -->
                 <div class="flex items-center gap-3">
                     <div class="btn-group">
-                        <button
-                        @click="viewMode = 'table'"
-                        :class="['btn btn-sm', viewMode === 'table' ? 'btn-primary' : 'btn-ghost']"
-                        >
-                        <TableIcon class="w-4 h-4" />
-                        <span class="hidden sm:inline ml-2">Table</span>
+                        <button @click="viewMode = 'table'"
+                            :class="['btn btn-sm', viewMode === 'table' ? 'btn-primary' : 'btn-ghost']">
+                            <TableIcon class="w-4 h-4" />
+                            <span class="hidden sm:inline ml-2">Table</span>
                         </button>
-                        <button
-                        @click="viewMode = 'list'"
-                        :class="['btn btn-sm', viewMode === 'list' ? 'btn-primary' : 'btn-ghost']"
-                        >
-                        <ListIcon class="w-4 h-4" />
-                        <span class="hidden sm:inline ml-2">List</span>
+                        <button @click="viewMode = 'list'"
+                            :class="['btn btn-sm', viewMode === 'list' ? 'btn-primary' : 'btn-ghost']">
+                            <ListIcon class="w-4 h-4" />
+                            <span class="hidden sm:inline ml-2">List</span>
                         </button>
                     </div>
+                    <ColumnVisibilityManager
+                        :columns="props.columns"
+                        :storage-key="`${props.tableTitle}-hidden-columns`"
+                        @update:hiddenColumns="updateHiddenColumns"
+                    />
+                    <ExportData
+                            :data="tableData"
+                            :columns="columns"
+                            :hiddenColumns="hiddenColumns"
+                            :filename="props.tableTitle.toLowerCase().replace(/\s+/g, '-')"
+                        />
                     <slot name="custom-actions"></slot>
                     <slot name="new">
-                        <create
-                        :columns="props.columns"
-                        :endpoint="props.endpointCreate"
-                        :model="props.model"
-                        :permission="props.permission"
-                        @onCreate="refreshData"
-                        />
+                        <create :columns="props.columns" :endpoint="props.endpointCreate" :model="props.model"
+                            :permission="props.permission" @onCreate="refreshData" />
                     </slot>
-                    </div>
+                </div>
             </div>
 
             <!-- Filters Section -->
             <table-filter @onPerPage="handlePerPageChange" @onOrderBy="handleOrderChange" @onSearch="handleSearch"
                 @onFilter="handleFilterChange" @onFilterReset="handleFilterReset" :columns="props.columns" />
-            <AdvancedFilter
-                class="mt-3"
-                :columns="props.columns"
-                @onFilterChange="handleAdvancedFilterChange"
-            />
+            <AdvancedFilter class="mt-3" :columns="props.columns" @onFilterChange="handleAdvancedFilterChange" />
             <!-- Loading State -->
             <div v-if="isLoading"
                 class="absolute inset-0 bg-base-300/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl">
@@ -70,154 +68,111 @@
                     <!-- Empty State -->
                     <div v-if="!tableData.length && !isLoading"
                         class="flex flex-col items-center justify-center p-12 text-center">
-                    <DatabaseIcon class="w-16 h-16 text-base-content/20" />
-                    <h3 class="text-lg font-semibold text-base-content mt-4">
-                        No Records Found
-                    </h3>
-                    <p class="text-base-content/70 mt-1">
-                        {{ search ? 'Try adjusting your search or filters' : 'No data available' }}
-                    </p>
-                    <button v-if="hasActiveFilters"
-                            @click="resetFilters"
-                            class="btn btn-ghost btn-sm gap-2 mt-4">
-                        <RotateCcwIcon class="w-4 h-4" />
-                        Reset Filters
-                    </button>
+                        <DatabaseIcon class="w-16 h-16 text-base-content/20" />
+                        <h3 class="text-lg font-semibold text-base-content mt-4">
+                            No Records Found
+                        </h3>
+                        <p class="text-base-content/70 mt-1">
+                            {{ search ? 'Try adjusting your search or filters' : 'No data available' }}
+                        </p>
+                        <button v-if="hasActiveFilters" @click="resetFilters" class="btn btn-ghost btn-sm gap-2 mt-4">
+                            <RotateCcwIcon class="w-4 h-4" />
+                            Reset Filters
+                        </button>
                     </div>
 
                     <!-- Table View -->
                     <div v-else-if="viewMode === 'table'" class="overflow-x-auto">
-                    <table class="table table-compact w-full">
-                        <!-- Table Header -->
-                        <thead class="bg-base-200/50">
-                        <tr>
-                            <th v-for="(column, index) in columns"
-                                :key="index"
-                                @click="column.sortable && handleSort(column.key)"
-                                :class="['text-base-content', { 'cursor-pointer hover:bg-base-200': column.sortable }]"
-                            >
-                            <div class="flex items-center gap-2">
-                                {{ column.label }}
-                                <button v-if="column.sortable"
-                                        class="btn btn-ghost btn-xs btn-square opacity-50 hover:opacity-100">
-                                <component :is="getSortIcon(column.key)" class="w-4 h-4" />
-                                </button>
-                            </div>
-                            </th>
-                            <th class="text-base-content text-right">Actions</th>
-                        </tr>
-                        </thead>
+                        <table class="table table-compact w-full">
+                            <!-- Table Header -->
+                            <thead class="bg-base-200/50">
+                                <tr>
+                                    <th v-for="column in visibleColumns" :key="column.key"
+                                        @click="column.sortable && handleSort(column.key)"
+                                        :class="['text-base-content', { 'cursor-pointer hover:bg-base-200': column.sortable }]">
+                                        <div class="flex items-center gap-2">
+                                            {{ column.label }}
+                                            <button v-if="column.sortable"
+                                                class="btn btn-ghost btn-xs btn-square opacity-50 hover:opacity-100">
+                                                <component :is="getSortIcon(column.key)" class="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th class="text-base-content text-right">Actions</th>
+                                </tr>
+                            </thead>
 
-                        <!-- Table Body -->
-                        <tbody>
-                        <tr v-for="(item, index) in tableData"
-                            :key="item.id || index"
-                            class="hover:bg-base-200/50 transition-colors duration-200 group">
-                            <table-display-data
-                            :tableData="item"
-                            :columns="columns"
-                            />
-                            <td class="text-right">
-                            <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <!-- Edit Action -->
-                                <template v-if="!custom_edit_route">
-                                    <edit
-                                        :columns="columns"
-                                        :endpoint="endpointEdit"
-                                        :model="model"
-                                        :modelValue="item"
-                                        :id="item[props.defaultIdKey]"
-                                        :permission="permission"
-                                        @onEdit="refreshData"
-                                    />
-                                </template>
-                                <template v-else>
-                                <Link
-                                    :href="custom_edit_route + item.id"
-                                    class="btn btn-primary btn-sm gap-2"
-                                >
-                                    <PencilIcon class="w-4 h-4" />
-                                    <span class="hidden sm:inline">Edit</span>
-                                </Link>
-                                </template>
+                            <!-- Table Body -->
+                            <tbody>
+                                <tr v-for="(item, index) in tableData" :key="item.id || index"
+                                    class="hover:bg-base-200/50 transition-colors duration-200 group">
+                                    <table-display-data :tableData="item" :columns="columns"
+                                        :hiddenColumns="hiddenColumns" viewType="table" />
+                                    <td class="text-right">
+                                        <div
+                                            class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                            <!-- Edit Action -->
+                                            <template v-if="!custom_edit_route">
+                                                <edit :columns="columns" :endpoint="endpointEdit" :model="model"
+                                                    :modelValue="item" :id="item[props.defaultIdKey]"
+                                                    :permission="permission" @onEdit="refreshData" />
+                                            </template>
+                                            <template v-else>
+                                                <Link :href="custom_edit_route + item.id"
+                                                    class="btn btn-primary btn-sm gap-2">
+                                                <PencilIcon class="w-4 h-4" />
+                                                <span class="hidden sm:inline">Edit</span>
+                                                </Link>
+                                            </template>
 
-                                <!-- Delete Action -->
-                                <delete
-                                :id="item[props.defaultIdKey]"
-                                :endpoint="endpointDelete"
-                                :model="model"
-                                :permission="permission"
-                                @onDelete="refreshData"
-                                />
-                            </div>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
+                                            <!-- Delete Action -->
+                                            <delete :id="item[props.defaultIdKey]" :endpoint="endpointDelete"
+                                                :model="model" :permission="permission" @onDelete="refreshData" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                     <!-- List View -->
                     <div v-else class="divide-y divide-base-200">
-                    <div v-for="(item, index) in tableData"
-                        :key="item.id || index"
-                        class="p-4 hover:bg-base-200/50 transition-colors duration-200">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div v-for="(column, colIndex) in columns"
-                            :key="colIndex"
-                            class="space-y-1">
-                            <div class="text-sm font-medium text-base-content/70">{{ column.label }}</div>
-                            <table-display-data
-                            :tableData="{ [column.key]: item[column.key] }"
-                            :columns="[column]"
-                            />
-                        </div>
-                        </div>
-                        <div class="mt-4 flex justify-end gap-2">
-                        <!-- Edit Action -->
-                        <template v-if="!custom_edit_route">
-                            <edit
-                                :columns="columns"
-                                :endpoint="endpointEdit"
-                                :model="model"
-                                :modelValue="item"
-                                :id="item[props.defaultIdKey]"
-                                :permission="permission"
-                                @onEdit="refreshData"
-                            />
-                        </template>
-                        <template v-else>
-                            <Link
-                            :href="custom_edit_route + item.id"
-                            class="btn btn-primary btn-sm gap-2"
-                            >
-                            <PencilIcon class="w-4 h-4" />
-                            <span class="hidden sm:inline">Edit</span>
-                            </Link>
-                        </template>
+                        <div v-for="(item, index) in tableData" :key="item.id || index"
+                            class="p-4 hover:bg-base-200/50 transition-colors duration-200">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div v-for="(column, colIndex) in columns" :key="colIndex" class="space-y-1">
+                                    <div class="text-sm font-medium text-base-content/70">{{ column.label }}</div>
+                                    <table-display-data :tableData="{ [column.key]: item[column.key] }"
+                                        :columns="[column]" :hiddenColumns="hiddenColumns" viewType="list" />
+                                </div>
+                            </div>
+                            <div class="mt-4 flex justify-end gap-2">
+                                <!-- Edit Action -->
+                                <template v-if="!custom_edit_route">
+                                    <edit :columns="columns" :endpoint="endpointEdit" :model="model" :modelValue="item"
+                                        :id="item[props.defaultIdKey]" :permission="permission" @onEdit="refreshData" />
+                                </template>
+                                <template v-else>
+                                    <Link :href="custom_edit_route + item.id" class="btn btn-primary btn-sm gap-2">
+                                    <PencilIcon class="w-4 h-4" />
+                                    <span class="hidden sm:inline">Edit</span>
+                                    </Link>
+                                </template>
 
-                        <!-- Delete Action -->
-                        <delete
-                            :id="item[props.defaultIdKey]"
-                            :endpoint="endpointDelete"
-                            :model="model"
-                            :permission="permission"
-                            @onDelete="refreshData"
-                        />
+                                <!-- Delete Action -->
+                                <delete :id="item[props.defaultIdKey]" :endpoint="endpointDelete" :model="model"
+                                    :permission="permission" @onDelete="refreshData" />
+                            </div>
                         </div>
-                    </div>
                     </div>
                 </div>
 
                 <!-- Pagination -->
                 <div class="mt-6">
-                    <table-pagination
-                    v-if="tableData.length"
-                    @onPagiation="handlePageChange"
-                    :paginationInfo="paginationInfo"
-                    :endpoint="endpoint"
-                    />
+                    <table-pagination v-if="tableData.length" @onPagiation="handlePageChange"
+                        :paginationInfo="paginationInfo" :endpoint="endpoint" />
                 </div>
-                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -246,6 +201,8 @@ import TableFilter from './components/filter/filter.vue';
 import TablePagination from './components/filter/pagination.vue';
 import TableDisplayData from './components/tableDataDisplay.vue';
 import AdvancedFilter from './components/filter/AdvancedFilter.vue';
+import ColumnVisibilityManager from './components/filter/ColumnVisibilityManager.vue';
+import ExportData from './components/filter/ExportData.vue';
 
 // Props
 const props = defineProps({
@@ -362,8 +319,8 @@ const handlePerPageChange = (value: number) => {
 };
 
 const handleAdvancedFilterChange = (filters) => {
-  activeFilters.value = filters;
-  fetchData();
+    activeFilters.value = filters;
+    fetchData();
 };
 
 const handleFilterChange = (value: string) => {
@@ -386,6 +343,18 @@ const handleFilterReset = (data: any) => {
     orderBy.value = data.orderBy;
     search.value = data.search;
     fetchData();
+};
+
+// Add these new refs and computed properties
+const hiddenColumns = ref(new Set<string>());
+
+const visibleColumns = computed(() => {
+    return props.columns.filter(column => !hiddenColumns.value.has(column.key));
+});
+
+// Add this new method
+const updateHiddenColumns = (newHiddenColumns: Set<string>) => {
+    hiddenColumns.value = newHiddenColumns;
 };
 
 // Initialize
