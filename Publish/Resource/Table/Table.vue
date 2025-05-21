@@ -121,7 +121,7 @@
                                                 <Link :href="custom_edit_route + item.id"
                                                     class="btn btn-primary btn-sm gap-2">
                                                 <PencilIcon class="w-4 h-4" />
-                                                <span class="hidden sm:inline">Editss</span>
+                                                <span class="hidden sm:inline">Edits</span>
                                                 </Link>
                                             </template>
                                             <!-- Custom Action -->
