@@ -613,6 +613,18 @@ class FormHelper
     }
 
     /**
+     * Set custom point route, sometimes used for custom edit
+     *
+     * @param string $route
+     * @return self
+     */
+    public function setCustomPointRoute(string $route): self
+    {
+        $this->config['custom_point_route'] = $route;
+        return $this;
+    }
+
+    /**
      * Quick setup method for common configurations
      *
      * @param string $routePrefix

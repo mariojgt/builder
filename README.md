@@ -232,6 +232,8 @@ class AlertController extends Controller
                     'index' => PermissionEnum::ReadPermission->value,
                 ]
             )
+            ->setCustomEditRoute('/sysadmin/vendor/edit/') // Custom edit route
+            ->setCustomPointRoute('/sysadmin/user/permissions/edit/') // Custom point route
             ->build();
 
         return Inertia::render('BackEnd/Vendor/GameDev/Generic/Index', [
@@ -294,55 +296,43 @@ Vue js example
 
 ```js
 <template>
-    <Table :columns="props.columns" :model="props.model" :endpoint="props.endpoint"
-        :endpoint-delete="props.endpointDelete" :endpoint-create="props.endpointCreate"
-        :endpoint-edit="props.endpointEdit" :table-title="props.title" :permission="props.permission"
-        :defaultSortKey="props.defaultSortKey" />
-</template>
+    <AppLayout>
+      <Table
+        :columns="props.columns"
+        :model="props.model"
+        :endpoint="props.endpoint"
+        :endpoint-delete="props.endpointDelete"
+        :endpoint-create="props.endpointCreate"
+        :endpoint-edit="props.endpointEdit"
+        :table-title="props.title"
+        :permission="props.permission"
+        :defaultIdKey="props.defaultIdKey"
+        :custom_edit_route="props.custom_edit_route"
+        :custom_point_route="props.custom_point_route"
+        :custom_action_name="props.custom_action_name"
+      />
+    </AppLayout>
+  </template>
 
-<script setup>
-// Import the table component from the builder api
-import Table from "@builder/Table.vue";
+  <script setup lang="ts">
+  import AppLayout from '@components/Layout/AppLayout.vue';
+  import Table from '@builder/Table.vue';
 
-const props = defineProps({
-    endpoint: {
-        type: String,
-        default: "",
-    },
-    columns: {
-        type: Object,
-        default: () => ({}),
-    },
-    model: {
-        type: String,
-        default: "",
-    },
-    endpointDelete: {
-        type: String,
-        default: "",
-    },
-    endpointCreate: {
-        type: String,
-        default: "",
-    },
-    endpointEdit: {
-        type: String,
-        default: "",
-    },
-    permission: {
-        type: String,
-        default: "",
-    },
-    title: {
-        type: String,
-        default: "",
-    },
-    defaultSortKey: {
-        type: String,
-        default: "",
-    },
-});
-</script>
+  const props = defineProps({
+    endpoint: { type: String, default: '' },
+    columns: { type: Object, default: () => ({}) },
+    model: { type: String, default: '' },
+    endpointDelete: { type: String, default: '' },
+    endpointCreate: { type: String, default: '' },
+    endpointEdit: { type: String, default: '' },
+    permission: { type: String, default: '' },
+    title: { type: String, default: '' },
+    defaultIdKey: { type: String, default: '' },
+    custom_edit_route: { type: String, default: '' },
+    custom_point_route: { type: String, default: '' },
+    custom_action_name: { type: String, default: '' },
+  });
+  </script>
 ```
 
 ## Field Types

@@ -121,10 +121,17 @@
                                                 <Link :href="custom_edit_route + item.id"
                                                     class="btn btn-primary btn-sm gap-2">
                                                 <PencilIcon class="w-4 h-4" />
-                                                <span class="hidden sm:inline">Edit</span>
+                                                <span class="hidden sm:inline">Editss</span>
                                                 </Link>
                                             </template>
-
+                                            <!-- Custom Action -->
+                                             <template v-if="custom_point_route">
+                                                <Link :href="custom_point_route + item.id"
+                                                    class="btn btn-secondary btn-sm gap-2">
+                                                <PencilIcon class="w-4 h-4" />
+                                                <span class="hidden sm:inline">{{ custom_action_name }}</span>
+                                                </Link>
+                                            </template>
                                             <!-- Delete Action -->
                                             <delete :id="item[props.defaultIdKey]" :endpoint="endpointDelete"
                                                 :model="model" :permission="permission" @onDelete="refreshData" />
@@ -215,6 +222,8 @@ const props = defineProps({
     endpointEdit: { type: String, required: true },
     permission: { type: String, default: null },
     custom_edit_route: { type: String, default: null },
+    custom_point_route: { type: String, default: null },
+    custom_action_name: { type: String, default: null },
     defaultIdKey: { type: String, default: 'id' }
 });
 
