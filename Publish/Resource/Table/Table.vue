@@ -37,9 +37,10 @@
                     />
                     <ExportData
                             :data="tableData"
-                            :columns="columns"
+                            :columns="props.columns"
                             :hiddenColumns="hiddenColumns"
                             :filename="props.tableTitle.toLowerCase().replace(/\s+/g, '-')"
+                            :total-records="paginationInfo.total"
                         />
                     <slot name="custom-actions"></slot>
                     <slot name="new">

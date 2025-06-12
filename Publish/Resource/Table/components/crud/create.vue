@@ -1,248 +1,319 @@
-# Template Section
 <template>
-  <!-- Create Button with improved animation -->
+  <!-- Enhanced Create Button with Professional Styling -->
   <button
-    @click="isOpen = true"
-    class="btn btn-primary gap-2 group relative overflow-hidden hover:shadow-lg transition-all duration-300"
+    @click="openModal"
+    class="btn btn-primary gap-2 group relative overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+    :disabled="!canCreate"
   >
-    <PlusCircle
-      class="w-5 h-5 transform transition-all duration-300 group-hover:rotate-90"
-    />
-    <span class="hidden md:inline">Create New</span>
-    <div class="absolute inset-0 bg-white/20 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+    <!-- Background Animation -->
+    <div class="absolute inset-0 bg-gradient-to-r from-primary to-secondary opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+
+    <!-- Icon with Animation -->
+    <PlusCircle class="w-5 h-5 transform transition-all duration-300 group-hover:rotate-90 relative z-10" />
+
+    <!-- Text -->
+    <span class="hidden md:inline relative z-10 font-semibold">Create New</span>
+
+    <!-- Shimmer Effect -->
+    <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
   </button>
 
-  <!-- Modal with improved transitions -->
-  <Transition
-    enter-active-class="transition-all duration-300 ease-out"
-    enter-from-class="opacity-0"
-    enter-to-class="opacity-100"
-    leave-active-class="transition-all duration-200 ease-in"
-    leave-from-class="opacity-100"
-    leave-to-class="opacity-0"
-  >
-    <div v-if="isOpen" class="fixed inset-0 z-50 overflow-hidden">
-      <!-- Enhanced Backdrop with blur -->
+  <!-- Enhanced Modal with Blur Backdrop -->
+  <div v-if="isOpen" class="modal modal-open">
+    <!-- Backdrop with Blur -->
+    <div
+      class="modal-backdrop bg-black/60 backdrop-blur-sm"
+      @click="closeModal"
+    ></div>
+
+    <!-- Modal Container -->
+    <div class="modal-box w-full max-w-6xl h-[90vh] max-h-[90vh] p-0 relative overflow-hidden">
+      <!-- Loading Overlay -->
       <div
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-        @click="isOpen = false"
-      />
+        v-if="isSubmitting"
+        class="absolute inset-0 bg-base-100/80 backdrop-blur-sm flex items-center justify-center z-50"
+      >
+        <div class="flex flex-col items-center gap-4">
+          <div class="loading loading-spinner loading-lg text-primary"></div>
+          <div class="text-center">
+            <p class="text-lg font-semibold text-base-content">Creating Entry</p>
+            <p class="text-sm text-base-content/60">Please wait while we process your request...</p>
+          </div>
+        </div>
+      </div>
 
-      <!-- Responsive Modal Container -->
-      <div class="relative min-h-screen flex items-center justify-center p-0 md:p-4">
-        <Transition
-          enter-active-class="transition-all duration-300 ease-out"
-          enter-from-class="opacity-0 scale-95"
-          enter-to-class="opacity-100 scale-100"
-          leave-active-class="transition-all duration-200 ease-in"
-          leave-from-class="opacity-100 scale-100"
-          leave-to-class="opacity-0 scale-95"
-        >
-          <div v-if="canCreate"
-               class="relative bg-base-100 rounded-none md:rounded-2xl shadow-2xl flex flex-col w-full min-h-screen md:min-h-[80vh] md:max-h-[90vh] md:w-11/12 max-w-7xl transform transition-all">
+      <!-- Permission Check -->
+      <div v-if="!canCreate" class="flex items-center justify-center h-full">
+        <div class="text-center space-y-6 p-8">
+          <div class="w-24 h-24 mx-auto rounded-full bg-warning/20 flex items-center justify-center">
+            <ShieldAlert class="w-12 h-12 text-warning" />
+          </div>
+          <div class="space-y-2">
+            <h2 class="text-2xl font-bold text-error">Access Denied</h2>
+            <p class="text-base-content/70 max-w-md">You don't have permission to create new entries. Please contact your system administrator for access.</p>
+          </div>
+          <button @click="closeModal" class="btn btn-neutral">
+            Close
+          </button>
+        </div>
+      </div>
 
-            <!-- Loading Overlay with improved animation -->
-            <div v-if="isSubmitting"
-                 class="absolute inset-0 bg-base-100/70 backdrop-blur-sm flex items-center justify-center z-50">
-              <div class="flex flex-col items-center gap-4">
-                <div class="loading loading-spinner loading-lg text-primary"></div>
-                <p class="text-sm font-medium text-base-content/70">Processing...</p>
-              </div>
-            </div>
-
-            <!-- Enhanced Header with better spacing -->
-            <div class="sticky top-0 z-10 bg-base-200 px-6 py-4 border-b border-base-content/10">
-              <div class="flex flex-col sm:flex-row justify-between gap-4">
-                <h2 class="text-lg font-semibold flex items-center gap-3 text-base-content">
-                  <button
-                    @click="isOpen = false"
-                    class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 hover:rotate-90 transition-all duration-200"
-                  >
-                    <X class="w-5 h-5" />
-                  </button>
-                  <div class="flex items-center gap-2">
-                    <FileEdit class="w-5 h-5 text-primary" />
-                    <span>Create New Entry</span>
-                  </div>
-                </h2>
-
-                <div class="flex items-center gap-3">
-                  <button
-                    @click="isOpen = false"
-                    class="btn btn-ghost btn-sm hover:bg-base-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    @click="createNew"
-                    :disabled="isSubmitting"
-                    class="btn btn-primary btn-sm gap-2 min-w-[100px]"
-                  >
-                    <Save class="w-4 h-4" :class="{ 'animate-spin': isSubmitting }" />
-                    {{ isSubmitting ? 'Creating...' : 'Create' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Improved Error Alert -->
-              <TransitionGroup
-                enter-active-class="transition-all duration-300"
-                enter-from-class="opacity-0 -translate-y-4"
-                enter-to-class="opacity-100 translate-y-0"
-                leave-active-class="transition-all duration-200"
-                leave-from-class="opacity-100 translate-y-0"
-                leave-to-class="opacity-0 -translate-y-4"
+      <!-- Main Content -->
+      <div v-else class="flex flex-col h-full">
+        <!-- Enhanced Header -->
+        <div class="sticky top-0 z-40 bg-gradient-to-r from-base-200 to-base-300 border-b border-base-content/10 px-6 py-4">
+          <div class="flex items-center justify-between">
+            <!-- Title Section -->
+            <div class="flex items-center gap-4">
+              <button
+                @click="closeModal"
+                class="btn btn-sm btn-circle btn-ghost hover:btn-error hover:rotate-90 transition-all duration-300"
               >
-                <div
-                  v-if="Object.keys(formErrors).length > 0"
-                  class="mt-4 alert alert-error shadow-lg"
-                  key="error-alert"
-                >
-                  <AlertTriangle class="w-5 h-5 flex-shrink-0" />
-                  <div>
-                    <h3 class="font-bold">Please correct the following errors</h3>
-                    <div class="text-xs opacity-75">Review the highlighted fields below</div>
-                  </div>
+                <X class="w-5 h-5" />
+              </button>
+
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <FileEdit class="w-5 h-5 text-primary" />
                 </div>
-              </TransitionGroup>
-            </div>
-
-            <!-- Enhanced Content Area with better scrolling -->
-            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
-              <div class="container mx-auto max-w-5xl">
-                <div class="grid gap-6 lg:grid-cols-12">
-                  <!-- Form Fields Section -->
-                  <div class="lg:col-span-8 space-y-6">
-                    <TransitionGroup
-                      enter-active-class="transition-all duration-300"
-                      enter-from-class="opacity-0 translate-y-4"
-                      enter-to-class="opacity-100 translate-y-0"
-                      leave-active-class="transition-all duration-200"
-                      leave-from-class="opacity-100 translate-y-0"
-                      leave-to-class="opacity-0 translate-y-4"
-                    >
-                      <!-- Enhanced Sections -->
-                      <div
-                        v-if="filterSections.sectionsWithFields.length > 0"
-                        class="w-full space-y-4"
-                      >
-                        <div
-                          v-for="(item, index) in filterSections.sectionsWithFields"
-                          :key="item.section"
-                          class="collapse collapse-plus bg-base-200 rounded-box border border-base-content/10 hover:border-primary/30 transition-all duration-200 shadow-sm hover:shadow-md"
-                        >
-                          <input type="checkbox" :checked="index === 0" />
-                          <div class="collapse-title text-lg font-medium flex items-center gap-3 pr-12">
-                            <Folder class="w-5 h-5 text-primary" />
-                            {{ item.section }}
-                          </div>
-                          <div class="collapse-content bg-base-100/50">
-                            <div class="pt-4">
-                              <form-builder
-                                :columns="item.fields"
-                                :errors="formErrors"
-                                @onFormUpdate="onFormUpdate"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Enhanced Standard Fields -->
-                      <div
-                        v-if="filterSections.fields.length > 0"
-                        class="card bg-base-200 shadow-lg border border-base-content/10 hover:shadow-xl transition-all duration-200"
-                      >
-                        <div class="card-body">
-                          <form-builder
-                            :columns="filterSections.fields"
-                            :errors="formErrors"
-                            @onFormUpdate="onFormUpdate"
-                          />
-                        </div>
-                      </div>
-                    </TransitionGroup>
-                  </div>
-
-                  <!-- Enhanced Sidebar -->
-                  <div class="lg:col-span-4 space-y-4">
-                    <!-- Info Card -->
-                    <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-all duration-200">
-                      <div class="card-body">
-                        <h3 class="text-sm font-medium text-base-content flex items-center gap-2">
-                          <Info class="w-4 h-4 text-primary" />
-                          Information
-                        </h3>
-                        <div class="text-sm text-base-content/70 mt-2 space-y-2">
-                          <p>Fill in the required information to create a new entry.</p>
-                          <p>All fields marked with <span class="text-error">*</span> are required.</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Enhanced Quick Tips -->
-                    <div class="card bg-base-200 shadow-lg hover:shadow-xl transition-all duration-200">
-                      <div class="card-body">
-                        <h3 class="text-sm font-medium text-base-content flex items-center gap-2">
-                          <HelpCircle class="w-4 h-4 text-primary" />
-                          Quick Tips
-                        </h3>
-                        <ul class="text-sm text-base-content/70 mt-2 space-y-3">
-                          <li class="flex items-start gap-2">
-                            <div class="rounded-full bg-success/20 p-1 mt-0.5">
-                              <Check class="w-3 h-3 text-success" />
-                            </div>
-                            <span>Use sections to organize related fields</span>
-                          </li>
-                          <li class="flex items-start gap-2">
-                            <div class="rounded-full bg-success/20 p-1 mt-0.5">
-                              <Check class="w-3 h-3 text-success" />
-                            </div>
-                            <span>Preview changes before submitting</span>
-                          </li>
-                          <li class="flex items-start gap-2">
-                            <div class="rounded-full bg-success/20 p-1 mt-0.5">
-                              <Check class="w-3 h-3 text-success" />
-                            </div>
-                            <span>All changes are saved automatically</span>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
+                <div>
+                  <h2 class="text-xl font-bold text-base-content">Create New Entry</h2>
+                  <p class="text-sm text-base-content/60">Fill in the information below to create a new record</p>
                 </div>
               </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-3">
+              <button
+                @click="closeModal"
+                class="btn btn-ghost btn-sm hover:btn-error"
+                :disabled="isSubmitting"
+              >
+                <X class="w-4 h-4" />
+                Cancel
+              </button>
+              <button
+                @click="createNew"
+                :disabled="isSubmitting || !isFormValid"
+                class="btn btn-primary btn-sm gap-2 min-w-[120px] shadow-lg hover:shadow-xl"
+                :class="{ 'btn-disabled': !isFormValid }"
+              >
+                <Save class="w-4 h-4" :class="{ 'animate-spin': isSubmitting }" />
+                {{ isSubmitting ? 'Creating...' : 'Create Entry' }}
+              </button>
             </div>
           </div>
 
-          <!-- Enhanced No Permission Message -->
-          <div v-else class="modal-box w-11/12 max-w-lg bg-base-100">
-            <div class="card shadow-xl">
-              <div class="card-body items-center text-center space-y-6">
-                <div class="w-20 h-20 rounded-full bg-warning/20 flex items-center justify-center animate-pulse">
-                  <ShieldAlert class="w-10 h-10 text-warning" />
-                </div>
-                <div class="space-y-2">
-                  <h2 class="text-2xl font-bold text-error">Access Denied</h2>
-                  <p class="text-base-content/80">You don't have permission to create new entries.</p>
-                  <p class="text-base-content/60 text-sm">Please contact your system administrator for access.</p>
+          <!-- Progress Indicator -->
+          <div class="mt-4">
+            <div class="flex items-center gap-2 text-sm text-base-content/60">
+              <div class="flex items-center gap-1">
+                <div class="w-2 h-2 rounded-full bg-success"></div>
+                <span>{{ completedFieldsCount }}/{{ totalRequiredFields }} required fields completed</span>
+              </div>
+              <div class="flex-1 mx-4">
+                <progress
+                  class="progress progress-success w-full h-2"
+                  :value="completedFieldsCount"
+                  :max="totalRequiredFields"
+                ></progress>
+              </div>
+              <span class="font-semibold">{{ Math.round((completedFieldsCount / totalRequiredFields) * 100) }}%</span>
+            </div>
+          </div>
+
+          <!-- Error Alert -->
+          <Transition
+            enter-active-class="transition-all duration-300 ease-out"
+            enter-from-class="opacity-0 -translate-y-4 scale-95"
+            enter-to-class="opacity-100 translate-y-0 scale-100"
+            leave-active-class="transition-all duration-200 ease-in"
+            leave-from-class="opacity-100 translate-y-0 scale-100"
+            leave-to-class="opacity-0 -translate-y-4 scale-95"
+          >
+            <div v-if="Object.keys(formErrors).length > 0" class="mt-4">
+              <div class="alert alert-error shadow-lg">
+                <AlertTriangle class="w-5 h-5 flex-shrink-0" />
+                <div class="flex-1">
+                  <h3 class="font-bold text-sm">Please correct the following errors:</h3>
+                  <div class="text-xs opacity-80 mt-1">
+                    {{ Object.keys(formErrors).length }} field(s) need attention
+                  </div>
                 </div>
                 <button
-                  @click="isOpen = false"
-                  class="btn btn-ghost btn-sm hover:bg-base-200"
+                  @click="formErrors = {}"
+                  class="btn btn-sm btn-circle btn-ghost hover:btn-error"
                 >
-                  Close
+                  <X class="w-4 h-4" />
                 </button>
               </div>
             </div>
+          </Transition>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-hidden">
+          <div class="h-full flex">
+            <!-- Main Form Area -->
+            <div class="flex-1 overflow-auto custom-scrollbar">
+              <div class="p-6">
+                <!-- Form Sections -->
+                <div v-if="filterSections.sectionsWithFields.length > 0" class="space-y-6">
+                  <TransitionGroup
+                    enter-active-class="transition-all duration-500 ease-out"
+                    enter-from-class="opacity-0 translate-y-8"
+                    enter-to-class="opacity-100 translate-y-0"
+                    leave-active-class="transition-all duration-300 ease-in"
+                    leave-from-class="opacity-100 translate-y-0"
+                    leave-to-class="opacity-0 translate-y-8"
+                  >
+                    <div
+                      v-for="(section, index) in filterSections.sectionsWithFields"
+                      :key="section.section"
+                      class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300"
+                      :style="{ animationDelay: `${index * 100}ms` }"
+                    >
+                      <div class="card-body">
+                        <!-- Section Header -->
+                        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
+                          <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                            <Folder class="w-4 h-4 text-primary" />
+                          </div>
+                          <div>
+                            <h3 class="text-lg font-semibold text-base-content">{{ section.section }}</h3>
+                            <p class="text-sm text-base-content/60">{{ section.fields.length }} fields</p>
+                          </div>
+                        </div>
+
+                        <!-- Section Fields -->
+                        <FormBuilder
+                          :columns="section.fields"
+                          :errors="formErrors"
+                          @onFormUpdate="onFormUpdate"
+                        />
+                      </div>
+                    </div>
+                  </TransitionGroup>
+                </div>
+
+                <!-- Standard Fields -->
+                <div v-if="filterSections.fields.length > 0" class="space-y-6">
+                  <div class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300">
+                    <div class="card-body">
+                      <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
+                        <div class="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center">
+                          <Settings class="w-4 h-4 text-secondary" />
+                        </div>
+                        <div>
+                          <h3 class="text-lg font-semibold text-base-content">General Information</h3>
+                          <p class="text-sm text-base-content/60">Basic details and settings</p>
+                        </div>
+                      </div>
+
+                      <FormBuilder
+                        :columns="filterSections.fields"
+                        :errors="formErrors"
+                        @onFormUpdate="onFormUpdate"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enhanced Sidebar -->
+            <div class="w-80 bg-base-200/50 border-l border-base-200 p-6 overflow-auto custom-scrollbar">
+              <!-- Quick Stats -->
+              <div class="card bg-base-100 shadow-md mb-6">
+                <div class="card-body">
+                  <h3 class="card-title text-sm flex items-center gap-2">
+                    <Info class="w-4 h-4 text-primary" />
+                    Form Progress
+                  </h3>
+                  <div class="space-y-3 mt-4">
+                    <div class="flex justify-between text-sm">
+                      <span class="text-base-content/70">Completed</span>
+                      <span class="font-semibold text-success">{{ completedFieldsCount }}/{{ totalRequiredFields }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                      <span class="text-base-content/70">Optional</span>
+                      <span class="font-semibold text-info">{{ optionalFieldsCount }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                      <span class="text-base-content/70">Errors</span>
+                      <span class="font-semibold text-error">{{ Object.keys(formErrors).length }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Tips -->
+              <div class="card bg-base-100 shadow-md mb-6">
+                <div class="card-body">
+                  <h3 class="card-title text-sm flex items-center gap-2">
+                    <HelpCircle class="w-4 h-4 text-primary" />
+                    Quick Tips
+                  </h3>
+                  <ul class="space-y-3 mt-4">
+                    <li class="flex items-start gap-2 text-sm">
+                      <Check class="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                      <span class="text-base-content/70">Fill required fields marked with <span class="text-error">*</span></span>
+                    </li>
+                    <li class="flex items-start gap-2 text-sm">
+                      <Check class="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                      <span class="text-base-content/70">Use sections to organize related information</span>
+                    </li>
+                    <li class="flex items-start gap-2 text-sm">
+                      <Check class="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                      <span class="text-base-content/70">Changes are validated in real-time</span>
+                    </li>
+                    <li class="flex items-start gap-2 text-sm">
+                      <Check class="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                      <span class="text-base-content/70">Save drafts by clicking Create</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Field Navigation -->
+              <div class="card bg-base-100 shadow-md">
+                <div class="card-body">
+                  <h3 class="card-title text-sm flex items-center gap-2">
+                    <Navigation class="w-4 h-4 text-primary" />
+                    Field Navigation
+                  </h3>
+                  <div class="space-y-2 mt-4">
+                    <button
+                      v-for="field in availableFields.slice(0, 8)"
+                      :key="field.key"
+                      @click="scrollToField(field.key)"
+                      class="w-full text-left px-3 py-2 text-xs rounded-lg transition-all duration-200 flex items-center gap-2"
+                      :class="[
+                        formErrors[field.key]
+                          ? 'bg-error/10 text-error hover:bg-error/20 border border-error/30'
+                          : 'hover:bg-base-200 text-base-content/70 hover:text-base-content'
+                      ]"
+                    >
+                      <div
+                        :class="[
+                          'w-2 h-2 rounded-full',
+                          formErrors[field.key] ? 'bg-error animate-pulse' : 'bg-base-300'
+                        ]"
+                      ></div>
+                      <span class="truncate">{{ field.label }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </Transition>
+        </div>
       </div>
     </div>
-  </Transition>
+  </div>
 </template>
 
-# Script Section
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
@@ -258,7 +329,9 @@ import {
   ShieldAlert,
   Info,
   HelpCircle,
-  Check
+  Check,
+  Settings,
+  Navigation
 } from 'lucide-vue-next';
 
 const isOpen = ref(false);
@@ -286,6 +359,7 @@ const props = defineProps({
 
 const emit = defineEmits(['onCreate']);
 
+// Computed properties
 const canCreate = computed(() => {
   return props.columns.some(column => column.canCreate);
 });
@@ -307,6 +381,37 @@ const filterSections = computed(() => {
 
 const availableFields = ref(props.columns.filter(column => column.canCreate));
 
+const totalRequiredFields = computed(() => {
+  return availableFields.value.filter(field => field.required).length;
+});
+
+const completedFieldsCount = computed(() => {
+  return availableFields.value.filter(field =>
+    field.required && field.value && field.value !== ''
+  ).length;
+});
+
+const optionalFieldsCount = computed(() => {
+  return availableFields.value.filter(field => !field.required).length;
+});
+
+const isFormValid = computed(() => {
+  const requiredFields = availableFields.value.filter(field => field.required);
+  return requiredFields.every(field => field.value && field.value !== '');
+});
+
+// Methods
+const openModal = () => {
+  if (canCreate.value) {
+    isOpen.value = true;
+  }
+};
+
+const closeModal = () => {
+  isOpen.value = false;
+  formErrors.value = {};
+};
+
 const onFormUpdate = (formData) => {
   if (availableFields.value.length > 0) {
     formData.forEach(formDataValue => {
@@ -321,7 +426,7 @@ const onFormUpdate = (formData) => {
 };
 
 const createNew = async () => {
-  if (isSubmitting.value) return;
+  if (isSubmitting.value || !isFormValid.value) return;
 
   try {
     isSubmitting.value = true;
@@ -333,9 +438,9 @@ const createNew = async () => {
       permission: props.permission,
     });
 
-    startWindToast('success', 'Entry created successfully', 'success');
+    startWindToast('success', 'Entry created successfully! 🎉', 'success');
     emit('onCreate');
-    isOpen.value = false;
+    closeModal();
   } catch (error: any) {
     formErrors.value = {};
     if (error.response?.data?.errors) {
@@ -353,7 +458,6 @@ const createNew = async () => {
           }
         });
       } else if (typeof errors === 'object') {
-        // Handle object-style errors
         Object.entries(errors).forEach(([key, value]) => {
           if (Array.isArray(value) && value.length > 0) {
             formErrors.value[key] = value[0];
@@ -361,16 +465,30 @@ const createNew = async () => {
         });
       }
 
-      // Display error messages using notification system
       Object.values(formErrors.value).forEach((errorMsg: string) => {
         startWindToast('error', errorMsg, 'error');
       });
     } else if (error.message) {
-      // Handle generic error
       startWindToast('error', error.message, 'error');
     }
   } finally {
     isSubmitting.value = false;
+  }
+};
+
+const scrollToField = (fieldKey: string) => {
+  const element = document.querySelector(`[data-field-key="${fieldKey}"]`);
+  if (element) {
+    element.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+
+    // Add highlight effect
+    element.classList.add('highlight-field');
+    setTimeout(() => {
+      element.classList.remove('highlight-field');
+    }, 2000);
   }
 };
 </script>
@@ -379,39 +497,61 @@ const createNew = async () => {
 /* Enhanced Custom Scrollbar */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--p) / 0.3) hsl(var(--b2) / 0.5);
+  scrollbar-color: hsl(var(--p) / 0.3) hsl(var(--b3) / 0.5);
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: hsl(var(--b2) / 0.5);
-  border-radius: 8px;
+  background: hsl(var(--b3) / 0.3);
+  border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--p) / 0.3);
-  border-radius: 8px;
-  border: 2px solid transparent;
-  transition: background-color 0.2s ease;
+  background: linear-gradient(45deg, hsl(var(--p) / 0.3), hsl(var(--s) / 0.3));
+  border-radius: 10px;
+  border: 2px solid hsl(var(--b1));
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--p) / 0.5);
+  background: linear-gradient(45deg, hsl(var(--p) / 0.5), hsl(var(--s) / 0.5));
 }
 
-/* Smooth Section Transitions */
-.section-enter-active,
-.section-leave-active {
+/* Field Highlight Animation */
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--p) / 0.4);
+    background-color: hsl(var(--p) / 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 10px hsl(var(--p) / 0);
+    background-color: hsl(var(--p) / 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--p) / 0);
+    background-color: hsl(var(--p) / 0);
+  }
+}
+
+.highlight-field {
+  animation: highlightPulse 2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0.75rem;
+}
+
+/* Enhanced Button Animations */
+.btn {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.section-enter-from,
-.section-leave-to {
-  opacity: 0;
-  transform: translateY(-20px);
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Card Hover Effects */
@@ -423,24 +563,60 @@ const createNew = async () => {
   transform: translateY(-2px);
 }
 
-/* Modal Transitions */
-.modal-enter-active,
-.modal-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Modal Animations */
+.modal-open .modal-box {
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
-/* Button Animation */
-.btn {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Progress Animation */
+.progress {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn:active {
-  transform: scale(0.95);
+/* Enhanced Alert Animations */
+.alert {
+  border-left: 4px solid;
+}
+
+.alert-error {
+  border-left-color: hsl(var(--er));
+}
+
+/* Loading Animation Enhancement */
+.loading-spinner {
+  filter: drop-shadow(0 0 10px hsl(var(--p) / 0.3));
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .w-80 {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid hsl(var(--b3));
+  }
+
+  .h-full.flex {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .modal-box {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
 }
 </style>
