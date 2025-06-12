@@ -177,7 +177,7 @@
 
                 <!-- Pagination -->
                 <div class="mt-6">
-                    <table-pagination v-if="tableData.length" @onPagiation="handlePageChange"
+                    <table-pagination v-if="tableData.length" @onPagination="handlePageChange"
                         :paginationInfo="paginationInfo" :endpoint="endpoint" />
                 </div>
             </div>

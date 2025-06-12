@@ -155,7 +155,7 @@
                   </div>
 
                   <!-- Enhanced Date Range Filter -->
-                  <div v-else-if="column.type === 'date'" class="space-y-3">
+                  <div v-else-if="column.type === 'date' || column.type === 'timestamp'" class="space-y-2">
                     <div class="grid grid-cols-2 gap-2">
                       <div>
                         <label class="label py-1">

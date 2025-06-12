@@ -1,178 +1,222 @@
 <template>
-  <div class="field-renderer">
-    <!-- Media Field with enhanced styling -->
-    <div v-if="type === 'media'" class="flex items-center -space-x-2">
-      <template v-if="Array.isArray(value) && value.length > 0">
-        <div
-          v-for="(item, index) in displayMedia"
-          :key="index"
-          class="relative group tooltip"
-          :data-tip="item?.name || `Image ${index + 1}`"
-        >
-          <div class="avatar">
-            <div class="w-10 h-10 rounded-full ring-2 ring-base-100 ring-offset-2 ring-offset-base-200">
-              <img
-                v-if="item?.url"
-                :src="getMediaUrl(item)"
-                :alt="item?.name || `Image ${index + 1}`"
-                class="object-cover transition-all duration-300 group-hover:scale-110"
-                loading="lazy"
-              />
-              <div v-else class="w-full h-full bg-gradient-to-br from-base-300 to-base-400 flex items-center justify-center">
-                <svg class="w-5 h-5 text-base-content/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div
-          v-if="remainingMediaCount > 0"
-          class="avatar placeholder tooltip"
-          :data-tip="`${remainingMediaCount} more items`"
-        >
-          <div class="w-10 h-10 rounded-full bg-primary/20 text-primary ring-2 ring-base-100 ring-offset-2 ring-offset-base-200">
-            <span class="text-xs font-bold">+{{ remainingMediaCount }}</span>
-          </div>
-        </div>
-      </template>
-      <div v-else class="text-base-content/50 italic">No media</div>
-    </div>
-
-    <!-- Enhanced Boolean Field -->
-    <div v-else-if="type === 'boolean'" class="inline-flex">
-      <div
-        :class="[
-          'badge gap-2 transition-all duration-300 hover:scale-105',
-          value
-            ? 'badge-success badge-outline hover:badge-success'
-            : 'badge-error badge-outline hover:badge-error'
-        ]"
-      >
-        <div
-          :class="[
-            'w-2 h-2 rounded-full',
-            value ? 'bg-success animate-pulse' : 'bg-error'
-          ]"
-        ></div>
-        <span class="font-medium">{{ value ? 'Active' : 'Inactive' }}</span>
-      </div>
-    </div>
-
-    <!-- Enhanced Date Field -->
+  <div class="field-renderer" :class="containerClasses">
+    <!-- Status/Badge Fields with Conditional Styling -->
     <div
-      v-else-if="type === 'date' || type === 'timestamp'"
-      class="flex flex-col space-y-1 group cursor-default"
+      v-if="shouldRenderAsBadge"
+      class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 hover:scale-105"
+      :class="getConditionalClasses()"
     >
-      <div class="flex items-center gap-2">
-        <div class="w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
-          <svg class="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <span class="font-semibold text-base-content">{{ formatDate(value) }}</span>
-      </div>
-      <span class="text-xs text-base-content/60 pl-6 group-hover:text-base-content/80 transition-colors duration-200">
-        {{ formatRelativeDate(value) }}
+      <component
+        v-if="getStatusIcon()"
+        :is="getStatusIcon()"
+        class="w-4 h-4 mr-2"
+      />
+      {{ formatValue() }}
+    </div>
+
+    <!-- Text Fields with Conditional Background -->
+    <div
+      v-else-if="type === 'text' && hasConditionalStyling"
+      class="inline-flex items-center px-2 py-1 rounded text-sm transition-all duration-200"
+      :class="getConditionalClasses()"
+    >
+      {{ formatValue() }}
+    </div>
+
+    <!-- Number Fields with Conditional Styling (like CVSS scores) -->
+    <div
+      v-else-if="(type === 'number' || isNumeric) && hasConditionalStyling"
+      class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold transition-all duration-200"
+      :class="getConditionalClasses()"
+    >
+      <span class="tabular-nums">{{ formatValue() }}</span>
+      <span v-if="getScoreLabel()" class="ml-2 text-xs opacity-80">
+        {{ getScoreLabel() }}
       </span>
     </div>
 
-    <!-- Enhanced Number Field -->
-    <div
-      v-else-if="type === 'number'"
-      class="font-mono font-medium text-base-content bg-base-200/50 px-3 py-1 rounded-lg border border-base-300/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200"
-    >
-      {{ formatNumber(value) }}
-    </div>
-
-    <!-- Enhanced Model Search Field -->
-    <div v-else-if="type === 'model_search'" class="flex flex-wrap gap-1.5">
-      <template v-if="isValidModelSearch">
-        <div
-          v-for="(val, key) in value"
-          :key="key"
-          class="badge badge-sm gap-1.5 transition-all duration-200 hover:scale-105 cursor-default"
-          :class="getModelSearchBadgeColor(key)"
-        >
-          <span class="opacity-70 text-[10px] uppercase font-bold tracking-wide">{{ key }}:</span>
-          <span class="font-semibold">{{ val }}</span>
-        </div>
-      </template>
-      <span v-else class="text-base-content/50 italic">No data</span>
-    </div>
-
-    <!-- Enhanced Price Field -->
-    <div
-      v-else-if="type === 'price'"
-      class="flex items-center gap-2"
-    >
-      <div class="w-5 h-5 rounded bg-success/20 flex items-center justify-center">
-        <svg class="w-3 h-3 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-        </svg>
-      </div>
-      <span class="font-mono font-bold text-lg text-success">{{ formatPrice(value) }}</span>
-    </div>
-
-    <!-- Enhanced Icon Field -->
-    <div v-else-if="type === 'icon'" class="flex items-center justify-center">
+    <!-- Boolean Fields -->
+    <div v-else-if="type === 'boolean'" class="flex items-center">
       <div
-        v-if="value"
-        class="w-10 h-10 flex items-center justify-center bg-base-200 rounded-lg border border-base-300 hover:border-primary/50 hover:bg-primary/10 transition-all duration-200 hover:scale-110"
-        v-html="value"
-      ></div>
-      <div v-else class="w-10 h-10 flex items-center justify-center bg-base-200/50 rounded-lg border border-dashed border-base-300">
-        <svg class="w-5 h-5 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-10 0l1 18h8l1-18" />
-        </svg>
-      </div>
-    </div>
-
-    <!-- Enhanced Default Text Field -->
-    <div v-else class="relative group">
-      <div
-        :class="[
-          'transition-all duration-200 min-h-[1.5rem] flex items-center',
-          !value ? 'text-base-content/50' : 'text-base-content group-hover:text-base-content',
-          truncateText ? 'truncate' : '',
-          options.enhanced ? 'text-base font-semibold bg-base-200/30 px-2 py-1 rounded border border-base-300/30' : '',
-          showTooltip ? 'cursor-help' : ''
-        ]"
+        class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-all duration-200"
+        :class="getBooleanClasses()"
       >
-        <span v-if="!value" class="italic">No data</span>
-        <span v-else>{{ formatDefaultValue(value) }}</span>
+        <component :is="booleanValue ? CheckCircle : XCircle" class="w-4 h-4 mr-1" />
+        {{ booleanValue ? 'Yes' : 'No' }}
       </div>
+    </div>
 
-      <!-- Enhanced Tooltip -->
-      <div
-        v-if="showTooltip"
-        class="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-3 px-1 pointer-events-none"
-      >
-        <div
-          class="tooltip tooltip-top"
-          :data-tip="value"
-        >
-          <div class="opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
-          </div>
+    <!-- Date/Timestamp Fields -->
+    <div v-else-if="type === 'date' || type === 'timestamp'" class="flex items-center text-sm">
+      <Calendar class="w-4 h-4 mr-2 text-base-content/50" />
+      <span>{{ formatDate() }}</span>
+    </div>
+
+    <!-- Email Fields -->
+    <div v-else-if="type === 'email'" class="flex items-center text-sm">
+      <Mail class="w-4 h-4 mr-2 text-primary/70" />
+      <a :href="`mailto:${value}`" class="link link-primary hover:link-secondary transition-colors duration-200">
+        {{ value }}
+      </a>
+    </div>
+
+    <!-- URL Fields -->
+    <div v-else-if="type === 'url'" class="flex items-center text-sm">
+      <ExternalLink class="w-4 h-4 mr-2 text-primary/70" />
+      <a :href="value" target="_blank" class="link link-primary hover:link-secondary transition-colors duration-200">
+        {{ truncateUrl(value) }}
+      </a>
+    </div>
+
+    <!-- Media/Image Fields -->
+    <div v-else-if="type === 'media'" class="flex items-center">
+      <div v-if="value" class="avatar">
+        <div class="w-12 h-12 rounded-lg">
+          <img :src="value" :alt="'Media'" class="object-cover" />
         </div>
       </div>
+      <div v-else class="flex items-center justify-center w-12 h-12 bg-base-200 rounded-lg">
+        <ImageIcon class="w-6 h-6 text-base-content/40" />
+      </div>
+    </div>
+
+    <!-- Rating/Stars -->
+    <div v-else-if="type === 'rating'" class="flex items-center">
+      <div class="rating rating-sm">
+        <Star
+          v-for="star in 5"
+          :key="star"
+          class="w-4 h-4"
+          :class="star <= (numericValue || 0) ? 'text-yellow-400 fill-current' : 'text-base-300'"
+        />
+      </div>
+      <span class="ml-2 text-sm text-base-content/60">{{ value }}/5</span>
+    </div>
+
+    <!-- Price/Currency -->
+    <div v-else-if="type === 'price'" class="flex items-center text-sm font-semibold">
+      <DollarSign class="w-4 h-4 mr-1 text-green-600" />
+      <span class="tabular-nums">{{ formatPrice() }}</span>
+    </div>
+
+    <!-- Progress/Percentage -->
+    <div v-else-if="type === 'progress' || type === 'percentage'" class="w-full">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-sm">{{ formatValue() }}%</span>
+        <span
+          class="text-xs px-2 py-1 rounded"
+          :class="getProgressClasses()"
+        >
+          {{ getProgressLabel() }}
+        </span>
+      </div>
+      <div class="w-full bg-base-300 rounded-full h-2">
+        <div
+          class="h-2 rounded-full transition-all duration-500"
+          :class="getProgressBarClasses()"
+          :style="{ width: `${Math.min(100, Math.max(0, numericValue || 0))}%` }"
+        ></div>
+      </div>
+    </div>
+
+    <!-- Chip/Tag Lists -->
+    <div v-else-if="type === 'chips' || type === 'tags'" class="flex flex-wrap gap-1">
+      <div
+        v-for="(chip, index) in getChipArray()"
+        :key="index"
+        class="badge badge-sm badge-outline hover:badge-primary transition-colors duration-200"
+      >
+        {{ chip }}
+      </div>
+    </div>
+
+    <!-- Long Text with Truncation -->
+    <div v-else-if="isLongText" class="group">
+      <div class="text-sm leading-relaxed">
+        <span v-if="!showFullText">
+          {{ truncatedText }}
+          <button
+            v-if="needsTruncation"
+            @click="showFullText = true"
+            class="link link-primary text-xs ml-1 hover:link-secondary"
+          >
+            Show more
+          </button>
+        </span>
+        <span v-else>
+          {{ value }}
+          <button
+            @click="showFullText = false"
+            class="link link-primary text-xs ml-1 hover:link-secondary"
+          >
+            Show less
+          </button>
+        </span>
+      </div>
+    </div>
+
+    <!-- Default Text -->
+    <div v-else class="text-sm">
+      <span v-if="value !== null && value !== undefined && value !== ''">
+        <span
+          v-if="hasConditionalStyling"
+          class="inline-flex items-center px-2 py-1 rounded text-sm transition-all duration-200"
+          :class="getConditionalClasses() || 'text-base-content'"
+        >
+          {{ formatValue() }}
+        </span>
+        <span v-else>
+          {{ formatValue() }}
+        </span>
+      </span>
+      <span v-else class="text-base-content/40 italic">
+        No data
+      </span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { format, formatDistanceToNow } from 'date-fns';
-
-interface MediaItem {
-  url?: string | { default: string };
-  name?: string;
-}
+import {
+  CheckCircle,
+  XCircle,
+  Calendar,
+  Mail,
+  ExternalLink,
+  Image as ImageIcon,
+  Star,
+  DollarSign,
+  Shield,
+  AlertTriangle,
+  CheckSquare,
+  Clock,
+  Zap
+} from 'lucide-vue-next';
 
 interface Props {
   value: any;
   type?: string;
-  options?: Record<string, any>;
+  options?: {
+    conditionalStyling?: {
+      conditions: Record<string, string>;
+      default?: string;
+    };
+    advancedStyling?: {
+      conditions: Array<{
+        operator: string;
+        value?: any;
+        min?: number;
+        max?: number;
+        classes: string;
+      }>;
+      default?: string;
+    };
+    enhanced?: boolean;
+    truncate?: boolean;
+    truncateLength?: number;
+  };
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -180,153 +224,309 @@ const props = withDefaults(defineProps<Props>(), {
   options: () => ({})
 });
 
+// State for text expansion
+const showFullText = ref(false);
+
 // Computed properties
-const displayMedia = computed(() => {
-  if (!Array.isArray(props.value)) return [];
-  return props.value.slice(0, 3);
+const numericValue = computed(() => {
+  const num = parseFloat(props.value);
+  return isNaN(num) ? null : num;
 });
 
-const remainingMediaCount = computed(() => {
-  if (!Array.isArray(props.value)) return 0;
-  return Math.max(0, props.value.length - 3);
+const booleanValue = computed(() => {
+  if (typeof props.value === 'boolean') return props.value;
+  if (typeof props.value === 'string') {
+    return ['true', '1', 'yes', 'on', 'active'].includes(props.value.toLowerCase());
+  }
+  return Boolean(props.value);
 });
 
-const isValidModelSearch = computed(() => {
-  return props.value && typeof props.value === 'object' && !Array.isArray(props.value);
+const isNumeric = computed(() => numericValue.value !== null);
+
+const hasConditionalStyling = computed(() => {
+  return props.options.conditionalStyling || props.options.advancedStyling;
 });
 
-const showTooltip = computed(() => {
-  return props.value && typeof props.value === 'string' && props.value.length > 50;
+const shouldRenderAsBadge = computed(() => {
+  // Only render as badge if there's a value AND conditional styling
+  if (!props.value || (props.value === null || props.value === undefined || props.value === '')) {
+    return false;
+  }
+
+  const badgeTypes = ['status', 'badge', 'tag'];
+  const statusFields = ['status', 'state', 'condition'];
+
+  return (badgeTypes.includes(props.type || '') ||
+         (hasConditionalStyling.value && statusFields.some(field =>
+           String(props.value).toLowerCase().includes(field)
+         ))) && hasConditionalStyling.value;
 });
 
-const truncateText = computed(() => {
-  return props.options?.truncate ?? true;
+const isLongText = computed(() => {
+  return props.type === 'text' &&
+         props.value &&
+         String(props.value).length > (props.options.truncateLength || 100);
 });
 
-// Helper functions
-function getMediaUrl(item: MediaItem): string {
-  if (!item?.url) return '';
-  return typeof item.url === 'string' ? item.url : item.url?.default || '';
+const needsTruncation = computed(() => {
+  return props.value && String(props.value).length > (props.options.truncateLength || 100);
+});
+
+const truncatedText = computed(() => {
+  if (!props.value) return '';
+  const text = String(props.value);
+  const maxLength = props.options.truncateLength || 100;
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+});
+
+const containerClasses = computed(() => {
+  return props.options.enhanced ? 'enhanced-field' : '';
+});
+
+// Methods
+function getConditionalClasses(): string {
+  // Handle simple conditional styling
+  if (props.options.conditionalStyling) {
+    const { conditions, default: defaultStyle } = props.options.conditionalStyling;
+    const normalizedValue = String(props.value || '').toLowerCase().trim();
+
+    // Return empty string if no value to avoid styling empty content
+    if (!normalizedValue) return '';
+
+    for (const [condition, classes] of Object.entries(conditions)) {
+      if (normalizedValue === condition.toLowerCase()) {
+        return classes;
+      }
+    }
+    return defaultStyle || '';
+  }
+
+  // Handle advanced conditional styling
+  if (props.options.advancedStyling) {
+    const { conditions, default: defaultStyle } = props.options.advancedStyling;
+
+    // Return empty string if no value to avoid styling empty content
+    if (props.value === null || props.value === undefined || props.value === '') {
+      return '';
+    }
+
+    for (const condition of conditions) {
+      if (evaluateCondition(condition)) {
+        return condition.classes;
+      }
+    }
+    return defaultStyle || '';
+  }
+
+  return '';
 }
 
-function formatDate(date: string | null): string {
-  if (!date) return 'No date';
-  try {
-    return format(new Date(date), 'MMM d, yyyy');
-  } catch (e) {
-    return 'Invalid date';
+function evaluateCondition(condition: any): boolean {
+  const value = numericValue.value !== null ? numericValue.value : props.value;
+
+  switch (condition.operator) {
+    case 'equals':
+      return value == condition.value;
+    case 'not_equals':
+      return value != condition.value;
+    case 'greater_than':
+      return typeof value === 'number' && value > condition.value;
+    case 'greater_than_equal':
+      return typeof value === 'number' && value >= condition.value;
+    case 'less_than':
+      return typeof value === 'number' && value < condition.value;
+    case 'less_than_equal':
+      return typeof value === 'number' && value <= condition.value;
+    case 'between':
+      return typeof value === 'number' &&
+             value >= condition.min &&
+             value <= condition.max;
+    case 'contains':
+      return String(value).toLowerCase().includes(String(condition.value).toLowerCase());
+    case 'starts_with':
+      return String(value).toLowerCase().startsWith(String(condition.value).toLowerCase());
+    case 'ends_with':
+      return String(value).toLowerCase().endsWith(String(condition.value).toLowerCase());
+    default:
+      return false;
   }
 }
 
-function formatRelativeDate(date: string | null): string {
-  if (!date) return '';
-  try {
-    return formatDistanceToNow(new Date(date), { addSuffix: true });
-  } catch (e) {
-    return '';
+function getBooleanClasses(): string {
+  if (booleanValue.value) {
+    return 'bg-green-100 text-green-800 border border-green-200';
+  } else {
+    return 'bg-red-100 text-red-800 border border-red-200';
   }
 }
 
-function formatNumber(num: number | null): string {
-  if (num === null || num === undefined) return '0';
-  try {
-    return new Intl.NumberFormat('en-US', {
-      notation: 'compact',
-      compactDisplay: 'short'
-    }).format(num);
-  } catch (e) {
-    return '0';
-  }
+function getProgressClasses(): string {
+  const value = numericValue.value || 0;
+  if (value >= 90) return 'bg-green-100 text-green-800';
+  if (value >= 70) return 'bg-blue-100 text-blue-800';
+  if (value >= 50) return 'bg-yellow-100 text-yellow-800';
+  return 'bg-red-100 text-red-800';
 }
 
-function formatPrice(price: number | null): string {
-  if (price === null || price === undefined) return '$0.00';
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(price);
-  } catch (e) {
-    return '$0.00';
-  }
+function getProgressBarClasses(): string {
+  const value = numericValue.value || 0;
+  if (value >= 90) return 'bg-green-500';
+  if (value >= 70) return 'bg-blue-500';
+  if (value >= 50) return 'bg-yellow-500';
+  return 'bg-red-500';
 }
 
-function getModelSearchBadgeColor(key: string): string {
-  const colors: Record<string, string> = {
-    status: 'badge-info',
-    type: 'badge-warning',
-    category: 'badge-success',
-    priority: 'badge-error',
-    label: 'badge-primary',
-    tag: 'badge-secondary',
-    level: 'badge-accent'
+function getProgressLabel(): string {
+  const value = numericValue.value || 0;
+  if (value >= 90) return 'Excellent';
+  if (value >= 70) return 'Good';
+  if (value >= 50) return 'Average';
+  return 'Poor';
+}
+
+function getStatusIcon() {
+  const normalizedValue = String(props.value || '').toLowerCase();
+
+  const iconMap: Record<string, any> = {
+    'unpatched': AlertTriangle,
+    'patched': CheckSquare,
+    'active': CheckCircle,
+    'inactive': XCircle,
+    'pending': Clock,
+    'completed': CheckCircle,
+    'critical': Shield,
+    'high': Zap,
+    'validated': CheckSquare,
+    'rejected': XCircle,
   };
-  return colors[key.toLowerCase()] || 'badge-neutral';
+
+  return iconMap[normalizedValue];
 }
 
-function formatDefaultValue(value: any): string {
-  if (value === null || value === undefined || value === '') return '';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+function getScoreLabel(): string {
+  if (props.type !== 'number' && !isNumeric.value) return '';
+
+  const value = numericValue.value || 0;
+
+  // CVSS Score labels
+  if (value >= 9.0) return 'Critical';
+  if (value >= 7.0) return 'High';
+  if (value >= 4.0) return 'Medium';
+  if (value > 0) return 'Low';
+  return 'None';
+}
+
+function formatValue(): string {
+  if (props.value === null || props.value === undefined) return '';
+  return String(props.value);
+}
+
+function formatDate(): string {
+  if (!props.value) return '';
+
+  try {
+    const date = new Date(props.value);
+    if (props.type === 'timestamp') {
+      return format(date, 'MMM dd, yyyy HH:mm');
+    }
+    return format(date, 'MMM dd, yyyy');
+  } catch {
+    return String(props.value);
+  }
+}
+
+function formatPrice(): string {
+  if (!isNumeric.value) return String(props.value);
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(numericValue.value || 0);
+}
+
+function truncateUrl(url: string): string {
+  if (!url) return '';
+  const maxLength = 40;
+  return url.length > maxLength ? url.substring(0, maxLength) + '...' : url;
+}
+
+function getChipArray(): string[] {
+  if (!props.value) return [];
+
+  if (Array.isArray(props.value)) {
+    return props.value.map(String);
+  }
+
+  if (typeof props.value === 'string') {
+    return props.value.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  return [String(props.value)];
 }
 </script>
 
 <style scoped>
-
-.field-renderer {
-  min-width: 0;
-  max-width: 100%;
+/* Enhanced field animations */
+.enhanced-field {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Custom pulse animation for boolean indicators */
-@keyframes gentle-pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.1);
-  }
+.enhanced-field:hover {
+  transform: translateY(-1px);
 }
 
-.animate-pulse {
-  animation: gentle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Enhanced hover effects */
-.group:hover .group-hover\:scale-105 {
+/* Badge hover effects */
+.badge:hover {
   transform: scale(1.05);
 }
 
-.group:hover .group-hover\:scale-110 {
+/* Progress bar animations */
+.h-2 {
+  transition: width 0.5s ease-in-out;
+}
+
+/* Link hover effects */
+.link {
+  transition: all 0.2s ease;
+}
+
+.link:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+/* Rating stars */
+.rating .text-yellow-400 {
+  filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.3));
+}
+
+/* Avatar image hover */
+.avatar img {
+  transition: transform 0.2s ease;
+}
+
+.avatar:hover img {
   transform: scale(1.1);
 }
 
-/* Smooth transitions for all interactive elements */
-.transition-all {
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 200ms;
+/* Chip animations */
+.badge {
+  transition: all 0.2s ease;
 }
 
-/* Custom scrollbar for tooltip content */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+.badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* Text expansion animations */
+.group span {
+  transition: all 0.3s ease;
 }
 
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--bc) / 0.2);
-  border-radius: 2px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--bc) / 0.3);
+/* Tabular numbers for better number alignment */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 </style>

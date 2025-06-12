@@ -145,9 +145,150 @@ class FormHelper
     }
 
     /**
-     * Add a new field to the form
+     * Add conditional styling to the last added field
      *
-     * @throws \InvalidArgumentException When invalid parameters are provided
+     * @param array $styleConditions Array of value => class mappings
+     * @param string $defaultStyle Default style when no condition matches
+     * @return self
+     */
+    public function withConditionalStyling(array $styleConditions, string $defaultStyle = ''): self
+    {
+        $lastIndex = count($this->columns) - 1;
+        if ($lastIndex < 0) {
+            throw new \InvalidArgumentException('No fields exist to add conditional styling to');
+        }
+
+        $this->columns[$lastIndex]['conditionalStyling'] = [
+            'conditions' => $styleConditions,
+            'default' => $defaultStyle
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Add advanced conditional styling with operators
+     *
+     * @param array $conditions Array of condition arrays
+     * @param string $defaultStyle Default style when no condition matches
+     * @return self
+     *
+     * Example:
+     * [
+     *   ['operator' => 'equals', 'value' => 'unpatched', 'classes' => 'bg-red-500 text-white'],
+     *   ['operator' => 'contains', 'value' => 'pending', 'classes' => 'bg-yellow-500 text-black'],
+     *   ['operator' => 'greater_than', 'value' => 100, 'classes' => 'bg-green-500 text-white'],
+     * ]
+     */
+    public function withAdvancedStyling(array $conditions, string $defaultStyle = ''): self
+    {
+        $lastIndex = count($this->columns) - 1;
+        if ($lastIndex < 0) {
+            throw new \InvalidArgumentException('No fields exist to add advanced styling to');
+        }
+
+        $this->columns[$lastIndex]['advancedStyling'] = [
+            'conditions' => $conditions,
+            'default' => $defaultStyle
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Add status badge styling (common use case)
+     *
+     * @param array $statusStyles Optional custom status styles
+     * @return self
+     */
+    public function withStatusStyling(array $statusStyles = []): self
+    {
+        $defaultStatusStyles = [
+            // Patch Status
+            'unpatched' => 'bg-red-500 text-white border-red-600',
+            'patched' => 'bg-green-500 text-white border-green-600',
+            'partially_patched' => 'bg-yellow-500 text-black border-yellow-600',
+
+            // General Status
+            'active' => 'bg-green-500 text-white border-green-600',
+            'inactive' => 'bg-gray-500 text-white border-gray-600',
+            'pending' => 'bg-yellow-500 text-black border-yellow-600',
+            'cancelled' => 'bg-red-500 text-white border-red-600',
+            'completed' => 'bg-blue-500 text-white border-blue-600',
+            'in_progress' => 'bg-orange-500 text-white border-orange-600',
+            'draft' => 'bg-gray-300 text-black border-gray-400',
+            'published' => 'bg-green-500 text-white border-green-600',
+            'archived' => 'bg-gray-600 text-white border-gray-700',
+
+            // Validation Status
+            'validated' => 'bg-green-500 text-white border-green-600',
+            'rejected' => 'bg-red-500 text-white border-red-600',
+            'under_review' => 'bg-blue-500 text-white border-blue-600',
+
+            // Contact Status
+            'contacted' => 'bg-blue-500 text-white border-blue-600',
+            'not_contacted' => 'bg-gray-500 text-white border-gray-600',
+            'responded' => 'bg-green-500 text-white border-green-600',
+            'no_response' => 'bg-yellow-500 text-black border-yellow-600',
+
+            // Boolean values
+            'true' => 'bg-green-500 text-white border-green-600',
+            'false' => 'bg-red-500 text-white border-red-600',
+            '1' => 'bg-green-500 text-white border-green-600',
+            '0' => 'bg-red-500 text-white border-red-600',
+        ];
+
+        $mergedStyles = array_merge($defaultStatusStyles, $statusStyles);
+
+        return $this->withConditionalStyling($mergedStyles, 'bg-gray-200 text-gray-800 border-gray-300');
+    }
+
+    /**
+     * Add severity/priority styling
+     *
+     * @param array $severityStyles Optional custom severity styles
+     * @return self
+     */
+    public function withSeverityStyling(array $severityStyles = []): self
+    {
+        $defaultSeverityStyles = [
+            'critical' => 'bg-red-600 text-white border-red-700 shadow-lg',
+            'high' => 'bg-red-500 text-white border-red-600',
+            'medium' => 'bg-yellow-500 text-black border-yellow-600',
+            'low' => 'bg-green-500 text-white border-green-600',
+            'info' => 'bg-blue-500 text-white border-blue-600',
+
+            // Numeric priorities
+            '1' => 'bg-red-600 text-white border-red-700',
+            '2' => 'bg-red-500 text-white border-red-600',
+            '3' => 'bg-yellow-500 text-black border-yellow-600',
+            '4' => 'bg-green-500 text-white border-green-600',
+            '5' => 'bg-blue-500 text-white border-blue-600',
+        ];
+
+        $mergedStyles = array_merge($defaultSeverityStyles, $severityStyles);
+
+        return $this->withConditionalStyling($mergedStyles, 'bg-gray-200 text-gray-800 border-gray-300');
+    }
+
+    /**
+     * Add percentage-based styling
+     *
+     * @return self
+     */
+    public function withPercentageStyling(): self
+    {
+        return $this->withAdvancedStyling([
+            ['operator' => 'greater_than_equal', 'value' => 90, 'classes' => 'bg-green-600 text-white border-green-700'],
+            ['operator' => 'greater_than_equal', 'value' => 70, 'classes' => 'bg-green-500 text-white border-green-600'],
+            ['operator' => 'greater_than_equal', 'value' => 50, 'classes' => 'bg-yellow-500 text-black border-yellow-600'],
+            ['operator' => 'greater_than_equal', 'value' => 30, 'classes' => 'bg-orange-500 text-white border-orange-600'],
+            ['operator' => 'less_than', 'value' => 30, 'classes' => 'bg-red-500 text-white border-red-600'],
+        ], 'bg-gray-200 text-gray-800 border-gray-300');
+    }
+
+    /**
+     * Enhanced addField method with styling support
      */
     public function addField(
         string $label,
@@ -167,7 +308,9 @@ class FormHelper
         mixed $rules = null,
         array $messages = [],
         bool $filterable = false,
-        array $filterOptions = []
+        array $filterOptions = [],
+        array $conditionalStyling = [],
+        string $defaultStyle = ''
     ): self {
         if (empty($key)) {
             throw new \InvalidArgumentException('Field key cannot be empty');
@@ -216,6 +359,14 @@ class FormHelper
 
         if (!empty($options)) {
             $field['options'] = $options;
+        }
+
+        // Add conditional styling if provided
+        if (!empty($conditionalStyling)) {
+            $field['conditionalStyling'] = [
+                'conditions' => $conditionalStyling,
+                'default' => $defaultStyle
+            ];
         }
 
         $this->columns[] = $field;

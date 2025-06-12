@@ -11,7 +11,12 @@
         <FieldRenderer
           :value="tableData[column.key]"
           :type="column.type || 'text'"
-          :options="{ ...column.options, enhanced: true }"
+          :options="{
+            ...column.options,
+            enhanced: true,
+            conditionalStyling: column.conditionalStyling,
+            advancedStyling: column.advancedStyling
+          }"
         />
       </div>
     </td>
@@ -32,10 +37,18 @@
             </div>
           </div>
 
-          <!-- Quick Actions Badge -->
+          <!-- Quick Actions Badge with Enhanced Styling -->
           <div class="flex items-center gap-2">
-            <div v-if="getStatusField()" class="badge badge-sm" :class="getStatusBadgeClass()">
-              {{ getStatusField() }}
+            <div v-if="getStatusField()" class="transition-all duration-200 hover:scale-105">
+              <FieldRenderer
+                :value="getStatusField()"
+                type="text"
+                :options="{
+                  enhanced: true,
+                  conditionalStyling: getStatusColumn()?.conditionalStyling,
+                  advancedStyling: getStatusColumn()?.advancedStyling
+                }"
+              />
             </div>
           </div>
         </div>
@@ -60,7 +73,7 @@
                 </span>
               </div>
 
-              <!-- Field Value -->
+              <!-- Field Value with Enhanced Styling -->
               <div class="flex-1 min-h-[2rem] flex items-center">
                 <FieldRenderer
                   :value="tableData[column.key]"
@@ -68,7 +81,9 @@
                   :options="{
                     ...column.options,
                     truncate: false,
-                    enhanced: true
+                    enhanced: true,
+                    conditionalStyling: column.conditionalStyling,
+                    advancedStyling: column.advancedStyling
                   }"
                 />
               </div>
@@ -116,7 +131,12 @@
                         <FieldRenderer
                           :value="tableData[column.key]"
                           :type="column.type || 'text'"
-                          :options="{ ...column.options, enhanced: false }"
+                          :options="{
+                            ...column.options,
+                            enhanced: false,
+                            conditionalStyling: column.conditionalStyling,
+                            advancedStyling: column.advancedStyling
+                          }"
                         />
                       </div>
                     </div>
@@ -134,8 +154,8 @@
               <Calendar class="w-3 h-3" />
               Created {{ formatRelativeDate(tableData.created_at) }}
             </span>
-            <span v-if="tableData.id" class="font-mono">
-              ID: {{ tableData.id }}
+            <span v-if="getIdValue()" class="font-mono">
+              ID: {{ getIdValue() }}
             </span>
           </div>
         </div>
@@ -170,7 +190,13 @@ import {
   Activity,
   Shield,
   Zap,
-  Layers
+  Layers,
+  AlertTriangle,
+  CheckCircle,
+  FileText,
+  Database,
+  Code,
+  Bug
 } from 'lucide-vue-next';
 
 interface Column {
@@ -179,6 +205,20 @@ interface Column {
   type?: string;
   options?: Record<string, any>;
   priority?: number;
+  conditionalStyling?: {
+    conditions: Record<string, string>;
+    default?: string;
+  };
+  advancedStyling?: {
+    conditions: Array<{
+      operator: string;
+      value?: any;
+      min?: number;
+      max?: number;
+      classes: string;
+    }>;
+    default?: string;
+  };
 }
 
 interface Props {
@@ -232,12 +272,79 @@ const hiddenColumnsCount = computed(() => {
 });
 
 const hasMetadata = computed(() => {
-  return props.tableData.created_at || props.tableData.updated_at || props.tableData.id;
+  return props.tableData.created_at || props.tableData.updated_at || getIdValue();
 });
 
-// Helper function to get appropriate icon for column type
+// Methods
+function toggleShowAll() {
+  showAll.value = !showAll.value;
+}
+
+// Handle fallback relationships - get the first non-empty value
+function getFieldValue(column: Column): any {
+  const key = column.key;
+
+  // Handle fallback relationships (separated by |)
+  if (key.includes('|')) {
+    const fallbackKeys = key.split('|').map(k => k.trim());
+
+    for (const fallbackKey of fallbackKeys) {
+      const value = getNestedValue(props.tableData, fallbackKey);
+      // More robust check for empty values
+      if (value !== null && value !== undefined && value !== '' && value !== 0) {
+        return value;
+      }
+    }
+    return null; // All fallbacks were empty
+  }
+
+  // Regular field access
+  return getNestedValue(props.tableData, key);
+}
+
+// Get nested value from object using dot notation
+function getNestedValue(obj: any, path: string): any {
+  if (!obj || !path) return null;
+
+  return path.split('.').reduce((current, key) => {
+    return current && current[key] !== undefined ? current[key] : null;
+  }, obj);
+}
+
+// Get ID value (supports custom ID fields)
+function getIdValue(): any {
+  // Try to find ID column first
+  const idColumn = props.columns.find(col =>
+    col.key === 'id' ||
+    col.key.endsWith('_id') ||
+    col.label.toLowerCase().includes('id')
+  );
+
+  if (idColumn) {
+    const value = props.tableData[idColumn.key];
+    if (value !== null && value !== undefined) return value;
+  }
+
+  // Fallback to direct access
+  return props.tableData.id || props.tableData.ID;
+}
+
+// Get status column for header badge styling
+function getStatusColumn(): Column | undefined {
+  const statusFields = ['status', 'state', 'condition', 'active'];
+
+  return props.columns.find(column =>
+    statusFields.some(field =>
+      column.key.toLowerCase().includes(field) ||
+      column.label.toLowerCase().includes(field)
+    )
+  );
+}
+
+// Enhanced icon detection with more specific mappings
 function getColumnIcon(column: Column) {
   const iconMap: Record<string, any> = {
+    // Field types
     date: Calendar,
     timestamp: Clock,
     number: Hash,
@@ -257,14 +364,44 @@ function getColumnIcon(column: Column) {
     security: Shield,
     performance: Zap,
     category: Layers,
+
+    // Security specific
+    cvss: Shield,
+    severity: AlertTriangle,
+    status: Activity,
+    vulnerability: Bug,
+    component: Code,
+    version: FileText,
+    researcher: User,
+    database: Database,
+
+    // Default
     default: Info
   };
+
+  // Check for special keywords in column key or label
+  const keyLower = column.key.toLowerCase();
+  const labelLower = column.label.toLowerCase();
+
+  // Security field detection
+  if (keyLower.includes('cvss') || labelLower.includes('cvss')) return Shield;
+  if (keyLower.includes('severity') || labelLower.includes('severity')) return AlertTriangle;
+  if (keyLower.includes('status') || labelLower.includes('status')) return Activity;
+  if (keyLower.includes('priority') || labelLower.includes('priority')) return Star;
+  if (keyLower.includes('vuln') || labelLower.includes('vulner')) return Bug;
+  if (keyLower.includes('component') || labelLower.includes('comp_')) return Code;
+  if (keyLower.includes('version') || labelLower.includes('version')) return FileText;
+  if (keyLower.includes('researcher') || labelLower.includes('researcher')) return User;
+  if (keyLower.includes('validation') || labelLower.includes('validation')) return CheckCircle;
+  if (keyLower.includes('patch') || labelLower.includes('patch')) return Shield;
+  if (keyLower.includes('contact') || labelLower.includes('contact')) return Mail;
+
   return iconMap[column.type || 'default'];
 }
 
 // Get column alignment based on type
 function getColumnAlignment(type?: string): string {
-  const rightAlignTypes = ['number', 'price', 'rating'];
+  const rightAlignTypes = ['number', 'price', 'rating', 'cvss'];
   const centerAlignTypes = ['boolean', 'media', 'icon'];
 
   if (rightAlignTypes.includes(type || '')) return 'text-right';
@@ -272,71 +409,108 @@ function getColumnAlignment(type?: string): string {
   return 'text-left';
 }
 
-// Get card title from priority fields
+// Get card title from priority fields with better relationship support
 function getCardTitle(): string {
-  const titleFields = ['name', 'title', 'label', 'subject', 'heading'];
+  const titleFields = ['name', 'title', 'label', 'subject', 'heading', 'comp_name'];
+
   for (const field of titleFields) {
+    // Check direct access first
     if (props.tableData[field]) {
       return String(props.tableData[field]);
     }
+
+    // Check nested relationships with more flexible matching
+    const column = props.columns.find(col => {
+      const key = col.key.toLowerCase();
+      return key.endsWith(`.${field}`) ||
+             key === field ||
+             key.includes(`_${field}`) ||
+             key.includes(`${field}_`);
+    });
+
+    if (column) {
+      const value = props.tableData[column.key];
+      if (value && String(value).trim()) return String(value);
+    }
   }
-  return `Item #${props.tableData.id || 'Unknown'}`;
+
+  return `Item #${getIdValue() || 'Unknown'}`;
 }
 
-// Get card subtitle
+// Get card subtitle with better relationship support
 function getCardSubtitle(): string {
-  const subtitleFields = ['description', 'subtitle', 'summary', 'excerpt'];
+  const subtitleFields = ['description', 'subtitle', 'summary', 'excerpt', 'researcher', 'type'];
+
   for (const field of subtitleFields) {
+    // Check direct access first
     if (props.tableData[field]) {
       const text = String(props.tableData[field]);
       return text.length > 100 ? text.substring(0, 100) + '...' : text;
     }
-  }
-  return '';
-}
 
-// Get status field for badge
-function getStatusField(): string {
-  const statusFields = ['status', 'state', 'condition', 'active'];
-  for (const field of statusFields) {
-    if (props.tableData[field] !== undefined) {
-      return String(props.tableData[field]);
+    // Check nested relationships with more flexible matching
+    const column = props.columns.find(col => {
+      const key = col.key.toLowerCase();
+      return key.endsWith(`.${field}`) ||
+             key === field ||
+             key.includes(`_${field}`) ||
+             key.includes(`${field}_`);
+    });
+
+    if (column) {
+      const value = props.tableData[column.key];
+      if (value && String(value).trim()) {
+        const text = String(value);
+        return text.length > 100 ? text.substring(0, 100) + '...' : text;
+      }
     }
   }
+
   return '';
 }
 
-// Get status badge class
-function getStatusBadgeClass(): string {
-  const status = getStatusField().toLowerCase();
-  const statusClasses: Record<string, string> = {
-    'active': 'badge-success',
-    'inactive': 'badge-error',
-    'pending': 'badge-warning',
-    'draft': 'badge-info',
-    'published': 'badge-success',
-    'archived': 'badge-neutral',
-    'completed': 'badge-success',
-    'in-progress': 'badge-warning',
-    'cancelled': 'badge-error',
-    'true': 'badge-success',
-    'false': 'badge-error'
-  };
-  return statusClasses[status] || 'badge-neutral';
+// Get status field for badge with improved detection
+function getStatusField(): string {
+  const statusFields = ['status', 'state', 'condition', 'active'];
+
+  for (const field of statusFields) {
+    // Check direct access first
+    if (props.tableData[field] !== undefined && props.tableData[field] !== null) {
+      return String(props.tableData[field]);
+    }
+
+    // Check nested relationships and columns with improved matching
+    const column = props.columns.find(col => {
+      const key = col.key.toLowerCase();
+      const label = col.label.toLowerCase();
+      return key.includes(field) ||
+             label.includes(field) ||
+             key === field ||
+             label === field;
+    });
+
+    if (column) {
+      const value = props.tableData[column.key];
+      if (value !== null && value !== undefined && String(value).trim()) {
+        return String(value);
+      }
+    }
+  }
+
+  return '';
 }
 
-// Format relative date
+// Format relative date with error handling
 function formatRelativeDate(date: string): string {
   try {
-    return formatDistanceToNow(new Date(date), { addSuffix: true });
-  } catch {
+    if (!date) return 'Unknown';
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) return 'Invalid date';
+    return formatDistanceToNow(parsedDate, { addSuffix: true });
+  } catch (error) {
+    console.warn('Date formatting error:', error);
     return 'Unknown';
   }
-}
-
-// Methods
-function toggleShowAll() {
-  showAll.value = !showAll.value;
 }
 </script>
 
@@ -430,5 +604,23 @@ td:hover::before {
 
 .overflow-auto::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--bc) / 0.3);
+}
+
+/* Enhanced badge styling */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Conditional styling support */
+.field-renderer {
+  width: 100%;
+}
+
+/* Error handling for missing components */
+.field-item .w-4,
+.field-item .w-3 {
+  flex-shrink: 0;
 }
 </style>

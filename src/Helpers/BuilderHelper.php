@@ -172,7 +172,7 @@ class BuilderHelper
     }
 
     /**
-     * Replace the column values.
+     * Replace the column values with enhanced relationship support.
      *
      * @param mixed $modelPaginated
      * @param mixed $rawColumns
@@ -184,6 +184,16 @@ class BuilderHelper
         // Create a clone of the collection to avoid modifying the original
         $collection = $modelPaginated->getCollection()->map(function ($item) use ($rawColumns) {
             foreach ($rawColumns as $column) {
+                $key = $column['key'];
+
+                // 🚀 HANDLE DOT NOTATION RELATIONSHIPS AUTOMATICALLY (with fallback support)
+                if (strpos($key, '.') !== false || strpos($key, '|') !== false) {
+                    // Extract relationship value using Laravel's data_get helper with fallback support
+                    $item->$key = $this->getRelationshipValue($item, $key);
+                    continue;
+                }
+
+                // Handle existing field types for non-relationship fields
                 if (!empty($column['type'])) {
                     switch ($column['type']) {
                         case FieldTypes::MEDIA->value:
@@ -192,6 +202,7 @@ class BuilderHelper
                                 return new MediaResource($mediaItem->media);
                             })) : null;
                             break;
+
                         case FieldTypes::MODEL_SEARCH->value:
                             $field = $column['key'];
                             $modelRelation = decrypt($column['model']);
@@ -212,12 +223,14 @@ class BuilderHelper
                                 }
                             }
                             break;
+
                         case FieldTypes::PIVOT_MODEL->value:
                             $field = $column['key'];
                             $relation = $item->{$column['relation']}();
                             $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push($relation->getQuery()->from . '.id');
                             $item->$field = $relation->select($columnFilters->toArray())->get();
                             break;
+
                         default:
                             break;
                     }
@@ -227,5 +240,128 @@ class BuilderHelper
         });
 
         return $collection;
+    }
+
+
+    /**
+     * 🚀 Get relationship value with AUTOMATIC FALLBACK support
+     *
+     * Examples:
+     * - 'reportedData.comp_name' → $item->reportedData->comp_name
+     * - 'reportedTempData.product.name|reportedData.comp_name' → Try first, fallback to second
+     * - 'primary.key|fallback.key|default_value' → Multiple fallbacks
+     *
+     * @param mixed $item
+     * @param string $key
+     * @return mixed
+     */
+    private function getRelationshipValue($item, $key)
+    {
+        try {
+            // 🚀 NEW: Handle fallback syntax with pipe "|"
+            if (strpos($key, '|') !== false) {
+                $keys = explode('|', $key);
+
+                foreach ($keys as $tryKey) {
+                    $tryKey = trim($tryKey);
+
+                    // If it's a static value (no dots), return as-is
+                    if (strpos($tryKey, '.') === false && !property_exists($item, $tryKey)) {
+                        return $tryKey; // Return static fallback value
+                    }
+
+                    // Try to get the relationship value
+                    $value = data_get($item, $tryKey);
+
+                    if (!empty($value)) {
+                        return $this->formatValue($value);
+                    }
+                }
+
+                return null; // All fallbacks failed
+            }
+
+            // Regular single key (existing functionality)
+            $value = data_get($item, $key);
+            return $this->formatValue($value);
+        } catch (\Exception $e) {
+            // If data_get fails, try manual traversal for edge cases
+            return $this->manualRelationshipTraversal($item, $key);
+        }
+    }
+
+    /**
+     * Format value for different data types
+     */
+    private function formatValue($value)
+    {
+    // Handle special cases for better frontend compatibility
+        if ($value instanceof \Carbon\Carbon) {
+            return $value->toISOString();
+        }
+
+        if ($value instanceof \Illuminate\Database\Eloquent\Model) {
+            return $value->toArray();
+        }
+
+        if ($value instanceof \Illuminate\Support\Collection) {
+            return $value->toArray();
+        }
+
+        return $value;
+    }
+
+    /**
+     * 🛡️ Fallback method for edge cases where data_get might fail
+     *
+     * @param mixed $item
+     * @param string $key
+     * @return mixed
+     */
+    private function manualRelationshipTraversal($item, $key)
+    {
+        try {
+            $segments = explode('.', $key);
+            $current = $item;
+
+            foreach ($segments as $segment) {
+                if (is_null($current)) {
+                    return null;
+                }
+
+                if (is_object($current)) {
+                    // Check if it's a loaded relationship first
+                    if ($current instanceof \Illuminate\Database\Eloquent\Model && $current->relationLoaded($segment)) {
+                        $current = $current->getRelation($segment);
+                    } else {
+                        // Try to access as attribute
+                        $current = $current->$segment ?? null;
+                    }
+                } elseif (is_array($current)) {
+                    $current = $current[$segment] ?? null;
+                } else {
+                    return null;
+                }
+            }
+
+            // Format the final value
+            if ($current instanceof \Carbon\Carbon) {
+                return $current->toISOString();
+            }
+
+            if ($current instanceof \Illuminate\Database\Eloquent\Model) {
+                return $current->toArray();
+            }
+
+            if ($current instanceof \Illuminate\Support\Collection) {
+                return $current->toArray();
+            }
+
+            return $current;
+        } catch (\Exception $e) {
+            // Log the error for debugging but don't break the flow
+            \Log::warning("Error accessing relationship path '{$key}': " . $e->getMessage());
+            return null;
+        }
     }
 }
