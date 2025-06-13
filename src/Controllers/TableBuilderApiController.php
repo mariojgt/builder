@@ -6,13 +6,14 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Schema;
 use Mariojgt\Builder\Helpers\BuilderHelper;
 use Illuminate\Validation\ValidationException;
 
 class TableBuilderApiController extends Controller
 {
     /**
-     * Handle data display to the table with AUTOMATIC relationship detection.
+     * Handle data display to the table with AUTOMATIC relationship detection and custom attributes support.
      *
      * @param Request $request
      * @return array
@@ -36,16 +37,20 @@ class TableBuilderApiController extends Controller
         // 🚀 AUTO-DETECT RELATIONSHIPS from dot notation
         $relationships = $this->autoDetectRelationships($rawColumns);
 
-        // Get base columns (no relationships)
-        $columns = $this->getBaseColumns($rawColumns);
+        // 🚀 AUTO-DETECT CUSTOM ATTRIBUTES (accessors) to exclude from queries
+        $customAttributes = $this->autoDetectCustomAttributes($model, $rawColumns);
+
+        // Get base columns (no relationships, no custom attributes)
+        $columns = $this->getBaseColumns($rawColumns, $customAttributes);
 
         // Add timestamps if model has them
         $hasTimestamps = $model->timestamps;
         if ($hasTimestamps && !$columns->contains('updated_at')) {
             $columns->push('updated_at');
         }
+
         // 🚀 SMART SELECT: Add foreign keys for relationships
-        $selectColumns = $this->getSmartSelectColumns($rawColumns, $relationships);
+        $selectColumns = $this->getSmartSelectColumns($rawColumns, $relationships, $customAttributes);
 
         // Start query with AUTO-LOADED relationships
         $query = $model->query();
@@ -53,25 +58,25 @@ class TableBuilderApiController extends Controller
             $query->with($relationships);
         }
 
-        // Handle filters (with relationship support)
+        // Handle filters (with relationship support, excluding custom attributes)
         if ($request->has('filters')) {
-            $this->applyFilters($query, $request->filters, $rawColumns);
+            $this->applyFilters($query, $request->filters, $rawColumns, $customAttributes);
         }
 
-        // Handle search (with relationship support)
+        // Handle search (with relationship support, excluding custom attributes)
         if ($request->has('search')) {
-            $this->applySearch($query, $request->search, $rawColumns);
+            $this->applySearch($query, $request->search, $rawColumns, $customAttributes);
         }
 
-        // Handle sorting with relationship support
+        // Handle sorting with relationship support (excluding custom attributes)
         if (!empty($request->sort)) {
-            $this->applySorting($query, $request->sort, $request->direction ?? 'asc', $rawColumns);
+            $this->applySorting($query, $request->sort, $request->direction ?? 'asc', $rawColumns, $customAttributes);
         }
 
         // Execute query with smart column selection
         $modelPaginated = $query->select($selectColumns)->paginate($request->perPage ?? 10);
 
-        // Process data (with relationship values)
+        // Process data (with relationship values and custom attributes)
         $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
 
         return [
@@ -92,11 +97,55 @@ class TableBuilderApiController extends Controller
     }
 
     /**
+     * 🚀 AUTO-DETECT custom attributes (accessors) to exclude from database queries
+     * This prevents SQL errors when trying to filter/sort on computed attributes
+     */
+    private function autoDetectCustomAttributes($model, $rawColumns)
+    {
+        $customAttributes = [];
+        $tableName = $model->getTable();
+
+        // Get all actual database columns
+        $databaseColumns = Schema::getColumnListing($tableName);
+
+        foreach ($rawColumns as $column) {
+            $key = $column['key'];
+
+            // Skip relationship fields (they contain dots)
+            if (strpos($key, '.') !== false) {
+                continue;
+            }
+
+            // Skip fallback fields (they contain pipes)
+            if (strpos($key, '|') !== false) {
+                continue;
+            }
+
+            // Check if this is a custom attribute (not in database but accessible on model)
+            if (!in_array($key, $databaseColumns)) {
+                // Check if the model has an accessor for this attribute
+                $accessorMethod = 'get' . str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $key))) . 'Attribute';
+
+                if (method_exists($model, $accessorMethod)) {
+                    $customAttributes[] = $key;
+                    \Log::info("Detected custom attribute: {$key} (accessor: {$accessorMethod})");
+                } else {
+                    // Also check if the attribute is defined in $appends
+                    if (in_array($key, $model->getAppends())) {
+                        $customAttributes[] = $key;
+                        \Log::info("Detected custom attribute: {$key} (in \$appends)");
+                    } else {
+                        \Log::warning("Column '{$key}' not found in database or as accessor. This might cause SQL errors.");
+                    }
+                }
+            }
+        }
+
+        return $customAttributes;
+    }
+
+    /**
      * 🚀 AUTO-DETECT relationships from column keys with fallback support
-     * Examples:
-     * - 'reportedData.comp_name' → loads 'reportedData'
-     * - 'reportedTempData.product.name' → loads 'reportedTempData.product'
-     * - 'reportedTempData.product.product_url|reportedData.comp_link' → loads both 'reportedTempData.product' and 'reportedData'
      */
     private function autoDetectRelationships($columns)
     {
@@ -135,13 +184,10 @@ class TableBuilderApiController extends Controller
             array_pop($parts); // Remove attribute, keep relationship path
 
             if (!empty($parts)) {
-                // Single level: reportedData.comp_name → 'reportedData'
-                // Multi level: reportedTempData.product.name → 'reportedTempData.product'
                 $relationshipPath = implode('.', $parts);
                 $relationships[] = $relationshipPath;
 
                 // Also add intermediate paths for nested relationships
-                // reportedTempData.product.category.name → ['reportedTempData', 'reportedTempData.product', 'reportedTempData.product.category']
                 $currentPath = '';
                 foreach ($parts as $part) {
                     $currentPath = $currentPath ? "$currentPath.$part" : $part;
@@ -152,30 +198,48 @@ class TableBuilderApiController extends Controller
     }
 
     /**
-     * Get base columns (exclude relationship fields)
+     * Get base columns (exclude relationship fields and custom attributes)
      */
-    private function getBaseColumns($rawColumns)
+    private function getBaseColumns($rawColumns, $customAttributes = [])
     {
-        return $rawColumns->filter(function ($column) {
-            // Only include direct model columns (no dot notation)
-            return strpos($column['key'], '.') === false;
+        return $rawColumns->filter(function ($column) use ($customAttributes) {
+            $key = $column['key'];
+
+            // Exclude relationship fields (contain dots)
+            if (strpos($key, '.') !== false) {
+                return false;
+            }
+
+            // Exclude fallback fields (contain pipes)
+            if (strpos($key, '|') !== false) {
+                return false;
+            }
+
+            // Exclude custom attributes
+            if (in_array($key, $customAttributes)) {
+                return false;
+            }
+
+            // Exclude special field types
+            return !in_array($column['type'], ['media', 'pivot_model']);
         })
-        ->where('type', '!=', 'media')
-        ->where('type', '!=', 'pivot_model')
         ->pluck('key');
     }
 
     /**
-     * 🚀 SMART SELECT: Get columns with foreign keys for relationships
+     * 🚀 SMART SELECT: Get columns with foreign keys for relationships (excluding custom attributes)
      */
-    private function getSmartSelectColumns($rawColumns, $relationships)
+    private function getSmartSelectColumns($rawColumns, $relationships, $customAttributes = [])
     {
-        // Get base columns
-        $baseColumns = $rawColumns->filter(function ($column) {
-            return strpos($column['key'], '.') === false;
+        // Get base columns (excluding custom attributes)
+        $baseColumns = $rawColumns->filter(function ($column) use ($customAttributes) {
+            $key = $column['key'];
+
+            return strpos($key, '.') === false &&
+                   strpos($key, '|') === false &&
+                   !in_array($key, $customAttributes) &&
+                   !in_array($column['type'], ['media', 'pivot_model']);
         })
-        ->where('type', '!=', 'media')
-        ->where('type', '!=', 'pivot_model')
         ->pluck('key')
         ->toArray();
 
@@ -183,15 +247,14 @@ class TableBuilderApiController extends Controller
         $request = request();
         $modelClass = decrypt($request->model);
         $model = new $modelClass();
-        $primaryKey = $model->getKeyName(); // This will get the correct primary key
+        $primaryKey = $model->getKeyName();
 
-        // Always include primary key (use the model's actual primary key)
+        // Always include primary key
         if (!in_array($primaryKey, $baseColumns)) {
             array_unshift($baseColumns, $primaryKey);
         }
 
         // If we have relationships, just select all columns to be safe
-        // This ensures foreign keys are available for relationship loading
         if (!empty($relationships)) {
             return ['*'];
         }
@@ -200,12 +263,18 @@ class TableBuilderApiController extends Controller
     }
 
     /**
-     * Apply filters with AUTOMATIC relationship support and fallback
+     * Apply filters with AUTOMATIC relationship support and custom attribute exclusion
      */
-    private function applyFilters($query, $filters, $rawColumns)
+    private function applyFilters($query, $filters, $rawColumns, $customAttributes = [])
     {
         foreach ($filters as $key => $value) {
             if (empty($value)) {
+                continue;
+            }
+
+            // 🚀 SKIP custom attributes - they can't be filtered in the database
+            if (in_array($key, $customAttributes)) {
+                \Log::info("Skipping filter for custom attribute: {$key}");
                 continue;
             }
 
@@ -217,14 +286,85 @@ class TableBuilderApiController extends Controller
             // Handle fallback relationships (separated by |)
             if (strpos($key, '|') !== false) {
                 $fallbackKeys = explode('|', $key);
-                $query->where(function ($fallbackQuery) use ($fallbackKeys, $value, $column) {
+                $query->where(function ($fallbackQuery) use ($fallbackKeys, $value, $column, $customAttributes) {
                     foreach ($fallbackKeys as $fallbackKey) {
                         $fallbackKey = trim($fallbackKey);
-                        $this->applyFilterToSingleKey($fallbackQuery, $fallbackKey, $value, $column, true); // true for OR condition
+
+                        // Skip if this fallback key is a custom attribute
+                        if (in_array($fallbackKey, $customAttributes)) {
+                            continue;
+                        }
+
+                        $this->applyFilterToSingleKey($fallbackQuery, $fallbackKey, $value, $column, true);
                     }
                 });
             } else {
                 $this->applyFilterToSingleKey($query, $key, $value, $column);
+            }
+        }
+    }
+
+    /**
+     * Apply search with AUTOMATIC relationship support and custom attribute exclusion
+     */
+    private function applySearch($query, $search, $rawColumns, $customAttributes = [])
+    {
+        $sortableColumns = $rawColumns->filter(function ($column) use ($customAttributes) {
+            // Only include sortable columns that are not custom attributes
+            return $column['sortable'] == true && !in_array($column['key'], $customAttributes);
+        });
+
+        $query->where(function ($q) use ($search, $sortableColumns, $customAttributes) {
+            foreach ($sortableColumns as $column) {
+                $key = $column['key'];
+
+                // Skip custom attributes
+                if (in_array($key, $customAttributes)) {
+                    continue;
+                }
+
+                // Handle fallback relationships (separated by |)
+                if (strpos($key, '|') !== false) {
+                    $fallbackKeys = explode('|', $key);
+                    foreach ($fallbackKeys as $fallbackKey) {
+                        $fallbackKey = trim($fallbackKey);
+
+                        // Skip if this fallback key is a custom attribute
+                        if (in_array($fallbackKey, $customAttributes)) {
+                            continue;
+                        }
+
+                        $this->applySearchToSingleKey($q, $search, $fallbackKey, true);
+                    }
+                } else {
+                    $this->applySearchToSingleKey($q, $search, $key);
+                }
+            }
+        });
+    }
+
+    /**
+     * 🚀 Apply sorting with automatic relationship detection and custom attribute exclusion
+     */
+    private function applySorting($query, $sort, $direction, $rawColumns, $customAttributes = [])
+    {
+        // 🚀 SKIP custom attributes - they can't be sorted in the database
+        if (in_array($sort, $customAttributes)) {
+            \Log::info("Skipping sort for custom attribute: {$sort}. Sorting by ID instead.");
+            $query->orderBy('id', $direction);
+            return;
+        }
+
+        // Check if this is a relationship field
+        if (strpos($sort, '.') !== false) {
+            $this->applyRelationshipSorting($query, $sort, $direction);
+        } else {
+            // Direct model field - normal sorting
+            try {
+                $query->orderBy($sort, $direction);
+            } catch (\Exception $e) {
+                \Log::warning("Could not sort by column '{$sort}': " . $e->getMessage() . ". Sorting by ID instead.");
+                $query->orderBy('id', $direction);
             }
         }
     }
@@ -239,22 +379,6 @@ class TableBuilderApiController extends Controller
             $this->applyRelationshipFilter($query, $key, $value, $column, $useOr);
         } else {
             $this->applyDirectFilter($query, $key, $value, $column, $useOr);
-        }
-    }
-
-    /**
-     * 🚀 Apply sorting with automatic relationship detection
-     */
-    private function applySorting($query, $sort, $direction, $rawColumns)
-    {
-        // Check if this is a relationship field
-        if (strpos($sort, '.') !== false) {
-            // For relationship fields, we can't sort directly
-            // Instead, we'll use a subquery or join approach
-            $this->applyRelationshipSorting($query, $sort, $direction);
-        } else {
-            // Direct model field - normal sorting
-            $query->orderBy($sort, $direction);
         }
     }
 
@@ -278,7 +402,6 @@ class TableBuilderApiController extends Controller
                     $subQuery->where($attribute, 'like', '%' . $search . '%');
                 });
             } catch (\Exception $e) {
-                // If relationship doesn't exist, silently skip this search term
                 \Log::warning("Search failed for relationship '{$relationPath}': " . $e->getMessage());
             }
         } else {
@@ -286,7 +409,6 @@ class TableBuilderApiController extends Controller
             try {
                 $query->$method($key, 'like', '%' . $search . '%');
             } catch (\Exception $e) {
-                // If column doesn't exist, silently skip this search term
                 \Log::warning("Search failed for column '{$key}': " . $e->getMessage());
             }
         }
@@ -302,18 +424,15 @@ class TableBuilderApiController extends Controller
         $relationPath = implode('.', $parts);
 
         try {
-            // Use a subquery to sort by relationship field
             $model = $query->getModel();
 
             // For simple one-level relationships, we can use a join
             if (count($parts) === 1) {
                 $relationName = $parts[0];
 
-                // Try to get the relationship instance
                 if (method_exists($model, $relationName)) {
                     $relation = $model->$relationName();
 
-                    // Check if it's a belongsTo relationship (most common case)
                     if ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
                         $foreignKey = $relation->getForeignKeyName();
                         $ownerKey = $relation->getOwnerKeyName();
@@ -322,19 +441,17 @@ class TableBuilderApiController extends Controller
 
                         $query->leftJoin($relatedTable, "{$mainTable}.{$foreignKey}", '=', "{$relatedTable}.{$ownerKey}")
                               ->orderBy("{$relatedTable}.{$attribute}", $direction)
-                              ->select("{$mainTable}.*"); // Only select from main table
+                              ->select("{$mainTable}.*");
 
                         return;
                     }
                 }
             }
 
-            // Fallback: For complex relationships or when join doesn't work,
-            // just order by ID to avoid errors (not ideal but safe)
+            // Fallback to ordering by ID
             $query->orderBy('id', $direction);
 
         } catch (\Exception $e) {
-            // If anything goes wrong, fallback to ordering by ID
             \Log::warning("Could not sort by relationship field '{$sort}': " . $e->getMessage());
             $query->orderBy('id', $direction);
         }
@@ -373,36 +490,72 @@ class TableBuilderApiController extends Controller
                     break;
             }
         } catch (\Exception $e) {
-            // If column doesn't exist, silently skip this filter
             \Log::warning("Filter failed for column '{$key}': " . $e->getMessage());
         }
     }
 
     /**
-     * Apply search with AUTOMATIC relationship support and fallback
+     * Apply filter on relationship field with OR support
      */
-    private function applySearch($query, $search, $rawColumns)
+    private function applyRelationshipFilter($query, $key, $value, $column, $useOr = false)
     {
-        $sortableColumns = $rawColumns->filter(function ($column) {
-            return $column['sortable'] == true;
-        });
+        $parts = explode('.', $key);
+        $attribute = array_pop($parts);
+        $relationPath = implode('.', $parts);
 
-        $query->where(function ($q) use ($search, $sortableColumns) {
-            foreach ($sortableColumns as $column) {
-                $key = $column['key'];
+        $method = $useOr ? 'orWhereHas' : 'whereHas';
 
-                // Handle fallback relationships (separated by |)
-                if (strpos($key, '|') !== false) {
-                    $fallbackKeys = explode('|', $key);
-                    foreach ($fallbackKeys as $fallbackKey) {
-                        $fallbackKey = trim($fallbackKey);
-                        $this->applySearchToSingleKey($q, $search, $fallbackKey, true); // true for OR condition
-                    }
+        try {
+            $query->$method($relationPath, function ($q) use ($attribute, $value, $column) {
+                switch ($column['type']) {
+                    case 'boolean':
+                        $q->where($attribute, $value === 'true');
+                        break;
+                    case 'date':
+                    case 'timestamp':
+                        $this->applyDateFilter($q, $attribute, $value);
+                        break;
+                    case 'select':
+                        $q->where($attribute, $value);
+                        break;
+                    default:
+                        $q->where($attribute, 'LIKE', "%{$value}%");
+                        break;
+                }
+            });
+        } catch (\Exception $e) {
+            \Log::warning("Filter failed for relationship '{$relationPath}': " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Apply date filter with proper handling of from/to format
+     */
+    private function applyDateFilter($query, $key, $value, $useOr = false)
+    {
+        if (is_string($value)) {
+            if ($useOr) {
+                $query->orWhereDate($key, $value);
+            } else {
+                $query->whereDate($key, $value);
+            }
+        } elseif (is_array($value)) {
+            if (isset($value['from']) && !empty($value['from'])) {
+                if ($useOr) {
+                    $query->orWhereDate($key, '>=', $value['from']);
                 } else {
-                    $this->applySearchToSingleKey($q, $search, $key);
+                    $query->whereDate($key, '>=', $value['from']);
                 }
             }
-        });
+
+            if (isset($value['to']) && !empty($value['to'])) {
+                if ($useOr) {
+                    $query->orWhereDate($key, '<=', $value['to']);
+                } else {
+                    $query->whereDate($key, '<=', $value['to']);
+                }
+            }
+        }
     }
 
     /**
@@ -423,13 +576,22 @@ class TableBuilderApiController extends Controller
             $model = decrypt($request->model);
             $model = new $model();
 
+            // 🚀 AUTO-DETECT custom attributes to exclude from saving
             $rawColumns = collect($request->data);
+            $customAttributes = $this->autoDetectCustomAttributes($model, $rawColumns);
+
             $mediaRelations = [];
             $pivotRelations = [];
 
             foreach ($rawColumns as $column) {
-                // 🚀 SKIP relationship fields automatically (they can't be directly saved)
+                // 🚀 SKIP relationship fields automatically
                 if (strpos($column['key'], '.') !== false) {
+                    continue;
+                }
+
+                // 🚀 SKIP custom attributes automatically
+                if (in_array($column['key'], $customAttributes)) {
+                    \Log::info("Skipping save for custom attribute: {$column['key']}");
                     continue;
                 }
 
@@ -507,13 +669,22 @@ class TableBuilderApiController extends Controller
             $modelClass = decrypt($request->model);
             $model = $modelClass::findOrFail($request->id);
 
+            // 🚀 AUTO-DETECT custom attributes to exclude from saving
             $rawColumns = collect($request->data);
+            $customAttributes = $this->autoDetectCustomAttributes($model, $rawColumns);
+
             $mediaRelations = [];
             $pivotRelations = [];
 
             foreach ($rawColumns as $column) {
-                // 🚀 SKIP relationship fields automatically (they can't be directly saved)
+                // 🚀 SKIP relationship fields automatically
                 if (strpos($column['key'], '.') !== false) {
+                    continue;
+                }
+
+                // 🚀 SKIP custom attributes automatically
+                if (in_array($column['key'], $customAttributes)) {
+                    \Log::info("Skipping update for custom attribute: {$column['key']}");
                     continue;
                 }
 
@@ -612,7 +783,7 @@ class TableBuilderApiController extends Controller
     }
 
     /**
-     * Dynamic field validation
+     * Dynamic field validation (excluding custom attributes)
      */
     private function dynamicFieldValidation(Request $request)
     {
@@ -627,9 +798,20 @@ class TableBuilderApiController extends Controller
         );
 
         $errorMessages = [];
+
+        // Get model to detect custom attributes
+        $modelClass = decrypt($request->model);
+        $model = new $modelClass();
+        $customAttributes = $this->autoDetectCustomAttributes($model, collect($request->data));
+
         foreach ($request->data as $value) {
-            // 🚀 SKIP validation for relationship fields (they're read-only)
+            // 🚀 SKIP validation for relationship fields
             if (strpos($value['key'], '.') !== false) {
+                continue;
+            }
+
+            // 🚀 SKIP validation for custom attributes
+            if (in_array($value['key'], $customAttributes)) {
                 continue;
             }
 
@@ -643,74 +825,6 @@ class TableBuilderApiController extends Controller
 
         if (count($errorMessages) > 0) {
             throw ValidationException::withMessages($errorMessages);
-        }
-    }
-
-    /**
-     * Apply date filter with proper handling of from/to format
-     */
-    private function applyDateFilter($query, $key, $value, $useOr = false)
-    {
-        // Handle both string dates and array format from frontend
-        if (is_string($value)) {
-            // Simple date string
-            if ($useOr) {
-                $query->orWhereDate($key, $value);
-            } else {
-                $query->whereDate($key, $value);
-            }
-        } elseif (is_array($value)) {
-            // Date range format: {"from": "2025-06-12", "to": "2025-06-12"}
-            if (isset($value['from']) && !empty($value['from'])) {
-                if ($useOr) {
-                    $query->orWhereDate($key, '>=', $value['from']);
-                } else {
-                    $query->whereDate($key, '>=', $value['from']);
-                }
-            }
-
-            if (isset($value['to']) && !empty($value['to'])) {
-                if ($useOr) {
-                    $query->orWhereDate($key, '<=', $value['to']);
-                } else {
-                    $query->whereDate($key, '<=', $value['to']);
-                }
-            }
-        }
-    }
-
-    /**
-     * Apply filter on relationship field with OR support
-     */
-    private function applyRelationshipFilter($query, $key, $value, $column, $useOr = false)
-    {
-        $parts = explode('.', $key);
-        $attribute = array_pop($parts);
-        $relationPath = implode('.', $parts);
-
-        $method = $useOr ? 'orWhereHas' : 'whereHas';
-
-        try {
-            $query->$method($relationPath, function ($q) use ($attribute, $value, $column) {
-                switch ($column['type']) {
-                    case 'boolean':
-                        $q->where($attribute, $value === 'true');
-                        break;
-                    case 'date':
-                    case 'timestamp':
-                        $this->applyDateFilter($q, $attribute, $value);
-                        break;
-                    case 'select':
-                        $q->where($attribute, $value);
-                        break;
-                    default:
-                        $q->where($attribute, 'LIKE', "%{$value}%");
-                        break;
-                }
-            });
-        } catch (\Exception $e) {
-            // If relationship doesn't exist, silently skip this filter
-            \Log::warning("Filter failed for relationship '{$relationPath}': " . $e->getMessage());
         }
     }
 }

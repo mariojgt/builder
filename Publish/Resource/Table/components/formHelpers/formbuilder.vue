@@ -108,7 +108,7 @@
             v-for="(tab, index) in tabList"
             :key="tab"
             v-show="currentTab === tab"
-            class="tab-content"
+            class="tab-form-content"
           >
             <!-- Tab Header with Navigation -->
             <div class="bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 px-6 py-4 border-b border-base-200">
@@ -618,7 +618,7 @@ onMounted(createFields);
 }
 
 /* Enhanced Tab Transitions */
-.tab-content {
+.tab-form-content {
   animation: slideInRight 0.5s ease-out;
 }
 

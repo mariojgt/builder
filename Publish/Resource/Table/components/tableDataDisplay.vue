@@ -17,6 +17,10 @@
             conditionalStyling: column.conditionalStyling,
             advancedStyling: column.advancedStyling
           }"
+          :link="getFieldLink(column.key)"
+          :link-target="getFieldLinkTarget(column.key)"
+          :link-style="getFieldLinkStyle(column.key)"
+          :row-data="tableData"
         />
       </div>
     </td>
@@ -48,6 +52,9 @@
                   conditionalStyling: getStatusColumn()?.conditionalStyling,
                   advancedStyling: getStatusColumn()?.advancedStyling
                 }"
+                :link="getFieldLink(getStatusColumn()?.key)"
+                :link-target="getFieldLinkTarget(getStatusColumn()?.key)"
+                :row-data="tableData"
               />
             </div>
           </div>
@@ -85,6 +92,9 @@
                     conditionalStyling: column.conditionalStyling,
                     advancedStyling: column.advancedStyling
                   }"
+                  :link="getFieldLink(column.key)"
+                  :link-target="getFieldLinkTarget(column.key)"
+                  :row-data="tableData"
                 />
               </div>
             </div>
@@ -137,6 +147,9 @@
                             conditionalStyling: column.conditionalStyling,
                             advancedStyling: column.advancedStyling
                           }"
+                          :link="getFieldLink(column.key)"
+                          :link-target="getFieldLinkTarget(column.key)"
+                          :row-data="tableData"
                         />
                       </div>
                     </div>
@@ -240,7 +253,62 @@ const props = withDefaults(defineProps<Props>(), {
 // State for show more/less functionality
 const showAll = ref(false);
 
-// Computed properties
+// ✨ NEW: Link helper methods
+function getFieldLink(fieldKey?: string): string | null {
+  if (!fieldKey) return null;
+
+  // Check if backend provided a link object or string for this field
+  const linkKey = `${fieldKey}_link`;
+  const linkData = props.tableData[linkKey];
+
+  if (!linkData) return null;
+
+  // If it's an object with url property, return the url
+  if (typeof linkData === 'object' && linkData.url) {
+    return linkData.url;
+  }
+
+  // If it's a string, return as-is
+  if (typeof linkData === 'string') {
+    return linkData;
+  }
+
+  return null;
+}
+
+function getFieldLinkTarget(fieldKey?: string): string {
+  if (!fieldKey) return '_self';
+
+  // Check if backend provided a link object with target
+  const linkKey = `${fieldKey}_link`;
+  const linkData = props.tableData[linkKey];
+
+  if (typeof linkData === 'object' && linkData.target) {
+    return linkData.target;
+  }
+
+  // Fallback: check for separate target field
+  const targetKey = `${fieldKey}_target`;
+  return props.tableData[targetKey] || '_self';
+}
+
+function getFieldLinkStyle(fieldKey?: string): string {
+  if (!fieldKey) return 'default';
+
+  // Check if backend provided a link object with style
+  const linkKey = `${fieldKey}_link`;
+  const linkData = props.tableData[linkKey];
+
+  if (typeof linkData === 'object' && linkData.style) {
+    return linkData.style;
+  }
+
+  // Fallback: check for separate style field
+  const styleKey = `${fieldKey}_style`;
+  return props.tableData[styleKey] || 'default';
+}
+
+// Computed properties (unchanged)
 const sortedColumns = computed(() => {
   return [...props.columns]
     .filter(column => !props.hiddenColumns.has(column.key))
@@ -275,7 +343,7 @@ const hasMetadata = computed(() => {
   return props.tableData.created_at || props.tableData.updated_at || getIdValue();
 });
 
-// Methods
+// Methods (unchanged)
 function toggleShowAll() {
   showAll.value = !showAll.value;
 }

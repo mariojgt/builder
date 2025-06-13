@@ -54,6 +54,7 @@
             <table-filter @onPerPage="handlePerPageChange" @onOrderBy="handleOrderChange" @onSearch="handleSearch"
                 @onFilter="handleFilterChange" @onFilterReset="handleFilterReset" :columns="props.columns" />
             <AdvancedFilter class="mt-3" :columns="props.columns" @onFilterChange="handleAdvancedFilterChange" />
+
             <!-- Loading State -->
             <div v-if="isLoading"
                 class="absolute inset-0 bg-base-300/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl">
@@ -106,15 +107,18 @@
                             <!-- Table Body -->
                             <tbody>
                                 <tr v-for="(item, index) in tableData" :key="item.id || index"
-                                    class="hover:bg-base-200/50 transition-colors duration-200 group">
-                                    <table-display-data :tableData="item" :columns="columns"
+                                    :class="[
+                                        'hover:bg-base-200/50 transition-colors duration-200 group',
+                                        getRowClasses(item)
+                                    ]">
+                                    <table-display-data :tableData="item" :columns="visibleColumns"
                                         :hiddenColumns="hiddenColumns" viewType="table" />
                                     <td class="text-right">
                                         <div
                                             class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                             <!-- Edit Action -->
                                             <template v-if="!custom_edit_route">
-                                                <edit :columns="columns" :endpoint="endpointEdit" :model="model"
+                                                <edit :columns="visibleColumns" :endpoint="endpointEdit" :model="model"
                                                     :modelValue="item" :id="item[props.defaultIdKey]"
                                                     :permission="permission" @onEdit="refreshData" />
                                             </template>
@@ -122,7 +126,7 @@
                                                 <Link :href="custom_edit_route + item.id"
                                                     class="btn btn-primary btn-sm gap-2">
                                                 <PencilIcon class="w-4 h-4" />
-                                                <span class="hidden sm:inline">Edits</span>
+                                                <span class="hidden sm:inline">Edit</span>
                                                 </Link>
                                             </template>
                                             <!-- Custom Action -->
@@ -146,18 +150,16 @@
                     <!-- List View -->
                     <div v-else class="divide-y divide-base-200">
                         <div v-for="(item, index) in tableData" :key="item.id || index"
-                            class="p-4 hover:bg-base-200/50 transition-colors duration-200">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div v-for="(column, colIndex) in columns" :key="colIndex" class="space-y-1">
-                                    <div class="text-sm font-medium text-base-content/70">{{ column.label }}</div>
-                                    <table-display-data :tableData="{ [column.key]: item[column.key] }"
-                                        :columns="[column]" :hiddenColumns="hiddenColumns" viewType="list" />
-                                </div>
-                            </div>
+                            :class="[
+                                'p-4 hover:bg-base-200/50 transition-colors duration-200',
+                                getRowClasses(item)
+                            ]">
+                            <table-display-data :tableData="item" :columns="visibleColumns"
+                                :hiddenColumns="hiddenColumns" viewType="list" />
                             <div class="mt-4 flex justify-end gap-2">
                                 <!-- Edit Action -->
                                 <template v-if="!custom_edit_route">
-                                    <edit :columns="columns" :endpoint="endpointEdit" :model="model" :modelValue="item"
+                                    <edit :columns="visibleColumns" :endpoint="endpointEdit" :model="model" :modelValue="item"
                                         :id="item[props.defaultIdKey]" :permission="permission" @onEdit="refreshData" />
                                 </template>
                                 <template v-else>
@@ -225,7 +227,8 @@ const props = defineProps({
     custom_edit_route: { type: String, default: null },
     custom_point_route: { type: String, default: null },
     custom_action_name: { type: String, default: null },
-    defaultIdKey: { type: String, default: 'id' }
+    defaultIdKey: { type: String, default: 'id' },
+    rowStyling: { type: Object, default: () => ({}) }
 });
 
 // State
@@ -254,6 +257,125 @@ const hasActiveFilters = computed(() => {
         perPage.value !== 10 ||
         orderBy.value !== null;
 });
+
+// Add these new refs and computed properties
+const hiddenColumns = ref(new Set<string>());
+
+const visibleColumns = computed(() => {
+    return props.columns.filter(column => !hiddenColumns.value.has(column.key));
+});
+
+// Row styling method
+const getRowClasses = (item: any): string => {
+    const classes: string[] = [];
+
+    // Simple conditional styling: field value => class
+    if (props.rowStyling?.conditionalStyling) {
+        const { field, conditions, default: defaultStyle } = props.rowStyling.conditionalStyling;
+        const fieldValue = getNestedValue(item, field);
+        const valueStr = String(fieldValue || '').toLowerCase().trim();
+
+        if (valueStr && conditions[valueStr]) {
+            classes.push(conditions[valueStr]);
+        } else if (defaultStyle) {
+            classes.push(defaultStyle);
+        }
+    }
+
+    // Advanced styling with operators
+    if (props.rowStyling?.advancedStyling) {
+        const { conditions, default: defaultStyle } = props.rowStyling.advancedStyling;
+
+        for (const condition of conditions) {
+            const fieldValue = getNestedValue(item, condition.field);
+
+            if (checkCondition(condition, fieldValue)) {
+                classes.push(condition.classes);
+                break; // Use first matching condition
+            }
+        }
+
+        // If no conditions matched, use default
+        if (classes.length === 0 && defaultStyle) {
+            classes.push(defaultStyle);
+        }
+    }
+
+    return classes.join(' ');
+};
+
+// Helper function to get nested values
+const getNestedValue = (obj: any, path: string): any => {
+    if (!obj || !path) return null;
+
+    // Handle fallback relationships (separated by |)
+    if (path.includes('|')) {
+        const fallbackKeys = path.split('|').map(k => k.trim());
+        for (const fallbackKey of fallbackKeys) {
+            const value = getNestedValue(obj, fallbackKey);
+            if (value !== null && value !== undefined && value !== '' && value !== 0) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    // Regular nested access
+    return path.split('.').reduce((current, key) => {
+        return current && current[key] !== undefined ? current[key] : null;
+    }, obj);
+};
+
+// Simple condition checker
+const checkCondition = (condition: any, value: any): boolean => {
+    const numValue = parseFloat(value);
+    const isNumber = !isNaN(numValue);
+    const strValue = String(value || '').toLowerCase();
+
+    switch (condition.operator) {
+        case 'exists':
+            return value !== null && value !== undefined && value !== '' && strValue.trim() !== '';
+
+        case 'not_exists':
+            return value === null || value === undefined || value === '' || strValue.trim() === '';
+
+        case 'equals':
+            return String(value).toLowerCase() === String(condition.value).toLowerCase();
+
+        case 'not_equals':
+            return String(value).toLowerCase() !== String(condition.value).toLowerCase();
+
+        case 'greater_than':
+            return isNumber && numValue > condition.value;
+
+        case 'greater_than_equal':
+            return isNumber && numValue >= condition.value;
+
+        case 'less_than':
+            return isNumber && numValue < condition.value;
+
+        case 'less_than_equal':
+            return isNumber && numValue <= condition.value;
+
+        case 'between':
+            return isNumber && numValue >= condition.min && numValue <= condition.max;
+
+        case 'contains':
+            return strValue.includes(String(condition.value).toLowerCase());
+
+        case 'starts_with':
+            return strValue.startsWith(String(condition.value).toLowerCase());
+
+        case 'ends_with':
+            return strValue.endsWith(String(condition.value).toLowerCase());
+
+        case 'in_array':
+            return condition.array && condition.array.includes(value);
+
+        default:
+            return false;
+    }
+};
 
 // Methods
 const getSortIcon = (columnKey: string) => {
@@ -355,13 +477,6 @@ const handleFilterReset = (data: any) => {
     fetchData();
 };
 
-// Add these new refs and computed properties
-const hiddenColumns = ref(new Set<string>());
-
-const visibleColumns = computed(() => {
-    return props.columns.filter(column => !hiddenColumns.value.has(column.key));
-});
-
 // Add this new method
 const updateHiddenColumns = (newHiddenColumns: Set<string>) => {
     hiddenColumns.value = newHiddenColumns;
@@ -404,12 +519,9 @@ fetchData();
 
 /* Loading Animation */
 @keyframes pulse {
-
-    0%,
-    100% {
+    0%, 100% {
         opacity: 1;
     }
-
     50% {
         opacity: 0.5;
     }
@@ -417,5 +529,31 @@ fetchData();
 
 .loading {
     animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Row styling enhancements */
+.table tr {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced row hover effects */
+.hover\:bg-red-100:hover {
+    background-color: rgb(254 226 226);
+}
+
+.hover\:bg-green-100:hover {
+    background-color: rgb(220 252 231);
+}
+
+.hover\:bg-yellow-100:hover {
+    background-color: rgb(254 249 195);
+}
+
+.hover\:bg-blue-100:hover {
+    background-color: rgb(219 234 254);
+}
+
+.hover\:bg-gray-100:hover {
+    background-color: rgb(243 244 246);
 }
 </style>

@@ -16,11 +16,6 @@ class BuilderHelper
 {
     /**
      * Check if the user has the necessary permission.
-     *
-     * @param Request $request
-     * @param string  $checkType // create | edit | delete | read
-     *
-     * @return bool
      */
     public function permissionCheck(Request $request, $checkType)
     {
@@ -48,11 +43,6 @@ class BuilderHelper
 
     /**
      * Generic assignment and validation of data.
-     *
-     * @param Model $model
-     * @param array $column
-     * @return Model
-     * @throws ValidationException
      */
     public function genericValidation($model, $column)
     {
@@ -68,7 +58,6 @@ class BuilderHelper
                 if ($rule['type'] === 'validator') {
                     try {
                         $validatorClass = decrypt($rule['class']);
-                        // Create new instance with parameters if they exist
                         if (!empty($rule['params'])) {
                             $validationRules[] = new $validatorClass(...$rule['params']);
                         } else {
@@ -81,7 +70,6 @@ class BuilderHelper
                     }
                 } else {
                     $validationRules[] = $rule['value'];
-                    // Format messages for this specific rule
                     if (!empty($column['messages'])) {
                         $ruleKey = explode(':', $rule['value'])[0];
                         $messageKey = "{$key}.{$ruleKey}";
@@ -172,12 +160,7 @@ class BuilderHelper
     }
 
     /**
-     * Replace the column values with enhanced relationship support.
-     *
-     * @param mixed $modelPaginated
-     * @param mixed $rawColumns
-     *
-     * @return mixed
+     * Replace the column values with enhanced relationship support + SIMPLE LINK PROCESSING
      */
     public function columnReplacements($modelPaginated, $rawColumns)
     {
@@ -186,10 +169,14 @@ class BuilderHelper
             foreach ($rawColumns as $column) {
                 $key = $column['key'];
 
-                // 🚀 HANDLE DOT NOTATION RELATIONSHIPS AUTOMATICALLY (with fallback support)
+                // Handle dot notation relationships automatically (with fallback support)
                 if (strpos($key, '.') !== false || strpos($key, '|') !== false) {
-                    // Extract relationship value using Laravel's data_get helper with fallback support
                     $item->$key = $this->getRelationshipValue($item, $key);
+
+                    // ✨ SIMPLE: Add link if configured
+                    if (isset($column['link'])) {
+                        $item->{$key . '_link'} = $this->processSimpleLink($column['link'], $item);
+                    }
                     continue;
                 }
 
@@ -208,18 +195,16 @@ class BuilderHelper
                             $modelRelation = decrypt($column['model']);
                             $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push(app($modelRelation)->getTable() . '.id');
 
-                            // Fix for MODEL_SEARCH
                             if ($column['singleSearch']) {
                                 $item->$field = $modelRelation::where('id', $item->$field)->select($columnFilters->toArray())->first();
                             } else {
-                                // Make sure we have a valid array of IDs
                                 $ids = json_decode($item->$field);
                                 if ($ids && is_array($ids) && count($ids) > 0) {
                                     $item->$field = $modelRelation::whereIn('id', $ids)
                                         ->select($columnFilters->toArray())
                                         ->get();
                                 } else {
-                                    $item->$field = collect(); // Return empty collection if no valid IDs
+                                    $item->$field = collect();
                                 }
                             }
                             break;
@@ -235,6 +220,11 @@ class BuilderHelper
                             break;
                     }
                 }
+
+                // ✨ SIMPLE: Add link if configured for regular fields too
+                if (isset($column['link'])) {
+                    $item->{$key . '_link'} = $this->processSimpleLink($column['link'], $item);
+                }
             }
             return $item;
         });
@@ -242,23 +232,58 @@ class BuilderHelper
         return $collection;
     }
 
+    /**
+     * ✨ SIMPLE: Process link configuration
+     */
+    private function processSimpleLink(array $linkConfig, $item): ?array
+    {
+        // Handle field-based URLs
+        if (isset($linkConfig['url_field'])) {
+            $url = $this->getRelationshipValue($item, $linkConfig['url_field']);
+            return $url ? [
+                'url' => $url,
+                'target' => $linkConfig['target'] ?? '_self',
+                'style' => $linkConfig['style'] ?? 'default'
+            ] : null;
+        }
+
+        // Handle template URLs
+        if (empty($linkConfig['url'])) {
+            return null;
+        }
+
+        $url = $linkConfig['url'];
+
+        // Replace {value} with current field value (handled by frontend)
+        // Replace {id} with item id
+        $url = str_replace('{id}', $item->id ?? '', $url);
+
+        // Replace other simple placeholders
+        $url = preg_replace_callback('/\{(\w+)\}/', function ($matches) use ($item) {
+            $field = $matches[1];
+            return $item->$field ?? '';
+        }, $url);
+
+        // Replace relationship placeholders like {reportedData.comp_name}
+        $url = preg_replace_callback('/\{(\w+\.\w+)\}/', function ($matches) use ($item) {
+            $path = $matches[1];
+            return $this->getRelationshipValue($item, $path) ?? '';
+        }, $url);
+
+        return [
+            'url' => $url,
+            'target' => $linkConfig['target'] ?? '_self',
+            'style' => $linkConfig['style'] ?? 'default'
+        ];
+    }
 
     /**
-     * 🚀 Get relationship value with AUTOMATIC FALLBACK support
-     *
-     * Examples:
-     * - 'reportedData.comp_name' → $item->reportedData->comp_name
-     * - 'reportedTempData.product.name|reportedData.comp_name' → Try first, fallback to second
-     * - 'primary.key|fallback.key|default_value' → Multiple fallbacks
-     *
-     * @param mixed $item
-     * @param string $key
-     * @return mixed
+     * Get relationship value with AUTOMATIC FALLBACK support
      */
     private function getRelationshipValue($item, $key)
     {
         try {
-            // 🚀 NEW: Handle fallback syntax with pipe "|"
+            // Handle fallback syntax with pipe "|"
             if (strpos($key, '|') !== false) {
                 $keys = explode('|', $key);
 
@@ -267,7 +292,7 @@ class BuilderHelper
 
                     // If it's a static value (no dots), return as-is
                     if (strpos($tryKey, '.') === false && !property_exists($item, $tryKey)) {
-                        return $tryKey; // Return static fallback value
+                        return $tryKey;
                     }
 
                     // Try to get the relationship value
@@ -278,14 +303,13 @@ class BuilderHelper
                     }
                 }
 
-                return null; // All fallbacks failed
+                return null;
             }
 
-            // Regular single key (existing functionality)
+            // Regular single key
             $value = data_get($item, $key);
             return $this->formatValue($value);
         } catch (\Exception $e) {
-            // If data_get fails, try manual traversal for edge cases
             return $this->manualRelationshipTraversal($item, $key);
         }
     }
@@ -295,7 +319,6 @@ class BuilderHelper
      */
     private function formatValue($value)
     {
-    // Handle special cases for better frontend compatibility
         if ($value instanceof \Carbon\Carbon) {
             return $value->toISOString();
         }
@@ -312,11 +335,7 @@ class BuilderHelper
     }
 
     /**
-     * 🛡️ Fallback method for edge cases where data_get might fail
-     *
-     * @param mixed $item
-     * @param string $key
-     * @return mixed
+     * Fallback method for edge cases where data_get might fail
      */
     private function manualRelationshipTraversal($item, $key)
     {
@@ -330,11 +349,9 @@ class BuilderHelper
                 }
 
                 if (is_object($current)) {
-                    // Check if it's a loaded relationship first
                     if ($current instanceof \Illuminate\Database\Eloquent\Model && $current->relationLoaded($segment)) {
                         $current = $current->getRelation($segment);
                     } else {
-                        // Try to access as attribute
                         $current = $current->$segment ?? null;
                     }
                 } elseif (is_array($current)) {
@@ -344,7 +361,6 @@ class BuilderHelper
                 }
             }
 
-            // Format the final value
             if ($current instanceof \Carbon\Carbon) {
                 return $current->toISOString();
             }
@@ -359,7 +375,6 @@ class BuilderHelper
 
             return $current;
         } catch (\Exception $e) {
-            // Log the error for debugging but don't break the flow
             \Log::warning("Error accessing relationship path '{$key}': " . $e->getMessage());
             return null;
         }

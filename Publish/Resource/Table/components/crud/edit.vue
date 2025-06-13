@@ -62,7 +62,7 @@
                 <div>
                   <h2 class="text-xl font-bold text-base-content flex items-center gap-2">
                     Edit Record
-                    <div class="badge badge-secondary badge-sm font-mono">#{props.id}</div>
+                    <div class="badge badge-secondary badge-sm font-mono">#{{props.id}}</div>
                   </h2>
                   <p class="text-sm text-base-content/60">Modify the information below to update this record</p>
                 </div>
