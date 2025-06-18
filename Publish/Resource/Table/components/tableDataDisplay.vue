@@ -2,25 +2,31 @@
   <!-- Table View -->
   <template v-if="viewType === 'table'">
     <td
-      v-for="(column, index) in visibleColumns"
+      v-for="(column, index) in displayColumns"
       :key="index"
-      class="px-6 py-4 whitespace-nowrap transition-all duration-200 hover:bg-base-100/50 group"
-      :class="getColumnAlignment(column.type)"
+      class="whitespace-nowrap transition-all duration-200 hover:bg-base-100/50 group"
+      :class="[
+        getColumnAlignment(column.type),
+        getCompactPadding()
+      ]"
     >
-      <div class="flex items-center min-h-[2.5rem]">
+      <div class="flex items-center" :class="getCompactHeight()">
         <FieldRenderer
           :value="tableData[column.key]"
           :type="column.type || 'text'"
           :options="{
             ...column.options,
-            enhanced: true,
+            enhanced: !compactMode,
             conditionalStyling: column.conditionalStyling,
-            advancedStyling: column.advancedStyling
+            advancedStyling: column.advancedStyling,
+            compact: compactMode
           }"
           :link="getFieldLink(column.key)"
           :link-target="getFieldLinkTarget(column.key)"
           :link-style="getFieldLinkStyle(column.key)"
           :row-data="tableData"
+          :compact="compactMode"
+          :ultraCompact="superCompactMode"
         />
       </div>
     </td>
@@ -28,15 +34,25 @@
 
   <!-- Enhanced Card/List View -->
   <template v-else>
-    <div class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-300 border border-base-200 hover:border-primary/20 group">
-      <div class="card-body p-6">
+    <div
+      class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-300 border border-base-200 hover:border-primary/20 group"
+      :class="getCardCompactClasses()"
+    >
+      <div class="card-body" :class="getCardPadding()">
         <!-- Header Section with Priority Fields -->
-        <div class="flex items-start justify-between mb-4">
+        <div class="flex items-start justify-between" :class="getHeaderMargin()">
           <div class="flex-1">
-            <h3 class="card-title text-lg font-bold text-base-content mb-2 group-hover:text-primary transition-colors duration-200">
+            <h3
+              class="card-title font-bold text-base-content group-hover:text-primary transition-colors duration-200"
+              :class="getTitleClasses()"
+            >
               {{ getCardTitle() }}
             </h3>
-            <div v-if="getCardSubtitle()" class="text-sm text-base-content/60">
+            <div
+              v-if="getCardSubtitle()"
+              class="text-base-content/60"
+              :class="getSubtitleClasses()"
+            >
               {{ getCardSubtitle() }}
             </div>
           </div>
@@ -48,53 +64,72 @@
                 :value="getStatusField()"
                 type="text"
                 :options="{
-                  enhanced: true,
+                  enhanced: !compactMode,
                   conditionalStyling: getStatusColumn()?.conditionalStyling,
-                  advancedStyling: getStatusColumn()?.advancedStyling
+                  advancedStyling: getStatusColumn()?.advancedStyling,
+                  compact: compactMode
                 }"
                 :link="getFieldLink(getStatusColumn()?.key)"
                 :link-target="getFieldLinkTarget(getStatusColumn()?.key)"
                 :row-data="tableData"
+                :compact="compactMode"
+                :ultraCompact="superCompactMode"
               />
             </div>
           </div>
         </div>
 
         <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div
+          class="grid gap-3"
+          :class="getGridClasses()"
+        >
           <div
             v-for="(column, index) in visibleListColumns"
             :key="index"
             class="field-item group/item"
           >
-            <div class="flex flex-col space-y-2 p-3 rounded-lg bg-base-50 hover:bg-base-100 border border-base-200/50 hover:border-primary/30 transition-all duration-200">
+            <div
+              class="flex flex-col space-y-1 rounded-lg bg-base-50 hover:bg-base-100 border border-base-200/50 hover:border-primary/30 transition-all duration-200"
+              :class="getFieldPadding()"
+            >
               <!-- Field Label with Icon -->
-              <div class="flex items-center gap-2 text-xs font-semibold text-base-content/70 uppercase tracking-wide">
+              <div
+                class="flex items-center gap-2 font-semibold text-base-content/70 uppercase tracking-wide"
+                :class="getLabelClasses()"
+              >
                 <component
                   :is="getColumnIcon(column)"
-                  v-if="getColumnIcon(column)"
-                  class="w-4 h-4 text-primary/70 group-hover/item:text-primary transition-colors duration-200"
+                  v-if="getColumnIcon(column) && !superCompactMode"
+                  :class="getIconClasses()"
+                  class="text-primary/70 group-hover/item:text-primary transition-colors duration-200"
                 />
                 <span class="group-hover/item:text-base-content transition-colors duration-200">
-                  {{ column.label }}
+                  {{ superCompactMode ? getAbbreviatedLabel(column.label) : column.label }}
                 </span>
               </div>
 
               <!-- Field Value with Enhanced Styling -->
-              <div class="flex-1 min-h-[2rem] flex items-center">
+              <div
+                class="flex-1 flex items-center"
+                :class="getValueHeight()"
+              >
                 <FieldRenderer
                   :value="tableData[column.key]"
                   :type="column.type || 'text'"
                   :options="{
                     ...column.options,
                     truncate: false,
-                    enhanced: true,
+                    enhanced: !compactMode,
                     conditionalStyling: column.conditionalStyling,
-                    advancedStyling: column.advancedStyling
+                    advancedStyling: column.advancedStyling,
+                    compact: compactMode
                   }"
                   :link="getFieldLink(column.key)"
                   :link-target="getFieldLinkTarget(column.key)"
                   :row-data="tableData"
+                  :compact="compactMode"
+                  :ultraCompact="superCompactMode"
                 />
               </div>
             </div>
@@ -102,7 +137,11 @@
         </div>
 
         <!-- Expandable Section -->
-        <div v-if="hasHiddenColumns" class="mt-6 pt-4 border-t border-base-200">
+        <div
+          v-if="hasHiddenColumns"
+          class="border-t border-base-200"
+          :class="getExpandableMargin()"
+        >
           <div class="collapse collapse-arrow bg-base-50">
             <input
               type="checkbox"
@@ -110,34 +149,47 @@
               :checked="showAll"
               @change="toggleShowAll"
             />
-            <div class="collapse-title text-sm font-medium text-primary flex items-center gap-2 hover:bg-base-100 transition-colors duration-200">
+            <div
+              class="collapse-title font-medium text-primary flex items-center gap-2 hover:bg-base-100 transition-colors duration-200"
+              :class="getCollapseClasses()"
+            >
               <component :is="showAll ? ChevronUp : ChevronDown" class="w-4 h-4" />
               <span>
                 {{ showAll ? 'Show Less' : `Show ${hiddenColumnsCount} More Fields` }}
               </span>
-              <div class="badge badge-primary badge-sm ml-auto">
+              <div class="badge badge-primary ml-auto" :class="getBadgeClasses()">
                 +{{ hiddenColumnsCount }}
               </div>
             </div>
 
             <div class="collapse-content bg-base-100">
-              <div class="pt-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div :class="getCollapseContentPadding()">
+                <div
+                  class="grid gap-2"
+                  :class="getHiddenGridClasses()"
+                >
                   <div
                     v-for="(column, index) in hiddenColumns"
                     :key="`hidden-${index}`"
                     class="field-item-secondary"
                   >
-                    <div class="flex flex-col space-y-1 p-2 rounded border border-base-200/30 hover:border-primary/20 bg-base-50/50 hover:bg-base-100/50 transition-all duration-200">
-                      <span class="text-xs font-medium text-base-content/60 flex items-center gap-1">
+                    <div
+                      class="flex flex-col space-y-1 rounded border border-base-200/30 hover:border-primary/20 bg-base-50/50 hover:bg-base-100/50 transition-all duration-200"
+                      :class="getHiddenFieldPadding()"
+                    >
+                      <span
+                        class="font-medium text-base-content/60 flex items-center gap-1"
+                        :class="getHiddenLabelClasses()"
+                      >
                         <component
                           :is="getColumnIcon(column)"
                           v-if="getColumnIcon(column)"
-                          class="w-3 h-3 text-primary/50"
+                          class="text-primary/50"
+                          :class="getHiddenIconClasses()"
                         />
-                        {{ column.label }}
+                        {{ superCompactMode ? getAbbreviatedLabel(column.label) : column.label }}
                       </span>
-                      <div class="text-sm">
+                      <div :class="getHiddenValueClasses()">
                         <FieldRenderer
                           :value="tableData[column.key]"
                           :type="column.type || 'text'"
@@ -145,11 +197,14 @@
                             ...column.options,
                             enhanced: false,
                             conditionalStyling: column.conditionalStyling,
-                            advancedStyling: column.advancedStyling
+                            advancedStyling: column.advancedStyling,
+                            compact: compactMode
                           }"
                           :link="getFieldLink(column.key)"
                           :link-target="getFieldLinkTarget(column.key)"
                           :row-data="tableData"
+                          :compact="compactMode"
+                          :ultraCompact="superCompactMode"
                         />
                       </div>
                     </div>
@@ -161,10 +216,17 @@
         </div>
 
         <!-- Card Footer with Metadata -->
-        <div v-if="hasMetadata" class="mt-4 pt-4 border-t border-base-200/50">
-          <div class="flex items-center justify-between text-xs text-base-content/50">
+        <div
+          v-if="hasMetadata"
+          class="border-t border-base-200/50"
+          :class="getFooterMargin()"
+        >
+          <div
+            class="flex items-center justify-between text-base-content/50"
+            :class="getFooterTextClasses()"
+          >
             <span v-if="tableData.created_at" class="flex items-center gap-1">
-              <Calendar class="w-3 h-3" />
+              <Calendar :class="getFooterIconClasses()" />
               Created {{ formatRelativeDate(tableData.created_at) }}
             </span>
             <span v-if="getIdValue()" class="font-mono">
@@ -240,6 +302,9 @@ interface Props {
   viewType?: 'table' | 'list';
   initialVisibleCount?: number;
   hiddenColumns?: Set<string>;
+  compactMode?: boolean;
+  superCompactMode?: boolean;
+  columnOrder?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -247,160 +312,279 @@ const props = withDefaults(defineProps<Props>(), {
   columns: () => [],
   viewType: 'table',
   initialVisibleCount: 6,
-  hiddenColumns: () => new Set()
+  hiddenColumns: () => new Set(),
+  compactMode: false,
+  superCompactMode: false,
+  columnOrder: () => []
 });
 
 // State for show more/less functionality
 const showAll = ref(false);
 
-// ✨ NEW: Link helper methods
-function getFieldLink(fieldKey?: string): string | null {
-  if (!fieldKey) return null;
+// Computed property for ordered and filtered columns
+const displayColumns = computed(() => {
+  const columnMap = new Map(props.columns.map(col => [col.key, col]));
 
-  // Check if backend provided a link object or string for this field
-  const linkKey = `${fieldKey}_link`;
-  const linkData = props.tableData[linkKey];
+  let orderedColumns: Column[];
 
-  if (!linkData) return null;
+  if (props.columnOrder.length > 0) {
+    const ordered = props.columnOrder
+      .map(key => columnMap.get(key))
+      .filter(Boolean) as Column[];
 
-  // If it's an object with url property, return the url
-  if (typeof linkData === 'object' && linkData.url) {
-    return linkData.url;
-  }
+    const orderedKeys = new Set(props.columnOrder);
+    const newColumns = props.columns.filter(col => !orderedKeys.has(col.key));
 
-  // If it's a string, return as-is
-  if (typeof linkData === 'string') {
-    return linkData;
-  }
-
-  return null;
-}
-
-function getFieldLinkTarget(fieldKey?: string): string {
-  if (!fieldKey) return '_self';
-
-  // Check if backend provided a link object with target
-  const linkKey = `${fieldKey}_link`;
-  const linkData = props.tableData[linkKey];
-
-  if (typeof linkData === 'object' && linkData.target) {
-    return linkData.target;
-  }
-
-  // Fallback: check for separate target field
-  const targetKey = `${fieldKey}_target`;
-  return props.tableData[targetKey] || '_self';
-}
-
-function getFieldLinkStyle(fieldKey?: string): string {
-  if (!fieldKey) return 'default';
-
-  // Check if backend provided a link object with style
-  const linkKey = `${fieldKey}_link`;
-  const linkData = props.tableData[linkKey];
-
-  if (typeof linkData === 'object' && linkData.style) {
-    return linkData.style;
-  }
-
-  // Fallback: check for separate style field
-  const styleKey = `${fieldKey}_style`;
-  return props.tableData[styleKey] || 'default';
-}
-
-// Computed properties (unchanged)
-const sortedColumns = computed(() => {
-  return [...props.columns]
-    .filter(column => !props.hiddenColumns.has(column.key))
-    .sort((a, b) => {
+    orderedColumns = [...ordered, ...newColumns];
+  } else {
+    orderedColumns = [...props.columns].sort((a, b) => {
       const priorityA = a.priority ?? 999;
       const priorityB = b.priority ?? 999;
       return priorityA - priorityB;
     });
+  }
+
+  return orderedColumns.filter(column => !props.hiddenColumns.has(column.key));
 });
 
-const visibleColumns = computed(() => sortedColumns.value);
-
 const visibleListColumns = computed(() => {
-  if (showAll.value) return visibleColumns.value;
-  return visibleColumns.value.slice(0, props.initialVisibleCount);
+  if (showAll.value) return displayColumns.value;
+  const count = props.superCompactMode ? 12 : (props.compactMode ? 8 : props.initialVisibleCount);
+  return displayColumns.value.slice(0, count);
 });
 
 const hiddenColumns = computed(() => {
   if (showAll.value) return [];
-  return visibleColumns.value.slice(props.initialVisibleCount);
+  const count = props.superCompactMode ? 12 : (props.compactMode ? 8 : props.initialVisibleCount);
+  return displayColumns.value.slice(count);
 });
 
 const hasHiddenColumns = computed(() => {
-  return visibleColumns.value.length > props.initialVisibleCount;
+  const count = props.superCompactMode ? 12 : (props.compactMode ? 8 : props.initialVisibleCount);
+  return displayColumns.value.length > count;
 });
 
 const hiddenColumnsCount = computed(() => {
-  return Math.max(0, visibleColumns.value.length - props.initialVisibleCount);
+  const count = props.superCompactMode ? 12 : (props.compactMode ? 8 : props.initialVisibleCount);
+  return Math.max(0, displayColumns.value.length - count);
 });
 
 const hasMetadata = computed(() => {
   return props.tableData.created_at || props.tableData.updated_at || getIdValue();
 });
 
-// Methods (unchanged)
+// ✨ COMPACT MODE STYLING METHODS
+function getCompactPadding(): string {
+  if (props.superCompactMode) return 'px-1 py-0.5';
+  if (props.compactMode) return 'px-2 py-1';
+  return 'px-6 py-4';
+}
+
+function getCompactHeight(): string {
+  if (props.superCompactMode) return 'min-h-[1.25rem]';
+  if (props.compactMode) return 'min-h-[1.5rem]';
+  return 'min-h-[2.5rem]';
+}
+
+function getCardCompactClasses(): string {
+  return props.superCompactMode ? 'card-super-compact' : (props.compactMode ? 'card-compact' : '');
+}
+
+function getCardPadding(): string {
+  if (props.superCompactMode) return 'p-2';
+  if (props.compactMode) return 'p-4';
+  return 'p-6';
+}
+
+function getHeaderMargin(): string {
+  if (props.superCompactMode) return 'mb-1';
+  if (props.compactMode) return 'mb-2';
+  return 'mb-4';
+}
+
+function getTitleClasses(): string {
+  if (props.superCompactMode) return 'text-sm mb-0.5';
+  if (props.compactMode) return 'text-base mb-1';
+  return 'text-lg mb-2';
+}
+
+function getSubtitleClasses(): string {
+  if (props.superCompactMode) return 'text-xs';
+  if (props.compactMode) return 'text-xs';
+  return 'text-sm';
+}
+
+function getGridClasses(): string {
+  if (props.superCompactMode) return 'grid-cols-1 sm:grid-cols-4 xl:grid-cols-6';
+  if (props.compactMode) return 'grid-cols-1 sm:grid-cols-3 xl:grid-cols-4';
+  return 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4';
+}
+
+function getFieldPadding(): string {
+  if (props.superCompactMode) return 'p-1';
+  if (props.compactMode) return 'p-2';
+  return 'p-3 space-y-2';
+}
+
+function getLabelClasses(): string {
+  if (props.superCompactMode) return 'text-xs';
+  return 'text-xs';
+}
+
+function getIconClasses(): string {
+  if (props.compactMode) return 'w-3 h-3';
+  return 'w-4 h-4';
+}
+
+function getValueHeight(): string {
+  if (props.superCompactMode) return 'min-h-[1rem]';
+  if (props.compactMode) return 'min-h-[1.25rem]';
+  return 'min-h-[2rem]';
+}
+
+function getExpandableMargin(): string {
+  if (props.superCompactMode) return 'mt-1 pt-1';
+  if (props.compactMode) return 'mt-3 pt-2';
+  return 'mt-6 pt-4';
+}
+
+function getCollapseClasses(): string {
+  if (props.superCompactMode) return 'text-xs';
+  if (props.compactMode) return 'text-xs';
+  return 'text-sm';
+}
+
+function getBadgeClasses(): string {
+  if (props.superCompactMode) return 'badge-xs';
+  if (props.compactMode) return 'badge-xs';
+  return 'badge-sm';
+}
+
+function getCollapseContentPadding(): string {
+  if (props.superCompactMode) return 'pt-1';
+  if (props.compactMode) return 'pt-2';
+  return 'pt-4';
+}
+
+function getHiddenGridClasses(): string {
+  if (props.superCompactMode) return 'grid-cols-1 sm:grid-cols-5 xl:grid-cols-7';
+  if (props.compactMode) return 'grid-cols-1 sm:grid-cols-4 xl:grid-cols-5';
+  return 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3';
+}
+
+function getHiddenFieldPadding(): string {
+  if (props.superCompactMode) return 'p-0.5';
+  if (props.compactMode) return 'p-1';
+  return 'p-2';
+}
+
+function getHiddenLabelClasses(): string {
+  if (props.superCompactMode) return 'text-xs';
+  return 'text-xs';
+}
+
+function getHiddenIconClasses(): string {
+  if (props.superCompactMode) return 'w-2 h-2';
+  if (props.compactMode) return 'w-2 h-2';
+  return 'w-3 h-3';
+}
+
+function getHiddenValueClasses(): string {
+  if (props.superCompactMode) return 'text-xs';
+  if (props.compactMode) return 'text-xs';
+  return 'text-sm';
+}
+
+function getFooterMargin(): string {
+  if (props.superCompactMode) return 'mt-1 pt-1';
+  if (props.compactMode) return 'mt-2 pt-2';
+  return 'mt-4 pt-4';
+}
+
+function getFooterTextClasses(): string {
+  if (props.superCompactMode) return 'text-xs';
+  return 'text-xs';
+}
+
+function getFooterIconClasses(): string {
+  if (props.superCompactMode) return 'w-2 h-2';
+  if (props.compactMode) return 'w-2 h-2';
+  return 'w-3 h-3';
+}
+
+function getAbbreviatedLabel(label: string): string {
+  const abbreviations: Record<string, string> = {
+    'Vulnerability Name': 'Name',
+    'Severity': 'Sev',
+    'CVSS Score': 'CVSS',
+    'Status': 'Stat',
+    'Component': 'Comp',
+    'Version': 'Ver',
+    'Discovered': 'Found',
+    'Researcher': 'Author',
+    'Description': 'Desc',
+    'Created At': 'Created',
+    'Updated At': 'Updated',
+    'Priority': 'Pri',
+    'Category': 'Cat',
+    'Environment': 'Env'
+  };
+
+  return abbreviations[label] || (label.length > 6 ? label.slice(0, 4) : label);
+}
+
+// Methods (unchanged from original)
 function toggleShowAll() {
   showAll.value = !showAll.value;
 }
 
-// Handle fallback relationships - get the first non-empty value
-function getFieldValue(column: Column): any {
-  const key = column.key;
+function getFieldLink(fieldKey?: string): string | null {
+  if (!fieldKey) return null;
+  const linkKey = `${fieldKey}_link`;
+  const linkData = props.tableData[linkKey];
+  if (!linkData) return null;
+  if (typeof linkData === 'object' && linkData.url) return linkData.url;
+  if (typeof linkData === 'string') return linkData;
+  return null;
+}
 
-  // Handle fallback relationships (separated by |)
-  if (key.includes('|')) {
-    const fallbackKeys = key.split('|').map(k => k.trim());
-
-    for (const fallbackKey of fallbackKeys) {
-      const value = getNestedValue(props.tableData, fallbackKey);
-      // More robust check for empty values
-      if (value !== null && value !== undefined && value !== '' && value !== 0) {
-        return value;
-      }
-    }
-    return null; // All fallbacks were empty
+function getFieldLinkTarget(fieldKey?: string): string {
+  if (!fieldKey) return '_self';
+  const linkKey = `${fieldKey}_link`;
+  const linkData = props.tableData[linkKey];
+  if (linkData !== null && typeof linkData === 'object' && linkData.target) {
+    return linkData.target;
   }
-
-  // Regular field access
-  return getNestedValue(props.tableData, key);
+  const targetKey = `${fieldKey}_target`;
+  return props.tableData[targetKey] || '_self';
 }
 
-// Get nested value from object using dot notation
-function getNestedValue(obj: any, path: string): any {
-  if (!obj || !path) return null;
-
-  return path.split('.').reduce((current, key) => {
-    return current && current[key] !== undefined ? current[key] : null;
-  }, obj);
+function getFieldLinkStyle(fieldKey?: string): string {
+  if (!fieldKey) return 'default';
+  const linkKey = `${fieldKey}_link`;
+  const linkData = props.tableData[linkKey];
+  if (linkData !== null && typeof linkData === 'object' && linkData.style) {
+    return linkData.style;
+  }
+  const styleKey = `${fieldKey}_style`;
+  return props.tableData[styleKey] || 'default';
 }
 
-// Get ID value (supports custom ID fields)
 function getIdValue(): any {
-  // Try to find ID column first
   const idColumn = props.columns.find(col =>
     col.key === 'id' ||
     col.key.endsWith('_id') ||
     col.label.toLowerCase().includes('id')
   );
-
   if (idColumn) {
     const value = props.tableData[idColumn.key];
     if (value !== null && value !== undefined) return value;
   }
-
-  // Fallback to direct access
   return props.tableData.id || props.tableData.ID;
 }
 
-// Get status column for header badge styling
 function getStatusColumn(): Column | undefined {
   const statusFields = ['status', 'state', 'condition', 'active'];
-
   return props.columns.find(column =>
     statusFields.some(field =>
       column.key.toLowerCase().includes(field) ||
@@ -409,10 +593,8 @@ function getStatusColumn(): Column | undefined {
   );
 }
 
-// Enhanced icon detection with more specific mappings
 function getColumnIcon(column: Column) {
   const iconMap: Record<string, any> = {
-    // Field types
     date: Calendar,
     timestamp: Clock,
     number: Hash,
@@ -432,8 +614,6 @@ function getColumnIcon(column: Column) {
     security: Shield,
     performance: Zap,
     category: Layers,
-
-    // Security specific
     cvss: Shield,
     severity: AlertTriangle,
     status: Activity,
@@ -442,16 +622,12 @@ function getColumnIcon(column: Column) {
     version: FileText,
     researcher: User,
     database: Database,
-
-    // Default
     default: Info
   };
 
-  // Check for special keywords in column key or label
   const keyLower = column.key.toLowerCase();
   const labelLower = column.label.toLowerCase();
 
-  // Security field detection
   if (keyLower.includes('cvss') || labelLower.includes('cvss')) return Shield;
   if (keyLower.includes('severity') || labelLower.includes('severity')) return AlertTriangle;
   if (keyLower.includes('status') || labelLower.includes('status')) return Activity;
@@ -467,27 +643,20 @@ function getColumnIcon(column: Column) {
   return iconMap[column.type || 'default'];
 }
 
-// Get column alignment based on type
 function getColumnAlignment(type?: string): string {
   const rightAlignTypes = ['number', 'price', 'rating', 'cvss'];
   const centerAlignTypes = ['boolean', 'media', 'icon'];
-
   if (rightAlignTypes.includes(type || '')) return 'text-right';
   if (centerAlignTypes.includes(type || '')) return 'text-center';
   return 'text-left';
 }
 
-// Get card title from priority fields with better relationship support
 function getCardTitle(): string {
   const titleFields = ['name', 'title', 'label', 'subject', 'heading', 'comp_name'];
-
   for (const field of titleFields) {
-    // Check direct access first
     if (props.tableData[field]) {
       return String(props.tableData[field]);
     }
-
-    // Check nested relationships with more flexible matching
     const column = props.columns.find(col => {
       const key = col.key.toLowerCase();
       return key.endsWith(`.${field}`) ||
@@ -495,28 +664,22 @@ function getCardTitle(): string {
              key.includes(`_${field}`) ||
              key.includes(`${field}_`);
     });
-
     if (column) {
       const value = props.tableData[column.key];
       if (value && String(value).trim()) return String(value);
     }
   }
-
   return `Item #${getIdValue() || 'Unknown'}`;
 }
 
-// Get card subtitle with better relationship support
 function getCardSubtitle(): string {
   const subtitleFields = ['description', 'subtitle', 'summary', 'excerpt', 'researcher', 'type'];
-
   for (const field of subtitleFields) {
-    // Check direct access first
     if (props.tableData[field]) {
       const text = String(props.tableData[field]);
-      return text.length > 100 ? text.substring(0, 100) + '...' : text;
+      const maxLength = props.superCompactMode ? 40 : (props.compactMode ? 60 : 100);
+      return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
     }
-
-    // Check nested relationships with more flexible matching
     const column = props.columns.find(col => {
       const key = col.key.toLowerCase();
       return key.endsWith(`.${field}`) ||
@@ -524,30 +687,24 @@ function getCardSubtitle(): string {
              key.includes(`_${field}`) ||
              key.includes(`${field}_`);
     });
-
     if (column) {
       const value = props.tableData[column.key];
       if (value && String(value).trim()) {
         const text = String(value);
-        return text.length > 100 ? text.substring(0, 100) + '...' : text;
+        const maxLength = props.superCompactMode ? 40 : (props.compactMode ? 60 : 100);
+        return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
       }
     }
   }
-
   return '';
 }
 
-// Get status field for badge with improved detection
 function getStatusField(): string {
   const statusFields = ['status', 'state', 'condition', 'active'];
-
   for (const field of statusFields) {
-    // Check direct access first
     if (props.tableData[field] !== undefined && props.tableData[field] !== null) {
       return String(props.tableData[field]);
     }
-
-    // Check nested relationships and columns with improved matching
     const column = props.columns.find(col => {
       const key = col.key.toLowerCase();
       const label = col.label.toLowerCase();
@@ -556,7 +713,6 @@ function getStatusField(): string {
              key === field ||
              label === field;
     });
-
     if (column) {
       const value = props.tableData[column.key];
       if (value !== null && value !== undefined && String(value).trim()) {
@@ -564,11 +720,9 @@ function getStatusField(): string {
       }
     }
   }
-
   return '';
 }
 
-// Format relative date with error handling
 function formatRelativeDate(date: string): string {
   try {
     if (!date) return 'Unknown';
@@ -615,9 +769,27 @@ function formatRelativeDate(date: string): string {
   transform: translateY(-2px);
 }
 
-/* Custom collapse animation */
-.collapse-content {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Super compact mode specific styles */
+.card-super-compact {
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.card-super-compact .card-body {
+  font-size: 0.75rem;
+}
+
+.card-super-compact .field-item {
+  animation-delay: 0.01s;
+}
+
+/* Compact mode specific styles */
+.card-compact .card-body {
+  font-size: 0.875rem;
+}
+
+.card-compact .field-item {
+  animation-delay: 0.02s;
 }
 
 /* Smooth table cell transitions */
@@ -641,7 +813,7 @@ td:hover::before {
   left: 100%;
 }
 
-/* Enhanced grid responsiveness */
+/* Enhanced grid responsiveness for compact modes */
 @media (max-width: 640px) {
   .grid {
     grid-template-columns: 1fr;
@@ -649,8 +821,20 @@ td:hover::before {
 }
 
 @media (min-width: 1280px) {
-  .xl\:grid-cols-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .xl\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .xl\:grid-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .xl\:grid-cols-6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .xl\:grid-cols-7 {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 }
 
@@ -681,14 +865,66 @@ td:hover::before {
   transition-duration: 200ms;
 }
 
-/* Conditional styling support */
-.field-renderer {
-  width: 100%;
-}
-
 /* Error handling for missing components */
 .field-item .w-4,
-.field-item .w-3 {
+.field-item .w-3,
+.field-item .w-2 {
   flex-shrink: 0;
+}
+
+/* Super compact mode text scaling */
+@media (max-width: 768px) {
+  .card-super-compact {
+    font-size: 0.6875rem;
+  }
+
+  .card-compact {
+    font-size: 0.8rem;
+  }
+}
+
+/* Performance optimizations for super compact mode */
+.card-super-compact * {
+  contain: layout style;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .field-item,
+  .field-item-secondary {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .border-base-200 {
+    border-color: hsl(var(--bc));
+  }
+
+  .bg-base-50 {
+    background-color: hsl(var(--b2));
+  }
+}
+
+/* Print styles */
+@media print {
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .field-item {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 </style>
