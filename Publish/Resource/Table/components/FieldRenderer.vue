@@ -10,9 +10,21 @@
         :class="[linkUrl ? 'field-link' : '', linkClasses]"
         class="block"
       >
+        <!-- Ultra Compact Model Search -->
+        <div v-if="type === 'model_search'" class="flex flex-wrap gap-1">
+          <span
+            v-for="(value, key) in getModelSearchData()"
+            :key="key"
+            class="badge-micro inline-block bg-primary"
+            :title="`${key}: ${value}`"
+          >
+            {{ truncateText(`${key}:${value}`, 8) }}
+          </span>
+        </div>
+
         <!-- Ultra Compact Status/Badge -->
         <span
-          v-if="shouldRenderAsBadge"
+          v-else-if="shouldRenderAsBadge"
           class="badge-micro inline-block"
           :class="getConditionalClasses()"
           :title="formatValue()"
@@ -157,9 +169,36 @@
         :class="[linkUrl ? 'field-link' : '', linkClasses]"
         class="block"
       >
+        <!-- Model Search Fields -->
+        <div v-if="type === 'model_search'" class="flex flex-wrap gap-1">
+          <div
+            v-for="(value, key) in getModelSearchData()"
+            :key="key"
+            class="inline-flex items-center rounded-full font-medium transition-all duration-200 hover:scale-105"
+            :class="[
+              getModelSearchBadgeColor(key),
+              compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
+            ]"
+            :title="`${key}: ${value}`"
+          >
+            <component
+              v-if="getModelSearchIcon(key) && !compact"
+              :is="getModelSearchIcon(key)"
+              class="w-4 h-4 mr-2"
+            />
+            <component
+              v-else-if="getModelSearchIcon(key)"
+              :is="getModelSearchIcon(key)"
+              class="w-3 h-3 mr-1"
+            />
+            <span class="font-medium">{{ formatModelSearchKey(key) }}:</span>
+            <span class="ml-1">{{ compact ? truncateText(String(value), 15) : value }}</span>
+          </div>
+        </div>
+
         <!-- Status/Badge Fields with Conditional Styling -->
         <div
-          v-if="shouldRenderAsBadge"
+          v-else-if="shouldRenderAsBadge"
           class="inline-flex items-center rounded-full font-medium transition-all duration-200 hover:scale-105"
           :class="[
             getConditionalClasses(),
@@ -405,7 +444,12 @@ import {
   AlertTriangle,
   CheckSquare,
   Clock,
-  Zap
+  Zap,
+  User,
+  Hash,
+  Tag,
+  Globe,
+  Phone
 } from 'lucide-vue-next';
 
 interface Props {
@@ -453,6 +497,140 @@ const props = withDefaults(defineProps<Props>(), {
 
 // State for text expansion
 const showFullText = ref(false);
+
+// ✨ NEW: Model search helper functions
+function getModelSearchData(): Record<string, any> {
+  if (!props.value || typeof props.value !== 'object') return {};
+
+  // Filter out null, undefined, and empty string values
+  const filteredData: Record<string, any> = {};
+  for (const [key, value] of Object.entries(props.value)) {
+    if (value !== null && value !== undefined && value !== '') {
+      filteredData[key] = value;
+    }
+  }
+
+  return filteredData;
+}
+
+function formatModelSearchKey(key: string): string {
+  // Convert snake_case or camelCase to Title Case
+  return key
+    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+    .replace(/[_-]/g, ' ') // Replace underscores and hyphens with spaces
+    .replace(/\b\w/g, l => l.toUpperCase()) // Capitalize first letter of each word
+    .trim();
+}
+
+function getModelSearchIcon(key: string) {
+  const normalizedKey = key.toLowerCase();
+
+  const iconMap: Record<string, any> = {
+    'name': User,
+    'username': User,
+    'user': User,
+    'email': Mail,
+    'mail': Mail,
+    'id': Hash,
+    'identifier': Hash,
+    'tag': Tag,
+    'tags': Tag,
+    'category': Tag,
+    'status': CheckCircle,
+    'state': CheckCircle,
+    'url': Globe,
+    'website': Globe,
+    'link': Globe,
+    'phone': Phone,
+    'telephone': Phone,
+    'mobile': Phone,
+    'date': Calendar,
+    'created': Calendar,
+    'updated': Calendar,
+    'modified': Calendar,
+  };
+
+  // Check for exact matches first
+  if (iconMap[normalizedKey]) {
+    return iconMap[normalizedKey];
+  }
+
+  // Check for partial matches
+  for (const [iconKey, icon] of Object.entries(iconMap)) {
+    if (normalizedKey.includes(iconKey)) {
+      return icon;
+    }
+  }
+
+  // Default icon
+  return Tag;
+}
+
+function getModelSearchBadgeColor(key: string): string {
+  const normalizedKey = key.toLowerCase();
+
+  const colorMap: Record<string, string> = {
+    'name': 'bg-blue-100 text-blue-800 border border-blue-200',
+    'username': 'bg-blue-100 text-blue-800 border border-blue-200',
+    'user': 'bg-blue-100 text-blue-800 border border-blue-200',
+    'email': 'bg-green-100 text-green-800 border border-green-200',
+    'mail': 'bg-green-100 text-green-800 border border-green-200',
+    'id': 'bg-gray-100 text-gray-800 border border-gray-200',
+    'identifier': 'bg-gray-100 text-gray-800 border border-gray-200',
+    'status': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+    'state': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+    'tag': 'bg-purple-100 text-purple-800 border border-purple-200',
+    'tags': 'bg-purple-100 text-purple-800 border border-purple-200',
+    'category': 'bg-purple-100 text-purple-800 border border-purple-200',
+    'url': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+    'website': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+    'link': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+    'phone': 'bg-teal-100 text-teal-800 border border-teal-200',
+    'telephone': 'bg-teal-100 text-teal-800 border border-teal-200',
+    'mobile': 'bg-teal-100 text-teal-800 border border-teal-200',
+    'date': 'bg-orange-100 text-orange-800 border border-orange-200',
+    'created': 'bg-orange-100 text-orange-800 border border-orange-200',
+    'updated': 'bg-orange-100 text-orange-800 border border-orange-200',
+    'modified': 'bg-orange-100 text-orange-800 border border-orange-200',
+  };
+
+  // Check for exact matches first
+  if (colorMap[normalizedKey]) {
+    return colorMap[normalizedKey];
+  }
+
+  // Check for partial matches
+  for (const [colorKey, colorClass] of Object.entries(colorMap)) {
+    if (normalizedKey.includes(colorKey)) {
+      return colorClass;
+    }
+  }
+
+  // Default color
+  return 'bg-gray-100 text-gray-800 border border-gray-200';
+}
+
+function getModelSearchName(): string {
+  if (!props.value || typeof props.value !== 'object') return '';
+  return props.value.name || 'Unknown';
+}
+
+function getModelSearchEmail(): string {
+  if (!props.value || typeof props.value !== 'object') return '';
+  return props.value.email || '';
+}
+
+function getModelSearchId(): string | number {
+  if (!props.value || typeof props.value !== 'object') return '';
+  return props.value.id || '';
+}
+
+function getModelSearchTooltip(): string {
+  const data = getModelSearchData();
+  return Object.entries(data)
+    .map(([key, value]) => `${formatModelSearchKey(key)}: ${value}`)
+    .join('\n');
+}
 
 // ✨ NEW: Link computed properties
 const linkUrl = computed(() => {
@@ -794,6 +972,17 @@ function getScoreLabel(): string {
 
 function formatValue(): string {
   if (props.value === null || props.value === undefined) return '';
+
+  // Handle model_search type - return a summary of all fields
+  if (props.type === 'model_search') {
+    const data = getModelSearchData();
+    const entries = Object.entries(data);
+    if (entries.length === 0) return 'No data';
+
+    // Create a brief summary for display
+    return entries.map(([key, value]) => `${formatModelSearchKey(key)}: ${value}`).join(', ');
+  }
+
   return String(props.value);
 }
 

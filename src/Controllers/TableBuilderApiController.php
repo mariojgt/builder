@@ -220,6 +220,10 @@ class TableBuilderApiController extends Controller
                 return false;
             }
 
+            if (empty($column['type'])) {
+                // If type is not defined, assume it's a regular column
+                return false;
+            }
             // Exclude special field types
             return !in_array($column['type'], ['media', 'pivot_model']);
         })
@@ -235,6 +239,10 @@ class TableBuilderApiController extends Controller
         $baseColumns = $rawColumns->filter(function ($column) use ($customAttributes) {
             $key = $column['key'];
 
+            if (empty($column['type'])) {
+                // If type is not defined, assume it's a regular column
+                return false;
+            }
             return strpos($key, '.') === false &&
                    strpos($key, '|') === false &&
                    !in_array($key, $customAttributes) &&
@@ -337,7 +345,7 @@ class TableBuilderApiController extends Controller
                         $this->applySearchToSingleKey($q, $search, $fallbackKey, true);
                     }
                 } else {
-                    $this->applySearchToSingleKey($q, $search, $key);
+                    $this->applySearchToSingleKey($q, $search, $key, true);
                 }
             }
         });

@@ -1,41 +1,27 @@
 <template>
-  <div class="card bg-gradient-to-br from-base-100 via-base-50 to-base-100 shadow-xl border border-base-200 hover:shadow-2xl transition-all duration-500">
-    <!-- Mobile Toggle Header -->
-    <div class="md:hidden">
+  <div class="w-full">
+    <!-- SIMPLE TOGGLE BUTTON -->
+    <div class="mb-4">
       <button
         @click="isFilterOpen = !isFilterOpen"
-        class="btn btn-ghost w-full justify-between group p-6 hover:bg-primary/5 transition-all duration-300"
+        class="btn btn-outline btn-primary gap-2 transition-all duration-300"
       >
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            <SlidersHorizontal class="w-5 h-5 text-primary" />
-          </div>
-          <div class="text-left">
-            <span class="font-semibold text-lg">{{ isFilterOpen ? 'Hide Filters' : 'Advanced Filters' }}</span>
-            <div class="text-sm text-base-content/60">
-              {{ Object.keys(activeFilters).length }} active filter{{ Object.keys(activeFilters).length !== 1 ? 's' : '' }}
-            </div>
-          </div>
+        <Filter class="w-4 h-4" />
+        {{ isFilterOpen ? 'Hide Advanced Filters' : 'Show Advanced Filters' }}
+        <div v-if="Object.keys(activeFilters).length > 0" class="badge badge-primary">
+          {{ Object.keys(activeFilters).length }}
         </div>
-        <div class="flex items-center gap-2">
-          <div v-if="Object.keys(activeFilters).length > 0" class="badge badge-primary badge-sm">
-            {{ Object.keys(activeFilters).length }}
-          </div>
-          <ChevronDown
-            class="w-5 h-5 transition-transform duration-300 group-hover:text-primary"
-            :class="{ 'rotate-180': isFilterOpen }"
-          />
-        </div>
+        <ChevronDown
+          class="w-4 h-4 transition-transform duration-300"
+          :class="{ 'rotate-180': isFilterOpen }"
+        />
       </button>
     </div>
 
-    <!-- Filter Content -->
-    <div
-      class="transition-all duration-500 ease-out overflow-hidden"
-      :class="[isFilterOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 md:max-h-none md:opacity-100']"
-    >
+    <!-- FILTER CONTENT - Hidden by default -->
+    <div v-show="isFilterOpen" class="card bg-gradient-to-br from-base-100 via-base-50 to-base-100 shadow-xl border border-base-200 hover:shadow-2xl transition-all duration-500">
       <!-- Desktop Header -->
-      <div class="hidden md:block bg-gradient-to-r from-base-200/50 via-base-100 to-base-200/50 px-6 py-4 border-b border-base-200">
+      <div class="bg-gradient-to-r from-base-200/50 via-base-100 to-base-200/50 px-6 py-4 border-b border-base-200">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
@@ -101,25 +87,103 @@
 
                   <!-- Filter Input Based on Type -->
 
-                  <!-- Model Search Filter -->
-                  <div v-if="column.type === 'model_search'" class="space-y-2">
-                    <select
-                      v-model="filters[column.key]"
-                      class="select select-bordered w-full focus:select-primary transition-all duration-200"
-                      @change="handleFilterChange"
+                  <!-- Enhanced Model Search Filter with Search Capability -->
+                  <div v-if="column.type === 'model_search'" class="space-y-3">
+                    <!-- Search Input -->
+                    <div class="relative">
+                      <input
+                        type="text"
+                        v-model="modelSearchQueries[column.key]"
+                        class="input input-bordered w-full pr-10 focus:input-primary transition-all duration-200"
+                        :placeholder="`Search ${column.label.toLowerCase()}...`"
+                        @input="handleModelSearch(column)"
+                        @focus="showModelSearchDropdown[column.key] = true"
+                      />
+                      <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                        <div v-if="isLoadingOptions[column.key]" class="loading loading-spinner loading-sm"></div>
+                        <Search v-else class="w-4 h-4 text-base-content/40" />
+                      </div>
+                    </div>
+
+                    <!-- Search Results Dropdown -->
+                    <div
+                      v-if="showModelSearchDropdown[column.key] && (modelSearchResults[column.key]?.length > 0 || modelSearchQueries[column.key])"
+                      class="relative"
                     >
-                      <option value="">All {{ column.label }}</option>
-                      <option
-                        v-for="option in modelOptions[column.key] || []"
-                        :key="option.id"
-                        :value="option.id"
-                      >
-                        {{ option[column.displayKey] }}
-                      </option>
-                    </select>
-                    <div v-if="isLoadingOptions[column.key]" class="flex items-center gap-2 text-xs text-base-content/50">
-                      <div class="loading loading-spinner loading-xs"></div>
-                      <span>Loading options...</span>
+                      <div class="absolute top-0 left-0 right-0 z-[9999] max-h-60 overflow-y-auto bg-base-100 border border-base-300 rounded-lg shadow-2xl backdrop-blur-sm">
+                        <!-- Loading State -->
+                        <div v-if="isLoadingOptions[column.key]" class="p-3 text-center">
+                          <div class="flex items-center justify-center gap-2">
+                            <div class="loading loading-spinner loading-sm"></div>
+                            <span class="text-sm text-base-content/60">Searching...</span>
+                          </div>
+                        </div>
+
+                        <!-- No Results -->
+                        <div v-else-if="modelSearchQueries[column.key] && modelSearchResults[column.key]?.length === 0" class="p-3 text-center text-sm text-base-content/60">
+                          No results found for "{{ modelSearchQueries[column.key] }}"
+                        </div>
+
+                        <!-- Search Results -->
+                        <div v-else class="max-h-48 overflow-y-auto">
+                          <button
+                            v-for="option in modelSearchResults[column.key] || []"
+                            :key="option.id"
+                            @click="selectModelSearchOption(column.key, option)"
+                            class="w-full text-left px-3 py-2 hover:bg-base-200 transition-colors duration-150 border-b border-base-200 last:border-b-0"
+                          >
+                            <div class="flex items-center justify-between">
+                              <div>
+                                <div class="font-medium text-sm">{{ option[column.displayKey] }}</div>
+                                <div class="text-xs text-base-content/60">
+                                  {{ formatModelSearchPreview(option, column) }}
+                                </div>
+                              </div>
+                              <div v-if="filters[column.key] == option.id" class="text-primary">
+                                <Check class="w-4 h-4" />
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+
+                        <!-- Clear Selection Option -->
+                        <div v-if="filters[column.key]" class="border-t border-base-300">
+                          <button
+                            @click="clearModelSearchSelection(column.key)"
+                            class="w-full text-left px-3 py-2 hover:bg-error/10 text-error transition-colors duration-150"
+                          >
+                            <div class="flex items-center gap-2">
+                              <X class="w-4 h-4" />
+                              <span class="text-sm">Clear selection</span>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Selected Item Display -->
+                    <div v-if="getSelectedModelSearchItem(column.key, column)" class="mt-2">
+                      <div class="card bg-base-200 border border-base-300">
+                        <div class="card-body p-3">
+                          <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                              <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                                <User class="w-4 h-4 text-primary" />
+                              </div>
+                              <div>
+                                <div class="font-medium text-sm">{{ getSelectedModelSearchItem(column.key, column)[column.displayKey] }}</div>
+                                <div class="text-xs text-base-content/60">Selected {{ column.label.toLowerCase() }}</div>
+                              </div>
+                            </div>
+                            <button
+                              @click="clearModelSearchSelection(column.key)"
+                              class="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                            >
+                              <X class="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -336,7 +400,6 @@
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import {
-  SlidersHorizontal,
   ChevronDown,
   Filter,
   RotateCcw,
@@ -350,7 +413,9 @@ import {
   Clock,
   DollarSign,
   Star,
-  List
+  List,
+  Check,
+  User
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -362,10 +427,16 @@ const props = defineProps({
 
 const emit = defineEmits(['onFilterChange']);
 
-// State management
+// State management - HIDDEN BY DEFAULT
 const isFilterOpen = ref(false);
 const modelOptions = ref({});
 const isLoadingOptions = ref({});
+const modelSearchQueries = ref({});
+const modelSearchResults = ref({});
+const showModelSearchDropdown = ref({});
+const selectedModelSearchItems = ref({});
+const searchTimeouts = ref({});
+
 const searchModes = ref([
   { label: 'Contains', value: 'contains' },
   { label: 'Exact', value: 'exact' },
@@ -442,7 +513,7 @@ const getFilterTypeDescription = (type) => {
     text: 'Text search with modes',
     boolean: 'True/False selection',
     select: 'Choose from options',
-    model_search: 'Related data filter',
+    model_search: 'Search related data',
     price: 'Currency amount filter',
     rating: 'Star rating filter',
     default: 'General filter'
@@ -476,6 +547,89 @@ const loadModelOptions = async (column) => {
   }
 };
 
+// Enhanced model search functionality
+const handleModelSearch = async (column) => {
+  const query = modelSearchQueries.value[column.key];
+
+  // Clear previous timeout
+  if (searchTimeouts.value[column.key]) {
+    clearTimeout(searchTimeouts.value[column.key]);
+  }
+
+  // If query is empty, hide dropdown
+  if (!query || query.length < 2) {
+    modelSearchResults.value[column.key] = [];
+    showModelSearchDropdown.value[column.key] = false;
+    return;
+  }
+
+  // Debounce search
+  searchTimeouts.value[column.key] = setTimeout(async () => {
+    await searchModelOptions(column, query);
+  }, 300);
+};
+
+const searchModelOptions = async (column, query) => {
+  if (!column.endpoint) return;
+
+  try {
+    isLoadingOptions.value[column.key] = true;
+    showModelSearchDropdown.value[column.key] = true;
+
+    const response = await axios.post(column.endpoint, {
+      model: column.model,
+      columns: column.columns,
+      search: query,
+      searchColumns: column.columns.map(col => col.key), // Search across all defined columns
+      limit: 20 // Limit results for performance
+    });
+
+    modelSearchResults.value[column.key] = response.data.data || [];
+  } catch (error) {
+    console.error('Error searching model options:', error);
+    modelSearchResults.value[column.key] = [];
+  } finally {
+    isLoadingOptions.value[column.key] = false;
+  }
+};
+
+const selectModelSearchOption = (columnKey, option) => {
+  filters.value[columnKey] = option.id;
+  selectedModelSearchItems.value[columnKey] = option;
+  modelSearchQueries.value[columnKey] = option[getColumnByKey(columnKey)?.displayKey || 'name'];
+  showModelSearchDropdown.value[columnKey] = false;
+  handleFilterChange();
+};
+
+const clearModelSearchSelection = (columnKey) => {
+  filters.value[columnKey] = '';
+  selectedModelSearchItems.value[columnKey] = null;
+  modelSearchQueries.value[columnKey] = '';
+  showModelSearchDropdown.value[columnKey] = false;
+  handleFilterChange();
+};
+
+const getSelectedModelSearchItem = (columnKey, column) => {
+  return selectedModelSearchItems.value[columnKey];
+};
+
+const getColumnByKey = (key) => {
+  return props.columns.find(col => col.key === key);
+};
+
+const formatModelSearchPreview = (option, column) => {
+  // Create a preview string showing other available fields
+  const previewFields = [];
+
+  column.columns.forEach(col => {
+    if (col.key !== column.displayKey && option[col.key]) {
+      previewFields.push(`${col.key}: ${option[col.key]}`);
+    }
+  });
+
+  return previewFields.slice(0, 2).join(' • ') || `ID: ${option.id}`;
+};
+
 const getColumnLabel = (key) => {
   const column = props.columns.find(col => col.key === key);
   return column ? column.label : key;
@@ -488,6 +642,7 @@ const formatFilterValue = (key, value) => {
   switch (column.type) {
     case 'boolean':
       return value === 'true' ? 'Yes' : 'No';
+    case 'timestamp':
     case 'date':
       if (value.from && value.to) {
         return `${value.from} to ${value.to}`;
@@ -500,6 +655,9 @@ const formatFilterValue = (key, value) => {
     case 'select':
       const option = column.options?.select_options?.find(opt => opt.value === value);
       return option ? option.label : value;
+    case 'model_search':
+      const selectedItem = selectedModelSearchItems.value[key];
+      return selectedItem ? selectedItem[column.displayKey] : `ID: ${value}`;
     default:
       return String(value).length > 20 ? String(value).substring(0, 20) + '...' : String(value);
   }
@@ -524,15 +682,42 @@ const handleFilterChange = () => {
 const clearFilter = (key) => {
   const column = props.columns.find(col => col.key === key);
   filters.value[key] = column?.type === 'date' ? { from: '', to: '' } : '';
+
+  // Clear model search specific state if it's a model_search field
+  if (column?.type === 'model_search') {
+    modelSearchQueries.value[key] = '';
+    modelSearchResults.value[key] = [];
+    selectedModelSearchItems.value[key] = null;
+    showModelSearchDropdown.value[key] = false;
+
+    if (searchTimeouts.value[key]) {
+      clearTimeout(searchTimeouts.value[key]);
+      searchTimeouts.value[key] = null;
+    }
+  }
+
   handleFilterChange();
 };
 
 const resetAllFilters = () => {
   filters.value = props.columns.reduce((acc, column) => {
-    acc[column.key] = column.type === 'date' ? { from: '', to: '' } : '';
+    acc[column.key] = column?.type === 'date' ? { from: '', to: '' } : '';
     return acc;
   }, {});
   searchModesState.value = {};
+
+  // Reset model search state
+  modelSearchQueries.value = {};
+  modelSearchResults.value = {};
+  selectedModelSearchItems.value = {};
+  showModelSearchDropdown.value = {};
+
+  // Clear any pending timeouts
+  Object.values(searchTimeouts.value).forEach(timeout => {
+    if (timeout) clearTimeout(timeout);
+  });
+  searchTimeouts.value = {};
+
   handleFilterChange();
 };
 
@@ -545,10 +730,27 @@ onMounted(() => {
   if (props.columns) {
     props.columns.forEach(column => {
       if (column.type === 'model_search' && column.filterable) {
-        loadModelOptions(column);
+        // Initialize state for model search fields
+        modelSearchQueries.value[column.key] = '';
+        modelSearchResults.value[column.key] = [];
+        showModelSearchDropdown.value[column.key] = false;
+        selectedModelSearchItems.value[column.key] = null;
+
+        // Optionally load initial options (you might want to skip this for performance)
+        // loadModelOptions(column);
       }
     });
   }
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', (event) => {
+    const isModelSearchClick = event.target.closest('.relative');
+    if (!isModelSearchClick) {
+      Object.keys(showModelSearchDropdown.value).forEach(key => {
+        showModelSearchDropdown.value[key] = false;
+      });
+    }
+  });
 });
 </script>
 
@@ -648,6 +850,86 @@ onMounted(() => {
   outline-offset: 2px;
 }
 
+/* Enhanced Dropdown Styling with Higher Z-Index */
+.z-\[9999\] {
+  z-index: 9999 !important;
+  position: relative;
+}
+
+.absolute.z-\[9999\] {
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  border: 2px solid hsl(var(--b3));
+}
+
+/* Ensure dropdown container has proper stacking context */
+.relative:has(.z-\[9999\]) {
+  z-index: 9998;
+  position: relative;
+}
+
+/* Search Results Hover Effect */
+.hover\:bg-base-200:hover {
+  background-color: hsl(var(--b2));
+  transform: translateX(2px);
+}
+
+/* Selected Item Card Enhancement */
+.card.bg-base-200 {
+  transition: all 0.3s ease;
+}
+
+.card.bg-base-200:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Search Input Enhancement */
+.input[type="text"]:focus {
+  border-color: hsl(var(--p));
+  box-shadow: 0 0 0 3px hsl(var(--p) / 0.1);
+}
+
+/* Clear Selection Button */
+.btn-ghost.btn-xs {
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+/* Loading States */
+.loading.loading-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Dropdown Animation */
+.absolute.top-0.z-\[9999\] {
+  animation: dropdownSlideIn 0.2s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Search Preview Text */
+.text-xs.text-base-content\/60 {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'DejaVu Sans Mono', monospace;
+}
+
+/* Active Filter Enhancement */
+.badge.badge-primary.badge-xs {
+  animation: gentlePulse 2s ease-in-out infinite;
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
   .grid-cols-1 {
@@ -657,6 +939,14 @@ onMounted(() => {
   .stats-horizontal {
     display: grid;
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Make dropdowns full width on mobile */
+  .absolute.z-\[9999\] {
+    left: -1rem;
+    right: -1rem;
+    max-width: calc(100vw - 2rem);
+    z-index: 9999 !important;
   }
 }
 
@@ -669,6 +959,10 @@ onMounted(() => {
   .bg-gradient-to-r {
     background: hsl(var(--b2));
   }
+
+  .absolute.z-\[9999\] {
+    border: 2px solid hsl(var(--bc));
+  }
 }
 
 /* Reduced Motion */
@@ -679,6 +973,13 @@ onMounted(() => {
     animation: none;
     transition: none;
   }
+
+  @keyframes dropdownSlideIn {
+    from, to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 /* Print Styles */
@@ -686,6 +987,92 @@ onMounted(() => {
   .btn,
   .loading {
     display: none !important;
+  }
+
+  .absolute.z-\[9999\] {
+    position: static !important;
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+  }
+}
+
+/* Enhanced accessibility */
+.btn:focus-visible {
+  outline: 2px solid hsl(var(--p));
+  outline-offset: 2px;
+}
+
+/* Tooltip enhancement */
+[title] {
+  position: relative;
+}
+
+/* Search result item enhancement */
+.w-full.text-left.px-3.py-2 {
+  border-radius: 0.375rem;
+  margin: 0.125rem;
+  width: calc(100% - 0.25rem);
+}
+
+/* Clear selection button in dropdown */
+.border-t.border-base-300 {
+  border-top: 1px solid hsl(var(--b3));
+}
+
+.hover\:bg-error\/10:hover {
+  background-color: hsl(var(--er) / 0.1);
+}
+
+/* Selected item indicator */
+.text-primary .w-4.h-4 {
+  filter: drop-shadow(0 0 4px hsl(var(--p) / 0.3));
+}
+
+/* Scrollbar for dropdown results */
+.max-h-48.overflow-y-auto::-webkit-scrollbar {
+  width: 4px;
+}
+
+.max-h-48.overflow-y-auto::-webkit-scrollbar-track {
+  background: hsl(var(--b3));
+}
+
+.max-h-48.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: hsl(var(--p) / 0.3);
+  border-radius: 2px;
+}
+
+.max-h-48.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--p) / 0.5);
+}
+
+/* Enhanced z-index management */
+.z-\[9999\] {
+  z-index: 9999 !important;
+}
+
+/* Ensure parent containers don't interfere */
+.card.bg-base-100 {
+  position: relative;
+  z-index: 1;
+}
+
+.form-control.group\/filter {
+  position: relative;
+  z-index: 2;
+}
+
+/* Backdrop for mobile */
+@media (max-width: 640px) {
+  .absolute.z-\[9999\]::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+    z-index: -1;
   }
 }
 </style>

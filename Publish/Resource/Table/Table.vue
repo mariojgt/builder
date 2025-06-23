@@ -95,30 +95,34 @@
                     <!-- Table View -->
                     <div v-else-if="viewMode === 'table'" class="overflow-x-auto">
                         <table :class="getTableClasses()">
-                            <!-- Table Header -->
+                            <!-- ENHANCED TABLE HEADER WITH SIMPLE SORT INDICATORS -->
                             <thead class="bg-base-200/50">
                                 <tr>
                                     <th v-for="column in displayColumns" :key="column.key"
                                         @click="column.sortable && handleSort(column.key)"
                                         :class="getHeaderClasses(column)"
-                                        :title="column.label"
+                                        :title="column.sortable ? `Click to sort by ${column.label}` : column.label"
                                     >
-                                        <div class="flex items-center gap-1">
-                                            <!-- Column icon (hide in super compact) -->
-                                            <component
-                                                v-if="getColumnIcon(column) && !superCompactMode"
-                                                :is="getColumnIcon(column)"
-                                                :class="getHeaderIconSize()"
-                                                class="text-primary/70"
-                                            />
-                                            <span class="truncate">{{ getColumnDisplayName(column) }}</span>
-                                            <button v-if="column.sortable"
-                                                class="btn btn-ghost btn-xs btn-square opacity-50 hover:opacity-100 p-0"
-                                                :class="getSortButtonSize()"
-                                            >
-                                                <component :is="getSortIcon(column.key)"
-                                                    :class="getSortIconSize()" />
-                                            </button>
+                                        <div class="flex items-center justify-between gap-2 w-full">
+                                            <!-- Left side: Icon + Label -->
+                                            <div class="flex items-center gap-1 min-w-0 flex-1">
+                                                <!-- Column icon (hide in super compact) -->
+                                                <component
+                                                    v-if="getColumnIcon(column) && !superCompactMode"
+                                                    :is="getColumnIcon(column)"
+                                                    :class="getHeaderIconSize()"
+                                                    class="text-primary/70 flex-shrink-0"
+                                                />
+                                                <span class="truncate">{{ getColumnDisplayName(column) }}</span>
+                                            </div>
+
+                                            <!-- Right side: Simple Sort Indicator -->
+                                            <div v-if="column.sortable" class="flex-shrink-0">
+                                                <span class="sort-indicator text-xs font-mono select-none"
+                                                      :class="getSortIndicatorClasses(column.key)">
+                                                    {{ getSortText(column.key) }}
+                                                </span>
+                                            </div>
                                         </div>
                                     </th>
                                     <th :class="getActionsHeaderClasses()">
@@ -338,6 +342,24 @@ const displayColumns = computed(() => {
     return orderedColumns.filter(column => !hiddenColumns.value.has(column.key));
 });
 
+// ✨ SIMPLE SORT INDICATOR METHODS
+function getSortText(columnKey: string): string {
+    if (filterBy.value === columnKey) {
+        return orderBy.value === 'asc' ? '↑' : '↓';
+    }
+    return '↕';
+}
+
+function getSortIndicatorClasses(columnKey: string): string {
+    const baseClasses = 'px-1 py-0.5 rounded transition-all duration-200';
+
+    if (filterBy.value === columnKey) {
+        return `${baseClasses} bg-primary text-primary-content font-bold`;
+    } else {
+        return `${baseClasses} text-base-content/40 hover:text-base-content hover:bg-base-200`;
+    }
+}
+
 // ✨ NEW: Dynamic styling methods for different density modes
 function getContentPadding(): string {
     if (superCompactMode.value) return 'p-2';
@@ -378,9 +400,18 @@ function getTableClasses(): string {
 
 function getHeaderClasses(column: any): string {
     const baseClasses = [
-        'text-base-content font-medium transition-colors duration-200',
-        { 'cursor-pointer hover:bg-base-200': column.sortable }
+        'text-base-content font-medium transition-all duration-200 select-none'
     ];
+
+    // Add sortable styling
+    if (column.sortable) {
+        baseClasses.push('cursor-pointer hover:bg-base-200/70');
+
+        // Active sort column styling
+        if (filterBy.value === column.key) {
+            baseClasses.push('bg-primary/10');
+        }
+    }
 
     if (superCompactMode.value) {
         return [...baseClasses, 'px-1 py-1 text-xs leading-tight'].join(' ');
@@ -918,6 +949,29 @@ fetchData();
     font-size: 0.625rem;
 }
 
+/* ✨ SIMPLE SORT INDICATOR STYLES */
+.sort-indicator {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 1.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.sort-indicator:hover {
+    transform: scale(1.1);
+}
+
+/* Sortable header hover effects */
+th[class*="cursor-pointer"]:hover {
+    background-color: hsl(var(--b2) / 0.7) !important;
+}
+
+/* Active sort column highlighting */
+th[class*="bg-primary"]:hover {
+    background-color: hsl(var(--p) / 0.15) !important;
+}
+
 /* Density mode indicators */
 .badge-accent {
     background-color: hsl(var(--a));
@@ -968,6 +1022,11 @@ fetchData();
         padding-left: 0.25rem;
         padding-right: 0.25rem;
         font-size: 0.625rem;
+    }
+
+    .sort-indicator {
+        font-size: 0.75rem;
+        min-width: 1rem;
     }
 }
 
@@ -1038,6 +1097,10 @@ fetchData();
     .badge {
         border: 1px solid hsl(var(--bc));
     }
+
+    .sort-indicator {
+        border: 1px solid currentColor;
+    }
 }
 
 /* Reduced motion support */
@@ -1045,12 +1108,14 @@ fetchData();
     .table tr,
     .btn,
     .badge,
-    .loading {
+    .loading,
+    .sort-indicator {
         animation: none;
         transition: none;
     }
 
-    .btn:hover:not(:disabled) {
+    .btn:hover:not(:disabled),
+    .sort-indicator:hover {
         transform: none;
     }
 }
@@ -1077,6 +1142,12 @@ fetchData();
         border: 0.5pt solid #000;
         background: white !important;
         color: black !important;
+    }
+
+    .sort-indicator {
+        background: white !important;
+        color: black !important;
+        border: 0.5pt solid #000;
     }
 }
 
