@@ -296,7 +296,7 @@ const paginationInfo = ref({
 
 const perPage = ref(10);
 const filterBy = ref(props.defaultIdKey);
-const orderBy = ref<string | null>(null);
+const orderBy = ref<string | null>('desc'); // Default to descending order
 const search = ref<string | null>(null);
 const viewMode = ref('table');
 
