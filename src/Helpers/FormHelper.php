@@ -42,12 +42,289 @@ class FormHelper
     private array $rowStyling = [];
 
     /**
+     * Default filters configuration (simple key-value filters)
+     * @var array<string, mixed>
+     */
+    private array $defaultFilters = [];
+
+    /**
+     * ✨ NEW: Advanced query filters (for complex operations like whereNotIn, whereBetween, etc.)
+     * @var array<array>
+     */
+    private array $advancedFilters = [];
+
+    /**
      * Set the current tab for subsequent fields
      */
     public function tab(string $tabName): self
     {
         $this->currentTab = $tabName;
         return $this;
+    }
+
+    /**
+     * Add default filters that will be applied automatically (simple key-value filters)
+     *
+     * @param array<string, mixed> $filters Array of field => value pairs
+     * @return self
+     */
+    public function withDefaultFilters(array $filters): self
+    {
+        $this->defaultFilters = array_merge($this->defaultFilters, $filters);
+        return $this;
+    }
+
+    /**
+     * Add a single default filter (simple key-value filter)
+     *
+     * @param string $field The field key to filter
+     * @param mixed $value The filter value
+     * @return self
+     */
+    public function withDefaultFilter(string $field, mixed $value): self
+    {
+        $this->defaultFilters[$field] = $value;
+        return $this;
+    }
+
+    /**
+     * ✨ NEW: Add advanced query filter with custom operator
+     *
+     * @param string $field The field to filter
+     * @param string $operator Query operator (whereIn, whereNotIn, whereBetween, whereNull, etc.)
+     * @param mixed $value The value(s) for the filter
+     * @param array $options Additional options for the filter
+     * @return self
+     */
+    public function withAdvancedFilter(string $field, string $operator, mixed $value = null, array $options = []): self
+    {
+        $this->advancedFilters[] = [
+            'field' => $field,
+            'operator' => $operator,
+            'value' => $value,
+            'options' => $options
+        ];
+
+        return $this;
+    }
+
+    /**
+     * ✨ NEW: Add whereNotIn filter
+     *
+     * @param string $field The field to filter
+     * @param array $values Array of values to exclude
+     * @return self
+     */
+    public function withNotInFilter(string $field, array $values): self
+    {
+        return $this->withAdvancedFilter($field, 'whereNotIn', $values);
+    }
+
+    /**
+     * ✨ NEW: Add whereIn filter
+     *
+     * @param string $field The field to filter
+     * @param array $values Array of values to include
+     * @return self
+     */
+    public function withInFilter(string $field, array $values): self
+    {
+        return $this->withAdvancedFilter($field, 'whereIn', $values);
+    }
+
+    /**
+     * ✨ NEW: Add whereBetween filter
+     *
+     * @param string $field The field to filter
+     * @param mixed $min Minimum value
+     * @param mixed $max Maximum value
+     * @return self
+     */
+    public function withBetweenFilter(string $field, mixed $min, mixed $max): self
+    {
+        return $this->withAdvancedFilter($field, 'whereBetween', [$min, $max]);
+    }
+
+    /**
+     * ✨ NEW: Add whereNotBetween filter
+     *
+     * @param string $field The field to filter
+     * @param mixed $min Minimum value to exclude
+     * @param mixed $max Maximum value to exclude
+     * @return self
+     */
+    public function withNotBetweenFilter(string $field, mixed $min, mixed $max): self
+    {
+        return $this->withAdvancedFilter($field, 'whereNotBetween', [$min, $max]);
+    }
+
+    /**
+     * ✨ NEW: Add whereNull filter
+     *
+     * @param string $field The field to check for null
+     * @return self
+     */
+    public function withNullFilter(string $field): self
+    {
+        return $this->withAdvancedFilter($field, 'whereNull');
+    }
+
+    /**
+     * ✨ NEW: Add whereNotNull filter
+     *
+     * @param string $field The field to check for not null
+     * @return self
+     */
+    public function withNotNullFilter(string $field): self
+    {
+        return $this->withAdvancedFilter($field, 'whereNotNull');
+    }
+
+    /**
+     * ✨ NEW: Add where with custom operator
+     *
+     * @param string $field The field to filter
+     * @param string $operator SQL operator (=, !=, >, <, >=, <=, LIKE, etc.)
+     * @param mixed $value The value to compare
+     * @return self
+     */
+    public function withWhereFilter(string $field, string $operator, mixed $value): self
+    {
+        return $this->withAdvancedFilter($field, 'where', $value, ['operator' => $operator]);
+    }
+
+    /**
+     * ✨ NEW: Add whereLike filter (shorthand for LIKE operator)
+     *
+     * @param string $field The field to search
+     * @param string $value The value to search for
+     * @param bool $startsWith If true, searches for values starting with the term
+     * @param bool $endsWith If true, searches for values ending with the term
+     * @return self
+     */
+    public function withLikeFilter(string $field, string $value, bool $startsWith = false, bool $endsWith = false): self
+    {
+        if ($startsWith) {
+            $searchValue = $value . '%';
+        } elseif ($endsWith) {
+            $searchValue = '%' . $value;
+        } else {
+            $searchValue = '%' . $value . '%';
+        }
+
+        return $this->withWhereFilter($field, 'LIKE', $searchValue);
+    }
+
+    /**
+     * ✨ NEW: Add date-based filters
+     *
+     * @param string $field The date field
+     * @param string $operator Date operator (whereDate, whereMonth, whereYear, whereDay, etc.)
+     * @param mixed $value The date value
+     * @return self
+     */
+    public function withDateFilter(string $field, string $operator, mixed $value): self
+    {
+        return $this->withAdvancedFilter($field, $operator, $value);
+    }
+
+    /**
+     * ✨ NEW: Helper for common status exclusions
+     *
+     * @param string $statusField The status field name (default: 'status')
+     * @param array $excludedStatuses Array of statuses to exclude
+     * @return self
+     */
+    public function withExcludeStatuses(string $statusField = 'status', array $excludedStatuses = ['unknown', 'unvalidated', 'incomplete', 'published', 'rejected', 'finished']): self
+    {
+        return $this->withNotInFilter($statusField, $excludedStatuses);
+    }
+
+    /**
+     * ✨ NEW: Helper for including only specific statuses
+     *
+     * @param string $statusField The status field name (default: 'status')
+     * @param array $includedStatuses Array of statuses to include
+     * @return self
+     */
+    public function withIncludeStatuses(string $statusField = 'status', array $includedStatuses = ['active', 'pending', 'in_progress']): self
+    {
+        return $this->withInFilter($statusField, $includedStatuses);
+    }
+
+    /**
+     * ✨ NEW: Helper for recent items (created within X days)
+     *
+     * @param string $dateField The date field name (default: 'created_at')
+     * @param int $days Number of days back (default: 30)
+     * @return self
+     */
+    public function withRecentItems(string $dateField = 'created_at', int $days = 30): self
+    {
+        $date = now()->subDays($days)->format('Y-m-d H:i:s');
+        return $this->withWhereFilter($dateField, '>=', $date);
+    }
+
+    /**
+     * ✨ NEW: Helper for items from specific year
+     *
+     * @param string $dateField The date field name (default: 'created_at')
+     * @param int $year The year to filter by
+     * @return self
+     */
+    public function withYear(string $dateField = 'created_at', int $year = null): self
+    {
+        $year = $year ?? now()->year;
+        return $this->withDateFilter($dateField, 'whereYear', $year);
+    }
+
+    /**
+     * ✨ NEW: Complex relationship filters
+     *
+     * @param string $relationship The relationship name
+     * @param callable $callback Callback function to apply filters on the relationship
+     * @return self
+     */
+    public function withRelationshipFilter(string $relationship, callable $callback): self
+    {
+        return $this->withAdvancedFilter($relationship, 'whereHas', null, ['callback' => $callback]);
+    }
+
+    /**
+     * Helper method for date range filter (simple filter)
+     *
+     * @param string $field The date field to filter
+     * @param string|null $from Start date (Y-m-d format)
+     * @param string|null $to End date (Y-m-d format)
+     * @return self
+     */
+    public function withDateRangeFilter(string $field, ?string $from = null, ?string $to = null): self
+    {
+        $dateFilter = [];
+        if ($from) {
+            $dateFilter['from'] = $from;
+        }
+        if ($to) {
+            $dateFilter['to'] = $to;
+        }
+
+        if (!empty($dateFilter)) {
+            $this->defaultFilters[$field] = $dateFilter;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Helper method for created_at date range (simple filter)
+     *
+     * @param string|null $from Start date
+     * @param string|null $to End date
+     * @return self
+     */
+    public function withCreatedAtFilter(?string $from = null, ?string $to = null): self
+    {
+        return $this->withDateRangeFilter('created_at', $from, $to);
     }
 
     /**
@@ -792,6 +1069,50 @@ class FormHelper
     }
 
     /**
+     * Get default filters
+     */
+    public function getDefaultFilters(): array
+    {
+        return $this->defaultFilters;
+    }
+
+    /**
+     * ✨ NEW: Get advanced filters
+     */
+    public function getAdvancedFilters(): array
+    {
+        return $this->advancedFilters;
+    }
+
+    /**
+     * Clear default filters
+     */
+    public function clearDefaultFilters(): self
+    {
+        $this->defaultFilters = [];
+        return $this;
+    }
+
+    /**
+     * ✨ NEW: Clear advanced filters
+     */
+    public function clearAdvancedFilters(): self
+    {
+        $this->advancedFilters = [];
+        return $this;
+    }
+
+    /**
+     * ✨ NEW: Clear all filters (both default and advanced)
+     */
+    public function clearAllFilters(): self
+    {
+        $this->defaultFilters = [];
+        $this->advancedFilters = [];
+        return $this;
+    }
+
+    /**
      * Clear all fields and configurations
      */
     public function clear(): self
@@ -799,6 +1120,8 @@ class FormHelper
         $this->columns = [];
         $this->config = [];
         $this->rowStyling = [];
+        $this->defaultFilters = [];
+        $this->advancedFilters = [];
         return $this;
     }
 
@@ -953,6 +1276,8 @@ class FormHelper
             'columns' => $this->getFields(),
             'defaultIdKey' => $this->defaultIdKey,
             'rowStyling' => $this->getRowStyling(),
+            'defaultFilters' => $this->getDefaultFilters(),
+            'advancedFilters' => $this->getAdvancedFilters(),
         ]);
     }
 }

@@ -13,7 +13,8 @@ use Illuminate\Validation\ValidationException;
 class TableBuilderApiController extends Controller
 {
     /**
-     * Handle data display to the table with AUTOMATIC relationship detection and custom attributes support.
+     * Handle data display to the table with AUTOMATIC relationship detection, custom attributes support,
+     * and advanced filters support.
      *
      * @param Request $request
      * @return array
@@ -58,13 +59,18 @@ class TableBuilderApiController extends Controller
             $query->with($relationships);
         }
 
-        // Handle filters (with relationship support, excluding custom attributes)
-        if ($request->has('filters')) {
+        // ✨ NEW: Apply advanced filters FIRST (these are part of the table configuration)
+        if ($request->has('advancedFilters') && !empty($request->advancedFilters)) {
+            $this->applyAdvancedFilters($query, $request->advancedFilters, $rawColumns, $customAttributes);
+        }
+
+        // Handle regular filters (with relationship support, excluding custom attributes)
+        if ($request->has('filters') && !empty($request->filters)) {
             $this->applyFilters($query, $request->filters, $rawColumns, $customAttributes);
         }
 
         // Handle search (with relationship support, excluding custom attributes)
-        if ($request->has('search')) {
+        if ($request->has('search') && !empty($request->search)) {
             $this->applySearch($query, $request->search, $rawColumns, $customAttributes);
         }
 
@@ -94,6 +100,228 @@ class TableBuilderApiController extends Controller
             'to' => $modelPaginated->lastItem(),
             'total' => $modelPaginated->total(),
         ];
+    }
+
+    /**
+     * ✨ NEW: Apply advanced filters with complex operators
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array $advancedFilters
+     * @param \Illuminate\Support\Collection $rawColumns
+     * @param array $customAttributes
+     * @return void
+     */
+    private function applyAdvancedFilters($query, $advancedFilters, $rawColumns, $customAttributes = [])
+    {
+        foreach ($advancedFilters as $filter) {
+            $field = $filter['field'];
+            $operator = $filter['operator'];
+            $value = $filter['value'] ?? null;
+            $options = $filter['options'] ?? [];
+
+            // Skip custom attributes - they can't be filtered in the database
+            if (in_array($field, $customAttributes)) {
+                \Log::info("Skipping advanced filter for custom attribute: {$field}");
+                continue;
+            }
+
+            try {
+                // Handle relationship filters (field contains dots)
+                if (strpos($field, '.') !== false) {
+                    $this->applyAdvancedRelationshipFilter($query, $field, $operator, $value, $options);
+                } else {
+                    // Handle direct model field filters
+                    $this->applyAdvancedDirectFilter($query, $field, $operator, $value, $options);
+                }
+            } catch (\Exception $e) {
+                \Log::warning("Advanced filter failed for field '{$field}' with operator '{$operator}': " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * ✨ NEW: Apply advanced filters on direct model fields
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $field
+     * @param string $operator
+     * @param mixed $value
+     * @param array $options
+     * @return void
+     */
+    private function applyAdvancedDirectFilter($query, $field, $operator, $value, $options)
+    {
+        switch ($operator) {
+            case 'whereIn':
+                if (is_array($value) && !empty($value)) {
+                    $query->whereIn($field, $value);
+                }
+                break;
+
+            case 'whereNotIn':
+                if (is_array($value) && !empty($value)) {
+                    $query->whereNotIn($field, $value);
+                }
+                break;
+
+            case 'whereBetween':
+                if (is_array($value) && count($value) >= 2) {
+                    $query->whereBetween($field, [$value[0], $value[1]]);
+                }
+                break;
+
+            case 'whereNotBetween':
+                if (is_array($value) && count($value) >= 2) {
+                    $query->whereNotBetween($field, [$value[0], $value[1]]);
+                }
+                break;
+
+            case 'whereNull':
+                $query->whereNull($field);
+                break;
+
+            case 'whereNotNull':
+                $query->whereNotNull($field);
+                break;
+
+            case 'where':
+                $sqlOperator = $options['operator'] ?? '=';
+                if ($value !== null) {
+                    $query->where($field, $sqlOperator, $value);
+                }
+                break;
+
+            case 'whereDate':
+                if ($value !== null) {
+                    $query->whereDate($field, $value);
+                }
+                break;
+
+            case 'whereMonth':
+                if ($value !== null) {
+                    $query->whereMonth($field, $value);
+                }
+                break;
+
+            case 'whereYear':
+                if ($value !== null) {
+                    $query->whereYear($field, $value);
+                }
+                break;
+
+            case 'whereDay':
+                if ($value !== null) {
+                    $query->whereDay($field, $value);
+                }
+                break;
+
+            case 'whereTime':
+                if ($value !== null) {
+                    $query->whereTime($field, $value);
+                }
+                break;
+
+            case 'whereHas':
+                if (isset($options['callback']) && is_callable($options['callback'])) {
+                    $query->whereHas($field, $options['callback']);
+                }
+                break;
+
+            case 'whereDoesntHave':
+                if (isset($options['callback']) && is_callable($options['callback'])) {
+                    $query->whereDoesntHave($field, $options['callback']);
+                } else {
+                    $query->whereDoesntHave($field);
+                }
+                break;
+            case 'orderBy':
+                $direction = $options['direction'] ?? 'asc';
+                $query->orderBy($field, $direction);
+                break;
+
+            case 'orderByMultiple':
+                if (is_array($value)) {
+                    foreach ($value as $orderItem) {
+                        $column = $orderItem['column'] ?? $field;
+                        $direction = $orderItem['direction'] ?? 'asc';
+                        $query->orderBy($column, $direction);
+                    }
+                }
+                break;
+
+            default:
+                \Log::warning("Unknown advanced filter operator: {$operator}");
+                break;
+        }
+    }
+
+    /**
+     * ✨ NEW: Apply advanced filters on relationship fields
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $field
+     * @param string $operator
+     * @param mixed $value
+     * @param array $options
+     * @return void
+     */
+    private function applyAdvancedRelationshipFilter($query, $field, $operator, $value, $options)
+    {
+        $parts = explode('.', $field);
+        $attribute = array_pop($parts);
+        $relationPath = implode('.', $parts);
+
+        switch ($operator) {
+            case 'whereHas':
+                if (isset($options['callback']) && is_callable($options['callback'])) {
+                    // Use the custom callback
+                    $query->whereHas($relationPath, $options['callback']);
+                } else {
+                    // Apply the filter on the relationship's attribute
+                    $query->whereHas($relationPath, function ($subQuery) use ($attribute, $value, $options) {
+                        $subOperator = $options['operator'] ?? '=';
+                        if ($value !== null) {
+                            $subQuery->where($attribute, $subOperator, $value);
+                        }
+                    });
+                }
+                break;
+
+            case 'whereDoesntHave':
+                if (isset($options['callback']) && is_callable($options['callback'])) {
+                    $query->whereDoesntHave($relationPath, $options['callback']);
+                } else {
+                    $query->whereDoesntHave($relationPath, function ($subQuery) use ($attribute, $value, $options) {
+                        $subOperator = $options['operator'] ?? '=';
+                        if ($value !== null) {
+                            $subQuery->where($attribute, $subOperator, $value);
+                        }
+                    });
+                }
+                break;
+
+            case 'whereIn':
+            case 'whereNotIn':
+            case 'whereBetween':
+            case 'whereNotBetween':
+            case 'whereNull':
+            case 'whereNotNull':
+            case 'where':
+            case 'whereDate':
+            case 'whereMonth':
+            case 'whereYear':
+            case 'whereDay':
+            case 'whereTime':
+                // Apply the advanced filter within the relationship context
+                $query->whereHas($relationPath, function ($subQuery) use ($attribute, $operator, $value, $options) {
+                    $this->applyAdvancedDirectFilter($subQuery, $attribute, $operator, $value, $options);
+                });
+                break;
+
+            default:
+                \Log::warning("Unknown advanced relationship filter operator: {$operator}");
+                break;
+        }
     }
 
     /**

@@ -17,6 +17,10 @@
                         <span v-if="superCompactMode" class="badge badge-accent badge-xs">Super Compact</span>
                         <span v-else-if="compactMode" class="badge badge-secondary badge-xs">Compact</span>
                         <span v-else class="badge badge-ghost badge-xs">Standard</span>
+                        <!-- ✨ NEW: Advanced Filters Indicator -->
+                        <span v-if="hasAdvancedFilters" class="badge badge-info badge-xs" title="Advanced filters active">
+                            Advanced
+                        </span>
                     </p>
                 </div>
 
@@ -239,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import axios from 'axios';
 import { Link } from '@inertiajs/vue3';
@@ -280,7 +284,9 @@ const props = defineProps({
     custom_point_route: { type: String, default: null },
     custom_action_name: { type: String, default: null },
     defaultIdKey: { type: String, default: 'id' },
-    rowStyling: { type: Object, default: () => ({}) }
+    rowStyling: { type: Object, default: () => ({}) },
+    defaultFilters: { type: Object, default: () => ({}) }, // Simple key-value filters
+    advancedFilters: { type: Array, default: () => [] }    // ✨ NEW: Advanced filters from FormHelper
 });
 
 // State
@@ -300,23 +306,57 @@ const orderBy = ref<string | null>('desc'); // Default to descending order
 const search = ref<string | null>(null);
 const viewMode = ref('table');
 
-// ✨ NEW: Enhanced state for density and column management
+// ✨ Enhanced state for density and column management
 const hiddenColumns = ref(new Set<string>());
 const compactMode = ref(true); // Default to compact mode
 const superCompactMode = ref(false); // Super compact mode
 const columnOrder = ref<string[]>([]);
 
+// ✨ NEW: Filter state management
+const activeFilters = ref({});
+
 // Computed
 const totalItems = computed(() => paginationInfo.value.total);
 
-const hasActiveFilters = computed(() => {
-    return search.value ||
-        filterBy.value !== 'id' ||
-        perPage.value !== 10 ||
-        orderBy.value !== null;
+// ✨ NEW: Check if advanced filters are active
+const hasAdvancedFilters = computed(() => {
+    return props.advancedFilters && props.advancedFilters.length > 0;
 });
 
-// ✨ NEW: Enhanced column management with ordering
+const hasActiveFilters = computed(() => {
+    const currentFilters = { ...activeFilters.value };
+    const defaultFilters = { ...props.defaultFilters };
+
+    // Remove default filters from current filters for comparison
+    Object.keys(defaultFilters).forEach(key => {
+        if (currentFilters[key] === defaultFilters[key]) {
+            delete currentFilters[key];
+        }
+    });
+
+    return search.value ||
+        filterBy.value !== props.defaultIdKey ||
+        perPage.value !== 10 ||
+        orderBy.value !== null ||
+        Object.keys(currentFilters).length > 0;
+});
+
+// ✨ NEW: Check if current filters differ from defaults
+const hasNonDefaultFilters = computed(() => {
+    const currentFilters = { ...activeFilters.value };
+    const defaultFilters = { ...props.defaultFilters };
+
+    // Check if there are any filters beyond the defaults
+    for (const [key, value] of Object.entries(currentFilters)) {
+        if (!(key in defaultFilters) || defaultFilters[key] !== value) {
+            return true;
+        }
+    }
+
+    return false;
+});
+
+// Enhanced column management with ordering
 const displayColumns = computed(() => {
     const columnMap = new Map(props.columns.map(col => [col.key, col]));
 
@@ -360,7 +400,7 @@ function getSortIndicatorClasses(columnKey: string): string {
     }
 }
 
-// ✨ NEW: Dynamic styling methods for different density modes
+// Dynamic styling methods for different density modes
 function getContentPadding(): string {
     if (superCompactMode.value) return 'p-2';
     if (compactMode.value) return 'p-3';
@@ -423,18 +463,6 @@ function getHeaderClasses(column: any): string {
 }
 
 function getHeaderIconSize(): string {
-    if (compactMode.value) return 'w-3 h-3';
-    return 'w-4 h-4';
-}
-
-function getSortButtonSize(): string {
-    if (superCompactMode.value) return 'w-3 h-3';
-    if (compactMode.value) return 'w-3 h-3';
-    return 'w-4 h-4';
-}
-
-function getSortIconSize(): string {
-    if (superCompactMode.value) return 'w-2 h-2';
     if (compactMode.value) return 'w-3 h-3';
     return 'w-4 h-4';
 }
@@ -667,12 +695,13 @@ function getCustomActionIcon() {
     return SettingsIcon; // Customize based on your needs
 }
 
-const activeFilters = ref({});
-
+// ✨ ENHANCED: Fetch data with advanced filters support
 const fetchData = async (endpoint = props.endpoint) => {
     try {
         isLoading.value = true;
-        const response = await axios.post(endpoint, {
+
+        // ✨ NEW: Build request payload with advanced filters
+        const requestPayload = {
             model: props.model,
             columns: props.columns,
             perPage: perPage.value,
@@ -681,7 +710,14 @@ const fetchData = async (endpoint = props.endpoint) => {
             filters: activeFilters.value,
             direction: orderBy.value,
             permission: props.permission
-        });
+        };
+
+        // ✨ NEW: Add advanced filters if they exist
+        if (props.advancedFilters && props.advancedFilters.length > 0) {
+            requestPayload.advancedFilters = props.advancedFilters;
+        }
+
+        const response = await axios.post(endpoint, requestPayload);
 
         tableData.value = response.data.data;
         paginationInfo.value = {
@@ -708,11 +744,14 @@ const fetchData = async (endpoint = props.endpoint) => {
     }
 };
 
+// ✨ ENHANCED: Reset filters respecting defaults and advanced filters
 const resetFilters = () => {
     perPage.value = 10;
-    filterBy.value = 'id';
-    orderBy.value = null;
+    filterBy.value = props.defaultIdKey;
+    orderBy.value = 'desc';
     search.value = null;
+    // Reset to default filters instead of empty object
+    activeFilters.value = { ...props.defaultFilters };
     fetchData();
 };
 
@@ -724,8 +763,9 @@ const handlePerPageChange = (value: number) => {
     fetchData();
 };
 
+// ✨ ENHANCED: Advanced filter handler merges with defaults
 const handleAdvancedFilterChange = (filters) => {
-    activeFilters.value = filters;
+    activeFilters.value = { ...props.defaultFilters, ...filters };
     fetchData();
 };
 
@@ -754,7 +794,7 @@ const handleFilterReset = (data: any) => {
     fetchData();
 };
 
-// ✨ NEW: Enhanced event handlers for density and column management
+// Enhanced event handlers for density and column management
 const updateHiddenColumns = (newHiddenColumns: Set<string>) => {
     hiddenColumns.value = newHiddenColumns;
 };
@@ -779,420 +819,18 @@ const updateColumnOrder = (newOrder: string[]) => {
     columnOrder.value = newOrder;
 };
 
-// Initialize
-fetchData();
+// ✨ NEW: Initialize component with default filters and advanced filters
+onMounted(() => {
+    // Merge default filters with any existing active filters
+    if (props.defaultFilters && Object.keys(props.defaultFilters).length > 0) {
+        activeFilters.value = { ...props.defaultFilters, ...activeFilters.value };
+    }
+
+    // Log advanced filters for debugging
+    if (props.advancedFilters && props.advancedFilters.length > 0) {
+        console.log('Advanced filters loaded:', props.advancedFilters);
+    }
+
+    fetchData();
+});
 </script>
-
-<style scoped>
-/* Table Animations */
-.table tr {
-    transition: all 0.2s ease;
-}
-
-/* Custom Scrollbar */
-.overflow-x-auto {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--p) / 0.3) hsl(var(--b2) / 0.5);
-}
-
-.overflow-x-auto::-webkit-scrollbar {
-    height: 6px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-track {
-    background: hsl(var(--b2) / 0.5);
-    border-radius: 4px;
-}
-
-.overflow-x-auto::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--p) / 0.3);
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-}
-
-.overflow-x-auto::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--p) / 0.5);
-}
-
-/* Loading Animation */
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
-
-.loading {
-    animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Row styling enhancements */
-.table tr {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Enhanced row hover effects */
-.hover\:bg-red-100:hover {
-    background-color: rgb(254 226 226);
-}
-
-.hover\:bg-green-100:hover {
-    background-color: rgb(220 252 231);
-}
-
-.hover\:bg-yellow-100:hover {
-    background-color: rgb(254 249 195);
-}
-
-.hover\:bg-blue-100:hover {
-    background-color: rgb(219 234 254);
-}
-
-.hover\:bg-gray-100:hover {
-    background-color: rgb(243 244 246);
-}
-
-/* ✨ ENHANCED COMPACT MODE STYLES */
-
-/* Standard Compact Mode */
-.table-compact th,
-.table-compact td {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-    line-height: 1.25;
-}
-
-.table-compact {
-    font-size: 0.875rem;
-}
-
-/* ✨ SUPER COMPACT MODE - Maximum Data Density */
-.table-super-compact {
-    font-size: 0.75rem; /* 12px */
-    line-height: 1.1;
-    border-collapse: collapse;
-    table-layout: auto;
-}
-
-.table-super-compact th,
-.table-super-compact td {
-    padding: 0.125rem 0.25rem; /* 2px 4px */
-    vertical-align: middle;
-    border-bottom: 1px solid hsl(var(--b3) / 0.1);
-    height: auto;
-    min-height: 1.25rem; /* 20px minimum */
-    font-size: 0.6875rem; /* 11px */
-    line-height: 1.1;
-}
-
-.table-super-compact th {
-    height: 1.5rem; /* 24px */
-    font-weight: 500;
-    background: hsl(var(--b2) / 0.4);
-    font-size: 0.625rem; /* 10px */
-    text-transform: uppercase;
-    letter-spacing: 0.015em;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    border-bottom: 1px solid hsl(var(--b3) / 0.3);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.table-super-compact tbody tr {
-    height: auto;
-    min-height: 1.5rem; /* 24px */
-}
-
-.table-super-compact tbody tr:hover {
-    background-color: hsl(var(--b2) / 0.2);
-}
-
-/* Zebra striping for super compact mode */
-.table-super-compact tbody tr:nth-child(even) {
-    background-color: hsl(var(--b1) / 0.8);
-}
-
-.table-super-compact tbody tr:nth-child(odd) {
-    background-color: hsl(var(--b2) / 0.05);
-}
-
-.table-super-compact tbody tr:hover {
-    background-color: hsl(var(--b2) / 0.3) !important;
-}
-
-/* Super compact action buttons */
-.table-super-compact .btn-xs {
-    height: 1.25rem; /* 20px */
-    min-height: 1.25rem;
-    width: 1.25rem;
-    padding: 0;
-    border-radius: 0.25rem;
-    font-size: 0.6875rem;
-}
-
-/* Enhanced button sizing for all compact modes */
-.btn-xs {
-    height: 1.5rem;
-    min-height: 1.5rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    font-size: 0.75rem;
-}
-
-/* Super compact specific button overrides */
-.table-super-compact .btn {
-    font-size: 0.625rem;
-}
-
-/* ✨ SIMPLE SORT INDICATOR STYLES */
-.sort-indicator {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    min-width: 1.5rem;
-    text-align: center;
-    font-size: 0.875rem;
-    font-weight: 600;
-}
-
-.sort-indicator:hover {
-    transform: scale(1.1);
-}
-
-/* Sortable header hover effects */
-th[class*="cursor-pointer"]:hover {
-    background-color: hsl(var(--b2) / 0.7) !important;
-}
-
-/* Active sort column highlighting */
-th[class*="bg-primary"]:hover {
-    background-color: hsl(var(--p) / 0.15) !important;
-}
-
-/* Density mode indicators */
-.badge-accent {
-    background-color: hsl(var(--a));
-    color: hsl(var(--ac));
-    animation: fadeIn 0.3s ease-out;
-}
-
-.badge-secondary {
-    animation: fadeIn 0.3s ease-out;
-}
-
-.badge-ghost {
-    animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.8); }
-    to { opacity: 1; transform: scale(1); }
-}
-
-/* Enhanced grid responsiveness for different density modes */
-@media (max-width: 640px) {
-    .table-super-compact {
-        font-size: 0.625rem; /* 10px on mobile */
-    }
-
-    .table-super-compact th,
-    .table-super-compact td {
-        padding: 0.0625rem 0.125rem; /* 1px 2px */
-        min-height: 1.25rem; /* 20px */
-    }
-
-    .table-super-compact th {
-        font-size: 0.5rem; /* 8px */
-        height: 1.25rem; /* 20px */
-    }
-
-    .table-super-compact .btn-xs {
-        height: 1rem;
-        min-height: 1rem;
-        width: 1rem;
-        font-size: 0.5rem;
-    }
-
-    .btn-xs {
-        height: 1.25rem;
-        min-height: 1.25rem;
-        padding-left: 0.25rem;
-        padding-right: 0.25rem;
-        font-size: 0.625rem;
-    }
-
-    .sort-indicator {
-        font-size: 0.75rem;
-        min-width: 1rem;
-    }
-}
-
-/* Tablet optimizations */
-@media (max-width: 1024px) and (min-width: 641px) {
-    .table-super-compact {
-        font-size: 0.6875rem; /* 11px */
-    }
-
-    .table-super-compact th,
-    .table-super-compact td {
-        padding: 0.0625rem 0.1875rem; /* 1px 3px */
-    }
-}
-
-/* Enhanced hover effects for action buttons */
-.btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px hsl(var(--b3) / 0.3);
-}
-
-.btn:active:not(:disabled) {
-    transform: translateY(0) scale(0.98);
-}
-
-/* List view enhancements for different density modes */
-.divide-y.divide-base-200\/30 > * + * {
-    border-top-width: 1px;
-    border-color: hsl(var(--b2) / 0.3);
-}
-
-/* Smooth transitions for density changes */
-.table,
-.table th,
-.table td,
-.btn,
-.badge {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Performance optimizations */
-.table-super-compact {
-    contain: layout style paint;
-}
-
-.table-super-compact th,
-.table-super-compact td {
-    contain: layout style;
-}
-
-/* Accessibility improvements */
-.table th:focus-visible,
-.table td:focus-visible {
-    outline: 2px solid hsl(var(--p));
-    outline-offset: -2px;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .table-super-compact th {
-        border-bottom: 2px solid hsl(var(--bc));
-    }
-
-    .table-super-compact td {
-        border-bottom: 1px solid hsl(var(--bc) / 0.3);
-    }
-
-    .badge {
-        border: 1px solid hsl(var(--bc));
-    }
-
-    .sort-indicator {
-        border: 1px solid currentColor;
-    }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-    .table tr,
-    .btn,
-    .badge,
-    .loading,
-    .sort-indicator {
-        animation: none;
-        transition: none;
-    }
-
-    .btn:hover:not(:disabled),
-    .sort-indicator:hover {
-        transform: none;
-    }
-}
-
-/* Print styles */
-@media print {
-    .table-super-compact,
-    .table-compact {
-        font-size: 8pt;
-        line-height: 1;
-    }
-
-    .table th,
-    .table td {
-        padding: 0.5pt 1pt;
-        border: 0.5pt solid #000;
-    }
-
-    .btn {
-        display: none;
-    }
-
-    .badge {
-        border: 0.5pt solid #000;
-        background: white !important;
-        color: black !important;
-    }
-
-    .sort-indicator {
-        background: white !important;
-        color: black !important;
-        border: 0.5pt solid #000;
-    }
-}
-
-/* Enhanced focus rings for better accessibility */
-.btn:focus-visible {
-    outline: 2px solid hsl(var(--p));
-    outline-offset: 2px;
-}
-
-/* Ensure text remains readable at all density levels */
-.table-super-compact,
-.table-compact {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-}
-
-/* Enhanced density indicators */
-.badge[class*="badge-"] {
-    font-weight: 600;
-    letter-spacing: 0.025em;
-}
-
-/* Improved column header truncation */
-.table th .truncate {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Better alignment for super compact action cells */
-.table-super-compact td:last-child {
-    text-align: center;
-    vertical-align: middle;
-}
-
-/* Enhanced empty state responsiveness */
-@media (max-width: 480px) {
-    .text-2xl.md\:text-3xl {
-        font-size: 1.25rem;
-    }
-
-    .flex.gap-3 {
-        gap: 0.5rem;
-    }
-}
-</style>

@@ -9,7 +9,9 @@ A powerful Laravel package that streamlines CRUD operations with a dynamic form 
 - **Advanced Conditional Styling** for dynamic visual feedback
 - **Row-Level Conditional Styling** for entire table rows
 - **Interactive Links** with customizable styling
-- **Advanced Filtering** with date ranges and custom filters
+- **Advanced Filtering** with complex query operations (whereNotIn, whereBetween, etc.)
+- **Default Filters** applied automatically on table load
+- **Chained Relationships** with unlimited depth support
 - **Beautiful UI** with Tailwind & DaisyUI
 - **Responsive Design** with SPA experience
 
@@ -35,7 +37,7 @@ Route::controller(TableBuilderApiController::class)->group(function () {
 });
 ```
 
-### 2. Basic Controller
+### 2. Basic Controller with Advanced Filters
 
 ```php
 <?php
@@ -43,59 +45,95 @@ Route::controller(TableBuilderApiController::class)->group(function () {
 namespace App\Controllers;
 
 use Inertia\Inertia;
-use App\Models\Alert;
+use App\Models\Vulnerability;
 use App\Http\Controllers\Controller;
 use Mariojgt\Builder\Enums\FieldTypes;
 use Mariojgt\Builder\Helpers\FormHelper;
 
-class AlertController extends Controller
+class VulnerabilityController extends Controller
 {
     public function index()
     {
-        $form = new FormHelper();
-        $formConfig = $form
+        $formConfig = (new FormHelper())
             ->addIdField()
-            ->addField('Title', 'title', type: FieldTypes::TEXT->value)
-            ->addField('Status', 'status', type: FieldTypes::TEXT->value)
+            ->addField('Title', 'title', type: FieldTypes::TEXT->value, filterable: true)
+            ->addField('Status', 'status', type: FieldTypes::TEXT->value, filterable: true)
+            ->addField('CVSS Score', 'cvss_score', type: FieldTypes::NUMBER->value, filterable: true)
+            ->addField('Platform', 'product.platform.name', type: FieldTypes::TEXT->value, filterable: true)
+
+            // ✨ NEW: Advanced Filters (always applied)
+            ->withExcludeStatuses('status', ['unknown', 'unvalidated', 'incomplete', 'published', 'rejected', 'finished'])
+            ->withHighSeverityOnly('cvss_score', 4.0)      // Only show CVSS >= 4.0
+            ->withRecentItems('created_at', 90)            // Only last 90 days
+
+            // ✨ NEW: Default Filters (user can change via UI)
+            ->withDefaultFilter('product.platform.name', 'WordPress')
+            ->withDefaultFilter('cvss_score', 4.8)
+
+            // Only items in active disclosure window
+            ->withBetweenFilter('disclosure_date',
+                now()->subDays(90)->format('Y-m-d'),  // 90 days ago
+                now()->addDays(30)->format('Y-m-d')   // 30 days from now
+            )
+
+            // Critical items: disclosed in last 30 days or upcoming
+            ->withRelationshipFilter('critical_timeline', function ($query) {
+                $query->where(function ($criticalQuery) {
+                    $criticalQuery->where('cvssbase', '>=', 9.0)
+                                ->where('disclosure_date', '>=', now()->subDays(30)->format('Y-m-d'));
+                });
+            })
+
+            ->withDateRangeFilter('created_at', '2024-01-01', '2024-12-31')
+            ->withCreatedAtFilter('2024-06-01', '2024-12-31')
+
+            // ✨ Specific year filtering
+            ->withYear('created_at', 2024)             // Only 2024 items
+            ->withYear('disclosure_date', 2023)        // Only 2023 disclosures;
+
             ->withConditionalStyling([
                 'active' => 'bg-green-500 text-white',
                 'inactive' => 'bg-red-500 text-white'
             ])
-            ->addField('Created At', 'created_at', type: FieldTypes::TIMESTAMP->value)
             ->setEndpoints(
                 listEndpoint: route('admin.api.generic.table'),
                 deleteEndpoint: route('admin.api.generic.table.delete'),
                 createEndpoint: route('admin.api.generic.table.create'),
                 editEndpoint: route('admin.api.generic.table.update')
             )
-            ->setModel(Alert::class)
+            ->setModel(Vulnerability::class)
             ->build();
 
-        return Inertia::render('Admin/Generic/Index', [
-            'title' => 'Alerts',
-            'table_name' => 'alerts',
-            ...$formConfig
+        return Inertia::render('Admin/Vulnerabilities/Index', [
+            'tableConfig' => $formConfig  // ✨ Pass complete config
         ]);
     }
 }
 ```
 
-### 3. Vue Component
+### 3. Updated Vue Component
 
 ```vue
 <template>
-  <AppLayout>
-    <Table
-      :columns="props.columns"
-      :model="props.model"
-      :endpoint="props.endpoint"
-      :endpoint-delete="props.endpointDelete"
-      :endpoint-create="props.endpointCreate"
-      :endpoint-edit="props.endpointEdit"
-      :table-title="props.title"
-      :row-styling="props.rowStyling"
-    />
-  </AppLayout>
+    <AppLayout>
+        <Table
+            :columns="props.columns"
+            :model="props.model"
+            :endpoint="props.endpoint"
+            :endpoint-delete="props.endpointDelete"
+            :endpoint-create="props.endpointCreate"
+            :endpoint-edit="props.endpointEdit"
+            :table-title="props.title"
+            :permission="props.permission"
+            :defaultIdKey="props.defaultIdKey"
+            :custom_edit_route="props.custom_edit_route"
+            :custom_point_route="props.custom_point_route"
+            :custom_action_name="props.custom_action_name"
+            :row-styling="props.rowStyling"
+            :default-filters="props.defaultFilters"
+            :advanced-filters="props.advancedFilters"
+        />
+    </AppLayout>
 </template>
 
 <script setup lang="ts">
@@ -103,110 +141,365 @@ import AppLayout from '@components/Layout/AppLayout.vue';
 import Table from '@builder/Table.vue';
 
 const props = defineProps({
-  endpoint: String,
-  columns: Object,
-  model: String,
-  endpointDelete: String,
-  endpointCreate: String,
-  endpointEdit: String,
-  title: String,
-  rowStyling: Object,
+    endpoint: { type: String, default: '' },
+    columns: { type: Object, default: () => ({}) },
+    model: { type: String, default: '' },
+    endpointDelete: { type: String, default: '' },
+    endpointCreate: { type: String, default: '' },
+    endpointEdit: { type: String, default: '' },
+    permission: { type: String, default: '' },
+    title: { type: String, default: '' },
+    defaultIdKey: { type: String, default: '' },
+    custom_edit_route: { type: String, default: '' },
+    custom_point_route: { type: String, default: '' },
+    custom_action_name: { type: String, default: '' },
+    rowStyling: { type: Object, default: () => ({}) },
+    defaultFilters: { type: Object, default: () => ({}) },  // Simple key-value filters
+    advancedFilters: { type: Array, default: () => [] },   // Complex query filters
 });
 </script>
 ```
 
-## 🔗 Interactive Links
+## 🚀 Advanced Filtering System
 
-Add clickable links to any field with customizable styling.
+The new advanced filtering system provides powerful query capabilities that are automatically applied to your tables.
 
-### Basic Links
+### Simple Default Filters
+
+Default filters are applied automatically but can be modified by users through the UI:
 
 ```php
-// Simple link
-->addField('Component Name', 'reportedData.comp_name', type: FieldTypes::TEXT->value)
-->withLink('https://nvd.nist.gov/search?q={value}', true) // true = new tab
+return (new FormHelper())
+    ->addIdField()
+    ->addField('Title', 'title', filterable: true)
+    ->addField('Status', 'status', filterable: true)
+    ->addField('Platform', 'product.platform.name', filterable: true)
 
-// Link from another field
-->addField('Component Name', 'reportedData.comp_name', type: FieldTypes::TEXT->value)
-->withLinkFromField('reportedData.comp_link', true)
-
-// Edit link
-->addField('Actions', 'id', type: FieldTypes::TEXT->value)
-->withEditLink('/admin/edit')
+    // ✨ Simple default filters (users can change these)
+    ->withDefaultFilter('status', 'active')
+    ->withPlatformFilter('WordPress')              // Helper method
+    ->withPublishedFilter(true)                   // Helper method
+    ->withPatchedFilter(false)                    // Helper method
+    ->build();
 ```
 
-### Link Styling Options
+### Advanced Query Filters
+
+Advanced filters are part of the table configuration and are always applied:
 
 ```php
-// Predefined styles
-->withButtonLink('https://example.com/{value}')                    // Button outline
-->withPrimaryButtonLink('https://example.com/{value}')             // Primary button
-->withBadgeLink('https://example.com/{value}')                     // Badge style
-->withExternalLink('https://example.com/{value}', 'underline')     // Always underlined
+return (new FormHelper())
+    ->addIdField()
+    ->addField('Title', 'title', filterable: true)
+    ->addField('Status', 'status', filterable: true)
+    ->addField('CVSS Score', 'cvss_score', filterable: true)
+    ->addField('Created At', 'created_at', filterable: true)
 
-// Custom CSS classes
-->withCustomLink('https://example.com/{value}', 'px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600')
-->withCustomLinkFromField('reportedData.link', 'btn btn-lg btn-success shadow-lg', true)
+    // ✨ Advanced filters (always applied, users cannot change)
 
-// Add classes to predefined styles
-->withButtonLink('https://example.com/{value}', false, 'shadow-xl border-2')
-->withPrimaryButtonLink('/edit/{id}', false, 'animate-pulse glow-effect')
+    // whereNotIn - exclude specific statuses
+    ->withExcludeStatuses('status', ['unknown', 'unvalidated', 'incomplete', 'published', 'rejected', 'finished'])
+
+    // whereIn - include only specific values
+    ->withInFilter('status', ['active', 'pending', 'in_progress'])
+
+    // whereBetween - range filtering
+    ->withBetweenFilter('cvss_score', 4.0, 8.9)
+
+    // where with operators
+    ->withWhereFilter('cvss_score', '>=', 7.0)
+    ->withWhereFilter('created_at', '>', '2024-01-01')
+
+    // whereNull / whereNotNull
+    ->withNotNullFilter('cvss_score')             // Must have CVSS score
+    ->withNullFilter('patched_at')                // Only unpatched items
+
+    // Date-based filtering
+    ->withRecentItems('created_at', 30)           // Last 30 days
+    ->withYear('created_at', 2024)                // From 2024 only
+
+    ->build();
 ```
 
-### Available Link Styles
+### Advanced Filter Methods
 
-| Style | Description | Example Classes |
-|-------|-------------|-----------------|
-| `'default'` | Standard link with hover underline | `text-primary hover:underline` |
-| `'button'` | Button outline style | `btn btn-sm btn-outline` |
-| `'button-primary'` | Primary button style | `btn btn-sm btn-primary` |
-| `'button-secondary'` | Secondary button style | `btn btn-sm btn-secondary` |
-| `'badge'` | Badge/pill style | `badge badge-primary` |
-| `'underline'` | Always underlined | `underline text-primary` |
-| `'link'` | DaisyUI link class | `link link-primary` |
-| `'none'` | No styling, just opacity on hover | `hover:opacity-80` |
-| `'custom'` | Use custom CSS classes | Your custom classes |
+| Method | SQL Equivalent | Description |
+|--------|----------------|-------------|
+| `withNotInFilter($field, $values)` | `WHERE field NOT IN (...)` | Exclude specific values |
+| `withInFilter($field, $values)` | `WHERE field IN (...)` | Include only specific values |
+| `withBetweenFilter($field, $min, $max)` | `WHERE field BETWEEN min AND max` | Range filtering |
+| `withWhereFilter($field, $operator, $value)` | `WHERE field operator value` | Custom operators |
+| `withNullFilter($field)` | `WHERE field IS NULL` | Null values only |
+| `withNotNullFilter($field)` | `WHERE field IS NOT NULL` | Non-null values only |
+| `withLikeFilter($field, $value)` | `WHERE field LIKE '%value%'` | Pattern matching |
+| `withRecentItems($field, $days)` | `WHERE field >= DATE_SUB(NOW(), INTERVAL days DAY)` | Recent items |
+| `withYear($field, $year)` | `WHERE YEAR(field) = year` | Year-based filtering |
 
-### Real-World Link Examples
+### Helper Methods for Common Patterns
 
 ```php
-protected function getFormConfig(): FormHelper
+// Status filtering helpers
+->withExcludeStatuses('status', ['finished', 'rejected'])
+->withIncludeStatuses('status', ['active', 'pending'])
+
+// CVSS/Security helpers
+->withHighSeverityOnly('cvss_score', 7.0)        // cvss_score >= 7.0
+->withCvssRange('cvss_score', 4.0, 6.9)         // Medium severity
+
+// Date helpers
+->withRecentItems('created_at', 30)              // Last 30 days
+->withCreatedAtFilter('2024-01-01', '2024-12-31') // Date range
+
+// Platform helpers
+->withPlatformFilter('WordPress')                // product.platform.name = 'WordPress'
+->withPublishedFilter(true)                      // published = true
+->withPatchedFilter(false)                       // is_patched = false
+
+// Liker filters
+// ✨ WHERE title LIKE '%mario%'
+->withLikeFilter('title', 'mario')
+// ✨ WHERE description LIKE '%sql injection%'
+->withLikeFilter('description', 'sql injection')
+// ✨ WHERE author.name LIKE '%john%' (works with relationships!)
+->withLikeFilter('author.name', 'john')
+```
+
+## 🔗 Chained Relationships
+
+Builder automatically supports unlimited depth chained relationships:
+
+### Basic Chained Relationships
+
+```php
+return (new FormHelper())
+    ->addIdField()
+
+    // 2-level chain: vulnerability -> product -> name
+    ->addField('Product', 'product.name', filterable: true)
+
+    // 3-level chain: vulnerability -> product -> platform -> name
+    ->addField('Platform', 'product.platform.name', filterable: true)
+
+    // 4-level chain: vulnerability -> product -> platform -> company -> name
+    ->addField('Company', 'product.platform.company.name', filterable: true)
+
+    // 5-level chain: vulnerability -> researcher -> user -> profile -> company -> name
+    ->addField('Researcher Company', 'researcher.user.profile.company.name', filterable: true)
+
+    // Filter on chained relationships
+    ->withDefaultFilter('product.platform.name', 'WordPress')
+    ->withNotInFilter('product.platform.company.status', ['inactive', 'suspended'])
+    ->withWhereFilter('researcher.user.profile.reputation_score', '>=', 80)
+
+    ->build();
+```
+
+### Fallback Chained Relationships
+
+```php
+return (new FormHelper())
+    ->addIdField()
+
+    // Try multiple relationship paths (fallback with |)
+    ->addField('Contact Email',
+        'product.platform.company.security_email|product.platform.company.admin_email|product.platform.company.main_email',
+        filterable: true
+    )
+
+    // Complex fallback
+    ->addField('Version Info',
+        'product.versions.latest.detailed_info|product.versions.latest.simple_info|Unknown Version'
+    )
+
+    ->build();
+```
+
+### Complex Relationship Filtering
+
+```php
+return (new FormHelper())
+    ->addIdField()
+    ->addField('Title', 'title')
+    ->addField('Company', 'product.platform.company.name')
+
+    // ✨ Complex relationship filtering with callbacks
+    ->withRelationshipFilter('product.platform.company.employees', function ($query) {
+        $query->where('role', 'security_engineer')
+              ->where('years_experience', '>=', 3)
+              ->whereHas('certifications', function ($certQuery) {
+                  $certQuery->whereIn('name', ['CISSP', 'CEH', 'OSCP']);
+              });
+    })
+
+    // ✨ Multi-level relationship conditions
+    ->withRelationshipFilter('product.platform.category', function ($query) {
+        $query->where('is_security_critical', true)
+              ->whereHas('parent', function ($parentQuery) {
+                  $parentQuery->where('name', 'Web Applications')
+                            ->where('risk_level', 'high');
+              });
+    })
+
+    ->build();
+```
+
+## 🎯 Real-World Advanced Examples
+
+### Security Vulnerability Dashboard
+
+```php
+public function vulnerabilityDashboard()
 {
-    return (new FormHelper())
+    $formConfig = (new FormHelper())
         ->addIdField()
+        ->tab('Vulnerability Details')
 
-        // Component as gradient button
-        ->addField('Component Name', 'reportedData.comp_name', type: FieldTypes::TEXT->value)
-        ->withCustomLinkFromField(
-            'reportedData.comp_link',
-            'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transform transition hover:scale-105',
-            true
-        )
+        // Basic fields with chained relationships
+        ->addField('Title', 'title', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('CVSS Score', 'cvss_score', type: FieldTypes::NUMBER->value, filterable: true)
+        ->addField('Status', 'status', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Platform', 'product.platform.name', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Company', 'product.platform.company.name', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Researcher', 'reportedBy.researcher.user.name', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Country', 'product.platform.company.headquarters.country', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Created At', 'created_at', type: FieldTypes::TIMESTAMP->value, filterable: true)
 
-        // Status as animated badge
-        ->addField('Status', 'status', type: FieldTypes::TEXT->value)
-        ->withBadgeLink('/status/{id}', false, 'animate-pulse shadow-md')
-        ->withConditionalStyling([...])
+        // ✨ COMPREHENSIVE ADVANCED FILTERING
 
-        // CVSS Score as danger button
-        ->addField('CVSS Score', 'cvss_score', type: FieldTypes::TEXT->value)
-        ->withButtonLink('https://nvd.nist.gov/calculator?score={value}', true, 'btn-error btn-sm gap-2')
+        // Exclude non-actionable statuses (always applied)
+        ->withExcludeStatuses('status', [
+            'unknown', 'unvalidated', 'incomplete',
+            'published', 'rejected', 'finished', 'duplicate'
+        ])
 
-        // Custom icon button
-        ->addField('Actions', 'id', type: FieldTypes::TEXT->value)
-        ->withCustomLink('/admin/edit/{id}', 'inline-flex items-center justify-center w-8 h-8 text-gray-400 bg-white border border-gray-300 rounded-full hover:text-gray-500 hover:bg-gray-100');
+        // Only medium+ severity vulnerabilities
+        ->withHighSeverityOnly('cvss_score', 4.0)
+
+        // Only recent vulnerabilities (last 90 days)
+        ->withRecentItems('created_at', 90)
+
+        // Only from verified companies
+        ->withRelationshipFilter('product.platform.company', function ($query) {
+            $query->where('is_verified', true)
+                  ->where('status', 'active')
+                  ->whereNotNull('security_contact_email');
+        })
+
+        // Only from specific countries
+        ->withInFilter('product.platform.company.headquarters.country', [
+            'US', 'CA', 'GB', 'DE', 'FR', 'AU'
+        ])
+
+        // Exclude certain platforms
+        ->withNotInFilter('product.platform.name', ['Unknown', 'Legacy', 'Deprecated'])
+
+        // Only high-reputation researchers
+        ->withWhereFilter('reportedBy.researcher.reputation_score', '>=', 75)
+
+        // ✨ DEFAULT FILTERS (users can change these)
+        ->withDefaultFilter('product.platform.name', 'WordPress')  // Default to WordPress
+        ->withDefaultFilter('status', 'pending')                   // Default to pending status
+
+        // ✨ CONDITIONAL STYLING
+        ->withConditionalStyling([
+            'critical' => 'bg-red-600 text-white border-red-700 animate-pulse',
+            'pending' => 'bg-yellow-500 text-black border-yellow-600',
+            'active' => 'bg-blue-500 text-white border-blue-600'
+        ])
+
+        // ✨ ROW-LEVEL STYLING
+        ->withAdvancedRowStyling([
+            [
+                'field' => 'cvss_score',
+                'operator' => 'greater_than_equal',
+                'value' => 9.0,
+                'classes' => 'bg-red-50 border-red-300 border-l-4 shadow-lg'
+            ],
+            [
+                'field' => 'status',
+                'operator' => 'equals',
+                'value' => 'critical',
+                'classes' => 'bg-red-100 border-red-400 animate-pulse'
+            ]
+        ], 'bg-white hover:bg-gray-50')
+
+        ->setEndpointsFromRoutes('admin.vulnerabilities')
+        ->setModel(Vulnerability::class)
+        ->setPermissions('admin')
+        ->build();
+
+    return Inertia::render('Admin/Vulnerabilities/Dashboard', [
+        'tableConfig' => $formConfig
+    ]);
 }
 ```
 
-### Dynamic Link Classes
-
-You can also pass CSS classes directly as the style:
+### User Management with Complex Filters
 
 ```php
-// Pass any CSS classes as the style parameter
-->withLink('https://example.com/{value}', false, 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded')
-->withLinkFromField('reportedData.link', true, 'btn btn-ghost btn-sm underline')
+public function userManagement()
+{
+    $formConfig = (new FormHelper())
+        ->addIdField()
+        ->addField('Name', 'name', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Email', 'email', type: FieldTypes::EMAIL->value, filterable: true)
+        ->addField('Department', 'profile.department.name', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Manager', 'profile.manager.user.name', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Company', 'profile.company.name', type: FieldTypes::TEXT->value, filterable: true)
+        ->addField('Last Login', 'last_login_at', type: FieldTypes::TIMESTAMP->value, filterable: true)
+
+        // ✨ Advanced user filtering
+        ->withNotNullFilter('email_verified_at')           // Only verified users
+        ->withWhereFilter('profile.status', '!=', 'suspended')  // No suspended users
+        ->withRecentItems('last_login_at', 30)             // Active in last 30 days
+
+        // Department-based filtering
+        ->withNotInFilter('profile.department.name', ['Temp', 'Contractor', 'Intern'])
+
+        // Company requirements
+        ->withRelationshipFilter('profile.company', function ($query) {
+            $query->where('is_active', true)
+                  ->where('employee_count', '>=', 10)
+                  ->whereHas('subscriptions', function ($subQuery) {
+                      $subQuery->where('status', 'active')
+                             ->where('plan', '!=', 'trial');
+                  });
+        })
+
+        // Single
+        ->withAdvancedFilter('id', 'orderBy', null, ['direction' => 'desc'])
+
+        // ✅ Multiple sorts:
+        ->withAdvancedFilter('multi_sort', 'orderByMultiple', [
+            ['column' => 'patch_priority', 'direction' => 'desc'],
+            ['column' => 'cvssbase', 'direction' => 'desc'],
+            ['column' => 'id', 'direction' => 'desc']
+        ])
+
+        // Default filters
+        ->withDefaultFilter('profile.department.name', 'Engineering')
+
+        ->setEndpointsFromRoutes('admin.users')
+        ->setModel(User::class)
+        ->build();
+
+    return Inertia::render('Admin/Users/Index', [
+        'tableConfig' => $formConfig
+    ]);
+}
 ```
+
+## 🔧 Filter Processing Order
+
+The system processes filters in this order:
+
+1. **Advanced Filters** (from FormHelper configuration - always applied)
+2. **Default Filters** (from FormHelper configuration - user can modify)
+3. **User Filters** (applied by users through the UI)
+4. **Search** (global search across columns)
+5. **Sorting** (column sorting)
+
+This ensures that your advanced filters are always active while still allowing users to add their own filters.
 
 ## 🎨 Conditional Styling
 
@@ -245,123 +538,24 @@ Apply dynamic styling based on field values for instant visual feedback.
 ->withPercentageStyling()  // Percentage-based colors
 ```
 
-### Available Operators
+## 🔗 Interactive Links
 
-- **Equality**: `equals`, `not_equals`
-- **Comparison**: `greater_than`, `greater_than_equal`, `less_than`, `less_than_equal`
-- **Range**: `between` (with min/max values)
-- **String**: `contains`, `starts_with`, `ends_with`
-- **Existence**: `exists`, `not_exists`
+Add clickable links to any field with customizable styling.
 
-## 🎯 Row-Level Conditional Styling
-
-Style entire table rows based on data conditions.
-
-### Basic Row Styling
+### Basic Links
 
 ```php
-return (new FormHelper())
-    ->addIdField()
-    ->addField('Status', 'status')
-    ->addField('Priority', 'priority')
-
-    // Style entire rows based on conditions
-    ->withAdvancedRowStyling([
-        [
-            'field' => 'status',
-            'operator' => 'equals',
-            'value' => 'critical',
-            'classes' => 'bg-red-50 border-red-300 border-l-4'
-        ],
-        [
-            'field' => 'priority',
-            'operator' => 'equals',
-            'value' => 'high',
-            'classes' => 'bg-orange-50 border-orange-200'
-        ]
-    ], 'bg-white hover:bg-gray-50') // Default row styling
-    ->build();
-```
-
-### Row Styling Examples
-
-```php
-// Security vulnerability table
-->withAdvancedRowStyling([
-    // Critical vulnerabilities
-    [
-        'field' => 'cvss_score',
-        'operator' => 'greater_than_equal',
-        'value' => 9.0,
-        'classes' => 'bg-red-100 border-red-400 border-l-4 shadow-sm'
-    ],
-    // Duplicate entries
-    [
-        'field' => 'status',
-        'operator' => 'equals',
-        'value' => 'duplicate',
-        'classes' => 'bg-gray-100 border-gray-300 opacity-60'
-    ],
-    // Completed items
-    [
-        'field' => 'status',
-        'operator' => 'equals',
-        'value' => 'finished',
-        'classes' => 'bg-green-50 border-green-200'
-    ]
-], 'bg-white hover:bg-gray-50')
-```
-
-## 🔍 Advanced Filtering
-
-Comprehensive filtering with various field types.
-
-```php
-// Enable filtering on fields
-->addField('Name', 'name', type: FieldTypes::TEXT->value, filterable: true)
-->addField('Status', 'status', type: FieldTypes::SELECT->value, filterable: true,
-    options: [
-        'select_options' => [
-            ['value' => 'active', 'label' => 'Active'],
-            ['value' => 'inactive', 'label' => 'Inactive']
-        ]
-    ]
-)
-->addField('Created At', 'created_at', type: FieldTypes::TIMESTAMP->value, filterable: true)
-->addField('Is Active', 'is_active', type: FieldTypes::BOOLEAN->value, filterable: true)
-```
-
-### Filter Types
-
-- **Text Filters**: Contains, exact match, starts with
-- **Date Range Filters**: From/To with quick presets (Today, 7 days, 30 days, 90 days)
-- **Boolean Filters**: True/False dropdown
-- **Select Filters**: Dropdown with predefined options
-- **Number Filters**: Numeric value filtering
-- **Model Search**: Searchable dropdown with related models
-
-## 🔗 Relationship Support
-
-Builder automatically detects and loads relationships from field keys.
-
-### Basic Relationships
-
-```php
-// Automatically loads 'reportedData' relationship
+// Simple link
 ->addField('Component Name', 'reportedData.comp_name', type: FieldTypes::TEXT->value)
+->withLink('https://nvd.nist.gov/search?q={value}', true) // true = new tab
 
-// Nested relationships
-->addField('User Profile', 'user.profile.name', type: FieldTypes::TEXT->value)
-```
+// Link from another field
+->addField('Component Name', 'reportedData.comp_name', type: FieldTypes::TEXT->value)
+->withLinkFromField('reportedData.comp_link', true)
 
-### Fallback Relationships
-
-```php
-// Try first field, fall back to second if empty
-->addField('Version', 'reportedTempData.affected_in|reportedData.vuln_version', type: FieldTypes::TEXT->value)
-
-// Multiple fallbacks
-->addField('Contact', 'user.email|user.profile.email|contact.email', type: FieldTypes::TEXT->value)
+// Edit link
+->addField('Actions', 'id', type: FieldTypes::TEXT->value)
+->withEditLink('/admin/edit')
 ```
 
 ## 📋 Field Types
@@ -382,125 +576,6 @@ Supported field types:
 - `PIVOT_MODEL` - Many-to-many relationship
 - `CHIPS` - Tags/chips input
 - `ICON` - Icon selector
-
-## 🎬 Complete Example
-
-```php
-<?php
-
-namespace App\Controllers;
-
-use Inertia\Inertia;
-use App\Models\Vulnerability;
-use App\Http\Controllers\Controller;
-use Mariojgt\Builder\Enums\FieldTypes;
-use Mariojgt\Builder\Helpers\FormHelper;
-
-class VulnerabilityController extends Controller
-{
-    public function index()
-    {
-        $form = new FormHelper();
-        $formConfig = $form
-            ->addIdField()
-            ->tab('Vulnerability Details')
-
-            // Component with custom button link
-            ->addField('Component Name', 'reportedData.comp_name', type: FieldTypes::TEXT->value)
-            ->withPrimaryButtonLinkFromField('reportedData.comp_link', true, 'shadow-lg')
-
-            // Status with conditional styling and badge link
-            ->addField('Status', 'status', type: FieldTypes::TEXT->value, filterable: true)
-            ->withConditionalStyling([
-                'duplicate' => 'bg-red-500 text-white border-red-600',
-                'finished' => 'bg-green-500 text-white border-green-600',
-                'pending' => 'bg-yellow-500 text-black border-yellow-600'
-            ])
-            ->withBadgeLink('/status/{id}')
-
-            // CVSS Score with advanced styling and external link
-            ->addField('CVSS Score', 'cvss_score', type: FieldTypes::NUMBER->value)
-            ->withCVSSStyling()
-            ->withButtonLink('https://nvd.nist.gov/calculator?score={value}', true, 'btn-sm btn-outline-primary')
-
-            // Vulnerability type with custom styling
-            ->addField('Type', 'vuln_type', type: FieldTypes::TEXT->value)
-            ->withAdvancedStyling([
-                ['operator' => 'contains', 'value' => 'sql injection', 'classes' => 'bg-red-600 text-white font-bold'],
-                ['operator' => 'contains', 'value' => 'xss', 'classes' => 'bg-red-500 text-white'],
-                ['operator' => 'contains', 'value' => 'csrf', 'classes' => 'bg-orange-500 text-white']
-            ])
-
-            // Created date with filtering
-            ->addField('Created At', 'created_at', type: FieldTypes::TIMESTAMP->value, filterable: true)
-
-            // Row-level styling for critical items
-            ->withAdvancedRowStyling([
-                [
-                    'field' => 'cvss_score',
-                    'operator' => 'greater_than_equal',
-                    'value' => 9.0,
-                    'classes' => 'bg-red-50 border-red-300 border-l-4 shadow-md'
-                ],
-                [
-                    'field' => 'status',
-                    'operator' => 'equals',
-                    'value' => 'duplicate',
-                    'classes' => 'bg-gray-100 border-gray-300 opacity-60'
-                ]
-            ], 'bg-white hover:bg-gray-50')
-
-            ->setEndpoints(
-                listEndpoint: route('admin.api.generic.table'),
-                deleteEndpoint: route('admin.api.generic.table.delete'),
-                createEndpoint: route('admin.api.generic.table.create'),
-                editEndpoint: route('admin.api.generic.table.update')
-            )
-            ->setModel(Vulnerability::class)
-            ->build();
-
-        return Inertia::render('Admin/Vulnerabilities/Index', [
-            'title' => 'Vulnerabilities',
-            'table_name' => 'vulnerabilities',
-            ...$formConfig
-        ]);
-    }
-}
-```
-
-## 🎯 Best Practices
-
-### When to Use Links
-✅ **Good for:**
-- External resources (NVD, vendor sites)
-- Related records (view details, edit)
-- Documentation links
-- Quick actions
-
-❌ **Avoid for:**
-- Long descriptive text
-- Non-actionable content
-- Too many links in one table
-
-### When to Use Styling
-✅ **Good for:**
-- Status indicators
-- Priority levels
-- Severity scores
-- Boolean values
-- Progress indicators
-
-❌ **Avoid for:**
-- Names and titles
-- Long descriptions
-- Generic text content
-
-### Performance Tips
-1. Use links and styling where they add real value
-2. Test with real data to ensure proper functionality
-3. Don't overwhelm users with too many colors/links
-4. Use preset methods for common patterns
-5. Optimize model relationships with proper indexing
 
 ## 🛠️ Node Dependencies
 
@@ -544,20 +619,41 @@ export default defineConfig({
 
 ## 🔧 Troubleshooting
 
-### Links Not Working
-- Ensure backend provides `{field}_link` data
-- Check link URLs are properly formatted
-- Verify target (`_blank` vs `_self`) is correct
+### Advanced Filters Not Working
+- Ensure your model relationships are properly defined
+- Check that field names match exactly (case-sensitive)
+- Verify advanced filters are passed in the `tableConfig`
 
-### Styling Not Applied
-- Ensure CSS classes are available in your build
-- Check that values match exactly (case-sensitive)
-- Use browser dev tools to inspect applied classes
+### Chained Relationships Not Loading
+- Verify each level of the relationship chain exists
+- Check relationship names match your model methods exactly
+- Use Laravel Telescope to debug relationship queries
 
-### Relationships Not Loading
-- Verify relationship exists in your model
-- Check relationship name matches field key exactly
-- Use dot notation for nested relationships
+### Performance with Complex Filters
+- Add proper database indexes for filtered fields
+- Use `select()` to limit loaded columns when possible
+- Consider eager loading for frequently accessed relationships
+
+## 🎯 Best Practices
+
+### Filter Strategy
+✅ **Use Advanced Filters for:**
+- Business logic that should always apply
+- Security restrictions
+- Data quality filters (exclude invalid records)
+- Performance optimizations (limit result sets)
+
+✅ **Use Default Filters for:**
+- Common user preferences
+- Sensible defaults that users might want to change
+- Quick-start configurations
+
+### Performance Tips
+1. Add database indexes for frequently filtered fields
+2. Use advanced filters to limit result sets early
+3. Avoid too many chained relationships in one query
+4. Use relationship callbacks for complex filtering
+5. Test with realistic data volumes
 
 ## 📄 License
 

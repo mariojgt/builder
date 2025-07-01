@@ -4,6 +4,7 @@
     <td
       v-for="(column, index) in displayColumns"
       :key="index"
+      :id="`column-${column.key}`"
       class="whitespace-nowrap transition-all duration-200 hover:bg-base-100/50 group"
       :class="[
         getColumnAlignment(column.type),
