@@ -1251,6 +1251,15 @@ class FormHelper
     }
 
     /**
+     * Disable the delete option for the table
+     */
+    public function disableDelete(): self
+    {
+        $this->config['disableDelete'] = true;
+        return $this;
+    }
+
+    /**
      * Quick setup method for common configurations
      */
     public function quickSetup(

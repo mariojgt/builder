@@ -131,6 +131,7 @@ class VulnerabilityController extends Controller
             :custom_point_route="props.custom_point_route"
             :custom_action_name="props.custom_action_name"
             :row-styling="props.rowStyling"
+            :disableDelete="page.props.disableDelete"
             :default-filters="props.defaultFilters"
             :advanced-filters="props.advancedFilters"
         />
@@ -156,6 +157,7 @@ const props = defineProps({
     custom_action_name: { type: String, default: '' },
     custom_create_route: { type: String, default: '' },
     rowStyling: { type: Object, default: () => ({}) },
+    disableDelete: { type: Boolean, default: false }, // Disable delete action
     defaultFilters: { type: Object, default: () => ({}) },  // Simple key-value filters
     advancedFilters: { type: Array, default: () => [] },   // Complex query filters
 });

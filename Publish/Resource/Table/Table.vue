@@ -190,8 +190,14 @@
                                             </template>
 
                                             <!-- Delete Action -->
-                                            <delete :id="item[props.defaultIdKey]" :endpoint="endpointDelete"
-                                                :model="model" :permission="permission" @onDelete="refreshData" />
+                                            <delete
+                                                v-if="!props.disableDelete"
+                                                :id="item[props.defaultIdKey]"
+                                                :endpoint="endpointDelete"
+                                                :model="model"
+                                                :permission="permission"
+                                                @onDelete="refreshData"
+                                            />
                                         </div>
                                     </td>
                                 </tr>
@@ -237,8 +243,14 @@
                                 </template>
 
                                 <!-- Delete Action -->
-                                <delete :id="item[props.defaultIdKey]" :endpoint="endpointDelete" :model="model"
-                                    :permission="permission" @onDelete="refreshData" />
+                                <delete
+                                    v-if="!props.disableDelete"
+                                    :id="item[props.defaultIdKey]"
+                                    :endpoint="endpointDelete"
+                                    :model="model"
+                                    :permission="permission"
+                                    @onDelete="refreshData"
+                                />
                             </div>
                         </div>
                     </div>
@@ -298,6 +310,7 @@ const props = defineProps({
     custom_action_name: { type: String, default: null },
     defaultIdKey: { type: String, default: 'id' },
     rowStyling: { type: Object, default: () => ({}) },
+    disableDelete: { type: Boolean, default: false }, // Disable delete action
     defaultFilters: { type: Object, default: () => ({}) }, // Simple key-value filters
     advancedFilters: { type: Array, default: () => [] }    // ✨ NEW: Advanced filters from FormHelper
 });
