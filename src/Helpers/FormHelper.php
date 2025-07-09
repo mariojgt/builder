@@ -1232,6 +1232,15 @@ class FormHelper
     }
 
     /**
+     * Set custom create route
+     */
+    public function setCustomCreateRoute(string $route): self
+    {
+        $this->config['custom_create_route'] = $route;
+        return $this;
+    }
+
+    /**
      * Set custom point route, sometimes used for custom edit
      */
     public function setCustomPointRoute(string $route, string $customActionName = 'customAction'): self

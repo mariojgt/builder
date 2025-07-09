@@ -127,6 +127,7 @@ class VulnerabilityController extends Controller
             :permission="props.permission"
             :defaultIdKey="props.defaultIdKey"
             :custom_edit_route="props.custom_edit_route"
+            :custom_create_route="props.custom_create_route"
             :custom_point_route="props.custom_point_route"
             :custom_action_name="props.custom_action_name"
             :row-styling="props.rowStyling"
@@ -153,6 +154,7 @@ const props = defineProps({
     custom_edit_route: { type: String, default: '' },
     custom_point_route: { type: String, default: '' },
     custom_action_name: { type: String, default: '' },
+    custom_create_route: { type: String, default: '' },
     rowStyling: { type: Object, default: () => ({}) },
     defaultFilters: { type: Object, default: () => ({}) },  // Simple key-value filters
     advancedFilters: { type: Array, default: () => [] },   // Complex query filters

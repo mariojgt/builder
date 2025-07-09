@@ -55,8 +55,20 @@
                     />
                     <slot name="custom-actions"></slot>
                     <slot name="new">
-                        <create :columns="props.columns" :endpoint="props.endpointCreate" :model="props.model"
-                            :permission="props.permission" @onCreate="refreshData" />
+                        <create
+                            v-if="!props.custom_create_route"
+                            :columns="props.columns"
+                            :endpoint="props.endpointCreate"
+                            :model="props.model"
+                            :permission="props.permission"
+                            @onCreate="refreshData"
+                        />
+                        <Link v-else :href="props.custom_create_route"
+                            class="btn btn-primary gap-2 group relative overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                            :title="superCompactMode ? 'Create' : ''">
+                            <SettingsIcon class="w-4 h-4" />
+                            <span v-if="!superCompactMode" class="hidden sm:inline">Create</span>
+                        </Link>
                     </slot>
                 </div>
             </div>
@@ -281,6 +293,7 @@ const props = defineProps({
     endpointEdit: { type: String, required: true },
     permission: { type: String, default: null },
     custom_edit_route: { type: String, default: null },
+    custom_create_route: { type: String, default: null },
     custom_point_route: { type: String, default: null },
     custom_action_name: { type: String, default: null },
     defaultIdKey: { type: String, default: 'id' },
@@ -695,6 +708,8 @@ function getCustomActionIcon() {
     return SettingsIcon; // Customize based on your needs
 }
 
+const emit = defineEmits(['tableDataLoaded']);
+
 // ✨ ENHANCED: Fetch data with advanced filters support
 const fetchData = async (endpoint = props.endpoint) => {
     try {
@@ -727,6 +742,9 @@ const fetchData = async (endpoint = props.endpoint) => {
             total: response.data.total,
             links: response.data.links
         };
+
+        // ADD THIS LINE - emit the table data to parent
+        emit('tableDataLoaded', tableData.value);
     } catch (error: any) {
         if (error.response?.data?.errors) {
             Object.values(error.response.data.errors).forEach((errorMessages: any) => {
