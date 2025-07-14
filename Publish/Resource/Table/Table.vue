@@ -290,7 +290,7 @@ import Edit from './components/crud/edit.vue';
 import TableFilter from './components/filter/filter.vue';
 import TablePagination from './components/filter/pagination.vue';
 import TableDisplayData from './components/tableDataDisplay.vue';
-import AdvancedFilter from './components/filter/AdvancedFilter.vue';
+import AdvancedFilter from './components/filter/advancedFilter.vue';
 import ColumnVisibilityManager from './components/filter/ColumnVisibilityManager.vue';
 import ExportData from './components/filter/ExportData.vue';
 

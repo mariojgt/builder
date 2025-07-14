@@ -391,7 +391,7 @@ import { ref, computed } from 'vue';
 import axios from 'axios';
 import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import { formatDistanceToNow } from 'date-fns';
-import FormBuilder from '../formHelpers/FormBuilder.vue';
+import FormBuilder from '../formHelpers/formBuilder.vue';
 import {
   X as XIcon,
   Pencil,

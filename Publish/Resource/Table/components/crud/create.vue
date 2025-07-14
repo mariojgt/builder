@@ -318,7 +318,7 @@
 import { ref, computed } from 'vue';
 import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import axios from 'axios';
-import FormBuilder from '../formHelpers/FormBuilder.vue';
+import FormBuilder from '../formHelpers/formBuilder.vue';
 import {
   PlusCircle,
   X,
