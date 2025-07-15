@@ -85,6 +85,7 @@ class TableBuilderApiController extends Controller
         // Process data (with relationship values and custom attributes)
         $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
 
+        $data = $this->pruneUnrequestedColumns($data, $rawColumns);
         return [
             'data' => $data,
             'current_page' => $modelPaginated->currentPage(),
@@ -100,6 +101,55 @@ class TableBuilderApiController extends Controller
             'to' => $modelPaginated->lastItem(),
             'total' => $modelPaginated->total(),
         ];
+    }
+
+    /**
+     * Helper to prune a collection of data items to include only explicitly requested columns.
+     * This iterates through the items and removes fields not present in $rawColumns,
+     * maintaining dot-notation as flat keys and handling fallback values.
+     *
+     * @param \Illuminate\Support\Collection $collection The collection of data items (after columnReplacements)
+     * @param \Illuminate\Support\Collection $rawColumns The collection of raw column definitions from the request
+     * @return \Illuminate\Support\Collection A new collection with pruned data
+     */
+    private function pruneUnrequestedColumns($collection, $rawColumns)
+    {
+        $prunedCollection = collect();
+
+        foreach ($collection as $item) {
+            $prunedItem = [];
+
+            foreach ($rawColumns as $columnDefinition) { // Iterate through full column definitions
+                $originalKey = $columnDefinition['key']; // Get the original key from the column definition
+
+                $resolvedValue = null;
+                $outputKey = $originalKey; // Keep the originalKey as the output key by default
+
+                // Check if the key contains a pipe for fallback value retrieval
+                if (strpos($originalKey, '|') !== false) {
+                    $keys = explode('|', $originalKey);
+                    $firstKey = trim($keys[0]);
+                    $fallbackKey = trim($keys[1]);
+
+                    // Try to get value from the first key
+                    $resolvedValue = data_get($item, $firstKey);
+
+                    // If first key's value is empty or null, try fallback
+                    if (is_null($resolvedValue) || (is_string($resolvedValue) && trim($resolvedValue) === '')) {
+                        $resolvedValue = data_get($item, $fallbackKey);
+                    }
+                    // Crucial: $outputKey remains $originalKey here.
+                } else {
+                    // No pipe, get value directly
+                    $resolvedValue = data_get($item, $originalKey);
+                }
+
+                $prunedItem[$outputKey] = $resolvedValue;
+            }
+            $prunedCollection->push($prunedItem);
+        }
+
+        return $prunedCollection;
     }
 
     /**
