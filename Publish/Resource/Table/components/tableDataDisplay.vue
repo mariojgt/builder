@@ -8,8 +8,11 @@
       class="whitespace-nowrap transition-all duration-200 hover:bg-base-100/50 group"
       :class="[
         getColumnAlignment(column.type),
-        getCompactPadding()
+        getCompactPadding(),
+        getColumnClasses(column, index)
       ]"
+      :style="getColumnStyle(column, index)"
+      @click="handleColumnClick($event, column, index)"
     >
       <div class="flex items-center" :class="getCompactHeight()">
         <FieldRenderer
@@ -20,7 +23,8 @@
             enhanced: !compactMode,
             conditionalStyling: column.conditionalStyling,
             advancedStyling: column.advancedStyling,
-            compact: compactMode
+            compact: compactMode,
+            truncate: !isDescriptionColumn(column) // Don't truncate description columns
           }"
           :link="getFieldLink(column.key)"
           :link-target="getFieldLinkTarget(column.key)"
@@ -28,6 +32,7 @@
           :row-data="tableData"
           :compact="compactMode"
           :ultraCompact="superCompactMode"
+          @click.stop="handleFieldClick($event, column, index)"
         />
       </div>
     </td>
@@ -44,8 +49,9 @@
         <div class="flex items-start justify-between" :class="getHeaderMargin()">
           <div class="flex-1">
             <h3
-              class="card-title font-bold text-base-content group-hover:text-primary transition-colors duration-200"
+              class="card-title font-bold text-base-content group-hover:text-primary transition-colors duration-200 cursor-pointer"
               :class="getTitleClasses()"
+              @click="handleCardClick"
             >
               {{ getCardTitle() }}
             </h3>
@@ -306,6 +312,7 @@ interface Props {
   compactMode?: boolean;
   superCompactMode?: boolean;
   columnOrder?: string[];
+  isFirstColumn?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -316,8 +323,12 @@ const props = withDefaults(defineProps<Props>(), {
   hiddenColumns: () => new Set(),
   compactMode: false,
   superCompactMode: false,
-  columnOrder: () => []
+  columnOrder: () => [],
+  isFirstColumn: false
 });
+
+// Define emits
+const emit = defineEmits(['column-click', 'card-click']);
 
 // State for show more/less functionality
 const showAll = ref(false);
@@ -374,11 +385,105 @@ const hasMetadata = computed(() => {
   return props.tableData.created_at || props.tableData.updated_at || getIdValue();
 });
 
+// ✨ NEW: Enhanced column interaction methods
+function handleColumnClick(event: Event, column: Column, index: number) {
+  // Check if the click came from a link or interactive element
+  const target = event.target as HTMLElement;
+
+  // If clicking on a link, button, or other interactive element, don't trigger row navigation
+  if (target.tagName === 'A' ||
+      target.tagName === 'BUTTON' ||
+      target.closest('a') ||
+      target.closest('button') ||
+      target.closest('[role="button"]') ||
+      target.classList.contains('btn') ||
+      target.closest('.btn')) {
+    // Allow the original link/button action to proceed
+    return;
+  }
+
+  // Only make first column (usually ID) clickable for navigation when not clicking on links
+  if (index === 0) {
+    event.stopPropagation();
+    emit('column-click', event, column, props.tableData);
+  }
+}
+
+function handleFieldClick(event: Event, column: Column, index: number) {
+  // This handles clicks specifically from FieldRenderer
+  const target = event.target as HTMLElement;
+
+  // If it's a link, let it work normally and stop row navigation
+  if (target.tagName === 'A' || target.closest('a')) {
+    event.stopPropagation();
+    return;
+  }
+
+  // For non-links in the first column, trigger row navigation
+  if (index === 0) {
+    event.stopPropagation();
+    emit('column-click', event, column, props.tableData);
+  }
+}
+
+function handleCardClick() {
+  emit('card-click', props.tableData);
+}
+
+// ✨ NEW: Enhanced column styling for better UX
+function getColumnClasses(column: Column, index: number): string {
+  const classes = [];
+
+  // First column (ID) gets special styling to indicate it's clickable
+  if (index === 0) {
+    classes.push('cursor-pointer hover:bg-primary/5 hover:text-primary font-medium');
+  }
+
+  // Description columns get special styling
+  if (isDescriptionColumn(column)) {
+    classes.push('max-w-xs lg:max-w-md xl:max-w-lg');
+  }
+
+  return classes.join(' ');
+}
+
+function getColumnStyle(column: Column, index: number): string {
+  const styles: string[] = [];
+
+  // Set widths based on column type and position
+  if (index === 0) {
+    // First column (ID) - fixed small width
+    styles.push('width: 80px; min-width: 60px; max-width: 100px;');
+  } else if (isDescriptionColumn(column)) {
+    // Description columns get more space and allow text wrapping
+    styles.push('width: 300px; min-width: 200px; max-width: 500px; white-space: normal; word-wrap: break-word;');
+  } else if (column.type === 'number' || column.key.includes('score') || column.key.includes('cvss')) {
+    // Number/score columns are narrower
+    styles.push('width: 100px; min-width: 80px; max-width: 120px;');
+  } else if (column.key.includes('status') || column.key.includes('severity')) {
+    // Status columns are medium width
+    styles.push('width: 120px; min-width: 100px; max-width: 150px;');
+  } else {
+    // Default column width - allow auto expansion
+    styles.push('width: 150px; min-width: 120px; max-width: 250px;');
+  }
+
+  return styles.join(' ');
+}
+
+function isDescriptionColumn(column: Column): boolean {
+  const descriptionKeys = ['description', 'details', 'summary', 'content', 'notes', 'comments'];
+  return descriptionKeys.some(key =>
+    column.key.toLowerCase().includes(key) ||
+    column.label.toLowerCase().includes(key)
+  );
+}
+
 // ✨ COMPACT MODE STYLING METHODS
 function getCompactPadding(): string {
   if (props.superCompactMode) return 'px-1 py-0.5';
   if (props.compactMode) return 'px-2 py-1';
-  return 'px-6 py-4';
+  return 'px-4 py-3'; // Increased default padding
 }
 
 function getCompactHeight(): string {
@@ -793,25 +898,33 @@ function formatRelativeDate(date: string): string {
   animation-delay: 0.02s;
 }
 
-/* Smooth table cell transitions */
+/* Enhanced table cell styling */
 td {
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* Allow content to expand */
+  transition: all 0.2s ease-in-out;
 }
 
-td::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-  transition: left 0.5s ease;
+/* First column (ID) special styling */
+td:first-child {
+  font-weight: 600;
+  position: sticky;
+  left: 0;
+  background: inherit;
+  z-index: 1;
 }
 
-td:hover::before {
-  left: 100%;
+td:first-child:hover {
+  background-color: hsl(var(--primary) / 0.1);
+  transform: scale(1.02);
+}
+
+/* Description column styling */
+.max-w-xs, .max-w-md, .max-w-lg {
+  overflow: visible;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
 /* Enhanced grid responsiveness for compact modes */
@@ -866,22 +979,34 @@ td:hover::before {
   transition-duration: 200ms;
 }
 
-/* Error handling for missing components */
-.field-item .w-4,
-.field-item .w-3,
-.field-item .w-2 {
-  flex-shrink: 0;
+/* Improved cursor pointer styling */
+.cursor-pointer {
+  cursor: pointer;
+  position: relative;
 }
 
-/* Super compact mode text scaling */
-@media (max-width: 768px) {
-  .card-super-compact {
-    font-size: 0.6875rem;
-  }
+.cursor-pointer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: hsl(var(--primary) / 0.03);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  border-radius: 4px;
+}
 
-  .card-compact {
-    font-size: 0.8rem;
-  }
+.cursor-pointer:hover::after {
+  opacity: 1;
+}
+
+/* Enhanced focus styles for accessibility */
+.cursor-pointer:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Performance optimizations for super compact mode */
@@ -901,6 +1026,10 @@ td:hover::before {
   .card:hover {
     transform: none;
   }
+
+  td:first-child:hover {
+    transform: none;
+  }
 }
 
 /* High contrast mode support */
@@ -911,6 +1040,10 @@ td:hover::before {
 
   .bg-base-50 {
     background-color: hsl(var(--b2));
+  }
+
+  .cursor-pointer:hover {
+    background-color: hsl(var(--primary) / 0.2);
   }
 }
 
@@ -927,5 +1060,37 @@ td:hover::before {
     opacity: 1;
     transform: none;
   }
+
+  td {
+    white-space: normal;
+  }
+}
+
+/* Mobile responsiveness improvements */
+@media (max-width: 768px) {
+  td {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .cursor-pointer {
+    min-height: 44px; /* Touch target size */
+  }
+}
+
+/* Table layout improvements */
+table {
+  table-layout: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Enhanced row hover effects */
+tr:hover td {
+  background-color: hsl(var(--base-200) / 0.5);
+}
+
+tr:hover td:first-child {
+  background-color: hsl(var(--primary) / 0.1);
 }
 </style>

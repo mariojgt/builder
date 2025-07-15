@@ -1,233 +1,240 @@
 <template>
-  <!-- Enhanced Edit Button with Professional Styling -->
   <button
     @click="openModal"
     class="btn btn-primary btn-sm gap-2 group relative overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105"
   >
-    <!-- Background Animation -->
     <div class="absolute inset-0 bg-gradient-to-r from-primary/50 to-secondary/50 opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
 
-    <!-- Icon with Animation -->
     <Pencil class="w-4 h-4 transform transition-all duration-300 group-hover:rotate-12 relative z-10" />
 
-    <!-- Text -->
     <span class="hidden md:inline relative z-10 font-medium">Edit</span>
 
-    <!-- Shimmer Effect -->
     <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
   </button>
 
-  <!-- Enhanced Modal with Blur Backdrop -->
-  <div v-if="isOpen" class="modal modal-open">
-    <!-- Backdrop with Blur -->
-    <div
-      class="modal-backdrop bg-black/60 backdrop-blur-sm"
-      @click="closeModal"
-    ></div>
-
-    <!-- Modal Container -->
-    <div class="modal-box w-full max-w-7xl h-[95vh] max-h-[95vh] p-0 relative overflow-hidden">
-      <!-- Loading Overlay -->
+  <Teleport to="body">
+    <div v-if="isOpen" class="modal modal-open">
       <div
-        v-if="isSubmitting"
-        class="absolute inset-0 bg-base-100/85 backdrop-blur-sm flex items-center justify-center z-50"
-      >
-        <div class="flex flex-col items-center gap-4">
-          <div class="loading loading-spinner loading-lg text-primary drop-shadow-lg"></div>
-          <div class="text-center">
-            <p class="text-lg font-semibold text-base-content">Saving Changes</p>
-            <p class="text-sm text-base-content/60">Please wait while we update the record...</p>
+        class="modal-backdrop bg-black/60 backdrop-blur-sm"
+        @click="closeModal"
+      ></div>
+
+      <div class="modal-box w-full max-w-7xl h-[95vh] max-h-[95vh] p-0 relative overflow-hidden">
+        <div
+          v-if="isSubmitting"
+          class="absolute inset-0 bg-base-100/85 backdrop-blur-sm flex items-center justify-center z-50"
+        >
+          <div class="flex flex-col items-center gap-4">
+            <div class="loading loading-spinner loading-lg text-primary drop-shadow-lg"></div>
+            <div class="text-center">
+              <p class="text-lg font-semibold text-base-content">Saving Changes</p>
+              <p class="text-sm text-base-content/60">Please wait while we update the record...</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Main Content -->
-      <div class="flex flex-col h-full">
-        <!-- Enhanced Header with Record Info -->
-        <div class="sticky top-0 z-40 bg-gradient-to-r from-base-200 via-base-300 to-base-200 border-b border-base-content/10 px-6 py-4">
-          <div class="flex items-center justify-between">
-            <!-- Title Section with Record Info -->
-            <div class="flex items-center gap-4">
-              <button
-                @click="closeModal"
-                class="btn btn-sm btn-circle btn-ghost hover:btn-error hover:rotate-90 transition-all duration-300"
-              >
-                <XIcon class="w-5 h-5" />
-              </button>
+        <div class="flex flex-col h-full">
+          <div class="sticky top-0 z-40 bg-gradient-to-r from-base-200 via-base-300 to-base-200 border-b border-base-content/10 px-6 py-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-4">
+                <button
+                  @click="closeModal"
+                  class="btn btn-sm btn-circle btn-ghost hover:btn-error hover:rotate-90 transition-all duration-300"
+                >
+                  <XIcon class="w-5 h-5" />
+                </button>
 
-              <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                  <HashIcon class="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h2 class="text-xl font-bold text-base-content flex items-center gap-2">
-                    Edit Record
-                    <div class="badge badge-secondary badge-sm font-mono">#{{props.id}}</div>
-                  </h2>
-                  <p class="text-sm text-base-content/60">Modify the information below to update this record</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="flex items-center gap-3">
-              <button
-                @click="closeModal"
-                class="btn btn-ghost btn-sm hover:btn-error"
-                :disabled="isSubmitting"
-              >
-                <XIcon class="w-4 h-4" />
-                Cancel
-              </button>
-              <button
-                @click="saveChanges"
-                :disabled="isSubmitting || !hasChanges"
-                class="btn btn-primary btn-sm gap-2 min-w-[130px] shadow-lg hover:shadow-xl"
-                :class="{ 'btn-disabled': !hasChanges }"
-              >
-                <SaveIcon class="w-4 h-4" :class="{ 'animate-spin': isSubmitting }" />
-                {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Record Metadata -->
-          <div class="mt-4 flex items-center gap-6 text-sm text-base-content/60">
-            <div class="flex items-center gap-2">
-              <CalendarIcon class="w-4 h-4" />
-              <span>Last updated {{ formatRelativeDate(props.modelValue?.updated_at) }}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <UserIcon class="w-4 h-4" />
-              <span>Created {{ formatRelativeDate(props.modelValue?.created_at) }}</span>
-            </div>
-            <div v-if="hasChanges" class="flex items-center gap-2 text-warning">
-              <AlertCircle class="w-4 h-4" />
-              <span class="font-medium">Unsaved changes</span>
-            </div>
-          </div>
-
-          <!-- Change Summary -->
-          <div v-if="hasChanges" class="mt-3">
-            <div class="flex items-center gap-2 text-sm">
-              <div class="flex items-center gap-1">
-                <div class="w-2 h-2 rounded-full bg-warning animate-pulse"></div>
-                <span class="text-base-content/70">{{ changedFieldsCount }} field(s) modified</span>
-              </div>
-              <div class="flex-1 mx-4">
-                <div class="h-1 bg-base-300 rounded-full overflow-hidden">
-                  <div
-                    class="h-full bg-warning transition-all duration-500"
-                    :style="{ width: `${Math.min(100, (changedFieldsCount / totalFields) * 100)}%` }"
-                  ></div>
-                </div>
-              </div>
-              <button
-                @click="showChangeSummary = !showChangeSummary"
-                class="btn btn-ghost btn-xs gap-1"
-              >
-                <Eye class="w-3 h-3" />
-                {{ showChangeSummary ? 'Hide' : 'Review' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Error Alert -->
-          <Transition
-            enter-active-class="transition-all duration-300 ease-out"
-            enter-from-class="opacity-0 -translate-y-4 scale-95"
-            enter-to-class="opacity-100 translate-y-0 scale-100"
-            leave-active-class="transition-all duration-200 ease-in"
-            leave-from-class="opacity-100 translate-y-0 scale-100"
-            leave-to-class="opacity-0 -translate-y-4 scale-95"
-          >
-            <div v-if="Object.keys(formErrors).length > 0" class="mt-4">
-              <div class="alert alert-error shadow-lg">
-                <AlertTriangle class="w-5 h-5 flex-shrink-0" />
-                <div class="flex-1">
-                  <h3 class="font-bold text-sm">Please correct the following errors:</h3>
-                  <div class="text-xs opacity-80 mt-1">
-                    {{ Object.keys(formErrors).length }} field(s) need attention
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                    <HashIcon class="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h2 class="text-xl font-bold text-base-content flex items-center gap-2">
+                      Edit Record
+                      <div class="badge badge-secondary badge-sm font-mono">#{{props.id}}</div>
+                    </h2>
+                    <p class="text-sm text-base-content/60">Modify the information below to update this record</p>
                   </div>
                 </div>
+              </div>
+
+              <div class="flex items-center gap-3">
                 <button
-                  @click="formErrors = {}"
-                  class="btn btn-sm btn-circle btn-ghost hover:btn-error"
+                  @click="closeModal"
+                  class="btn btn-ghost btn-sm hover:btn-error"
+                  :disabled="isSubmitting"
                 >
                   <XIcon class="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  @click="saveChanges"
+                  :disabled="isSubmitting || !hasChanges"
+                  class="btn btn-primary btn-sm gap-2 min-w-[130px] shadow-lg hover:shadow-xl"
+                  :class="{ 'btn-disabled': !hasChanges }"
+                >
+                  <SaveIcon class="w-4 h-4" :class="{ 'animate-spin': isSubmitting }" />
+                  {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
                 </button>
               </div>
             </div>
-          </Transition>
 
-          <!-- Change Summary Panel -->
-          <Transition
-            enter-active-class="transition-all duration-300 ease-out"
-            enter-from-class="opacity-0 -translate-y-2"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition-all duration-200 ease-in"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 -translate-y-2"
-          >
-            <div v-if="showChangeSummary && hasChanges" class="mt-4">
-              <div class="card bg-warning/5 border border-warning/20">
-                <div class="card-body py-3">
-                  <h4 class="text-sm font-semibold text-warning mb-2">Changed Fields:</h4>
-                  <div class="flex flex-wrap gap-2">
+            <div class="mt-4 flex items-center gap-6 text-sm text-base-content/60">
+              <div class="flex items-center gap-2">
+                <CalendarIcon class="w-4 h-4" />
+                <span>Last updated {{ formatRelativeDate(props.modelValue?.updated_at) }}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <UserIcon class="w-4 h-4" />
+                <span>Created {{ formatRelativeDate(props.modelValue?.created_at) }}</span>
+              </div>
+              <div v-if="hasChanges" class="flex items-center gap-2 text-warning">
+                <AlertCircle class="w-4 h-4" />
+                <span class="font-medium">Unsaved changes</span>
+              </div>
+            </div>
+
+            <div v-if="hasChanges" class="mt-3">
+              <div class="flex items-center gap-2 text-sm">
+                <div class="flex items-center gap-1">
+                  <div class="w-2 h-2 rounded-full bg-warning animate-pulse"></div>
+                  <span class="text-base-content/70">{{ changedFieldsCount }} field(s) modified</span>
+                </div>
+                <div class="flex-1 mx-4">
+                  <div class="h-1 bg-base-300 rounded-full overflow-hidden">
                     <div
-                      v-for="field in changedFields"
-                      :key="field.key"
-                      class="badge badge-warning badge-sm gap-1"
-                    >
-                      {{ field.label }}
+                      class="h-full bg-warning transition-all duration-500"
+                      :style="{ width: `${Math.min(100, (changedFieldsCount / totalFields) * 100)}%` }"
+                    ></div>
+                  </div>
+                </div>
+                <button
+                  @click="showChangeSummary = !showChangeSummary"
+                  class="btn btn-ghost btn-xs gap-1"
+                >
+                  <Eye class="w-3 h-3" />
+                  {{ showChangeSummary ? 'Hide' : 'Review' }}
+                </button>
+              </div>
+            </div>
+
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              enter-from-class="opacity-0 -translate-y-4 scale-95"
+              enter-to-class="opacity-100 translate-y-0 scale-100"
+              leave-active-class="transition-all duration-200 ease-in"
+              leave-from-class="opacity-100 translate-y-0 scale-100"
+              leave-to-class="opacity-0 -translate-y-4 scale-95"
+            >
+              <div v-if="Object.keys(formErrors).length > 0" class="mt-4">
+                <div class="alert alert-error shadow-lg">
+                  <AlertTriangle class="w-5 h-5 flex-shrink-0" />
+                  <div class="flex-1">
+                    <h3 class="font-bold text-sm">Please correct the following errors:</h3>
+                    <div class="text-xs opacity-80 mt-1">
+                      {{ Object.keys(formErrors).length }} field(s) need attention
+                    </div>
+                  </div>
+                  <button
+                    @click="formErrors = {}"
+                    class="btn btn-sm btn-circle btn-ghost hover:btn-error"
+                  >
+                    <XIcon class="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </Transition>
+
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              enter-from-class="opacity-0 -translate-y-2"
+              enter-to-class="opacity-100 translate-y-0"
+              leave-active-class="transition-all duration-200 ease-in"
+              leave-from-class="opacity-100 translate-y-0"
+              leave-to-class="opacity-0 -translate-y-2"
+            >
+              <div v-if="showChangeSummary && hasChanges" class="mt-4">
+                <div class="card bg-warning/5 border border-warning/20">
+                  <div class="card-body py-3">
+                    <h4 class="text-sm font-semibold text-warning mb-2">Changed Fields:</h4>
+                    <div class="flex flex-wrap gap-2">
+                      <div
+                        v-for="field in changedFields"
+                        :key="field.key"
+                        class="badge badge-warning badge-sm gap-1"
+                      >
+                        {{ field.label }}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </Transition>
-        </div>
+            </Transition>
+          </div>
 
-        <!-- Content Area -->
-        <div class="flex-1 overflow-hidden">
-          <div class="h-full flex">
-            <!-- Main Form Area -->
-            <div class="flex-1 overflow-auto custom-scrollbar">
-              <div class="p-6">
-                <!-- Form Sections -->
-                <div v-if="filterSections.sectionsWithFields.length > 0" class="space-y-6">
-                  <TransitionGroup
-                    enter-active-class="transition-all duration-500 ease-out"
-                    enter-from-class="opacity-0 translate-y-8"
-                    enter-to-class="opacity-100 translate-y-0"
-                    leave-active-class="transition-all duration-300 ease-in"
-                    leave-from-class="opacity-100 translate-y-0"
-                    leave-to-class="opacity-0 translate-y-8"
-                  >
-                    <div
-                      v-for="(section, index) in filterSections.sectionsWithFields"
-                      :key="section.section"
-                      class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300"
-                      :style="{ animationDelay: `${index * 100}ms` }"
+          <div class="flex-1 overflow-hidden">
+            <div class="h-full flex">
+              <div class="flex-1 overflow-auto custom-scrollbar">
+                <div class="p-6">
+                  <div v-if="filterSections.sectionsWithFields.length > 0" class="space-y-6">
+                    <TransitionGroup
+                      enter-active-class="transition-all duration-500 ease-out"
+                      enter-from-class="opacity-0 translate-y-8"
+                      enter-to-class="opacity-100 translate-y-0"
+                      leave-active-class="transition-all duration-300 ease-in"
+                      leave-from-class="opacity-100 translate-y-0"
+                      leave-to-class="opacity-0 translate-y-8"
                     >
+                      <div
+                        v-for="(section, index) in filterSections.sectionsWithFields"
+                        :key="section.section"
+                        class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300"
+                        :style="{ animationDelay: `${index * 100}ms` }"
+                      >
+                        <div class="card-body">
+                          <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
+                            <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                              <Folder class="w-4 h-4 text-primary" />
+                            </div>
+                            <div class="flex-1">
+                              <h3 class="text-lg font-semibold text-base-content">{{ section.section }}</h3>
+                              <p class="text-sm text-base-content/60">{{ section.fields.length }} fields</p>
+                            </div>
+                            <div v-if="getSectionChanges(section.section) > 0" class="badge badge-warning badge-sm">
+                              {{ getSectionChanges(section.section) }} changed
+                            </div>
+                          </div>
+
+                          <FormBuilder
+                            :columns="section.fields"
+                            :errors="formErrors"
+                            @onFormUpdate="onFormUpdate"
+                            editMode="true"
+                            :modelValue="props.modelValue"
+                          />
+                        </div>
+                      </div>
+                    </TransitionGroup>
+                  </div>
+
+                  <div v-if="filterSections.fields.length > 0" class="space-y-6">
+                    <div class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300">
                       <div class="card-body">
-                        <!-- Section Header -->
                         <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
-                          <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                            <Folder class="w-4 h-4 text-primary" />
+                          <div class="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center">
+                            <Settings class="w-4 h-4 text-secondary" />
                           </div>
                           <div class="flex-1">
-                            <h3 class="text-lg font-semibold text-base-content">{{ section.section }}</h3>
-                            <p class="text-sm text-base-content/60">{{ section.fields.length }} fields</p>
+                            <h3 class="text-lg font-semibold text-base-content">General Information</h3>
+                            <p class="text-sm text-base-content/60">Basic details and settings</p>
                           </div>
-                          <div v-if="getSectionChanges(section.section) > 0" class="badge badge-warning badge-sm">
-                            {{ getSectionChanges(section.section) }} changed
+                          <div v-if="getSectionChanges('general') > 0" class="badge badge-warning badge-sm">
+                            {{ getSectionChanges('general') }} changed
                           </div>
                         </div>
 
-                        <!-- Section Fields -->
                         <FormBuilder
-                          :columns="section.fields"
+                          :columns="filterSections.fields"
                           :errors="formErrors"
                           @onFormUpdate="onFormUpdate"
                           editMode="true"
@@ -235,146 +242,114 @@
                         />
                       </div>
                     </div>
-                  </TransitionGroup>
+                  </div>
                 </div>
+              </div>
 
-                <!-- Standard Fields -->
-                <div v-if="filterSections.fields.length > 0" class="space-y-6">
-                  <div class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300">
-                    <div class="card-body">
-                      <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
-                        <div class="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center">
-                          <Settings class="w-4 h-4 text-secondary" />
-                        </div>
-                        <div class="flex-1">
-                          <h3 class="text-lg font-semibold text-base-content">General Information</h3>
-                          <p class="text-sm text-base-content/60">Basic details and settings</p>
-                        </div>
-                        <div v-if="getSectionChanges('general') > 0" class="badge badge-warning badge-sm">
-                          {{ getSectionChanges('general') }} changed
-                        </div>
+              <div class="w-80 bg-base-200/50 border-l border-base-200 p-6 overflow-auto custom-scrollbar">
+                <div class="card bg-base-100 shadow-md mb-6">
+                  <div class="card-body">
+                    <h3 class="card-title text-sm flex items-center gap-2">
+                      <InfoIcon class="w-4 h-4 text-primary" />
+                      Record Information
+                    </h3>
+                    <div class="space-y-3 mt-4">
+                      <div class="flex justify-between items-center text-sm">
+                        <span class="text-base-content/70">Record ID</span>
+                        <span class="font-mono font-semibold">{{ props.id }}</span>
                       </div>
-
-                      <FormBuilder
-                        :columns="filterSections.fields"
-                        :errors="formErrors"
-                        @onFormUpdate="onFormUpdate"
-                        editMode="true"
-                        :modelValue="props.modelValue"
-                      />
+                      <div class="flex justify-between items-center text-sm">
+                        <span class="text-base-content/70">Status</span>
+                        <div class="badge badge-success badge-sm">Active</div>
+                      </div>
+                      <div class="flex justify-between items-center text-sm">
+                        <span class="text-base-content/70">Changes</span>
+                        <span class="font-semibold" :class="hasChanges ? 'text-warning' : 'text-success'">
+                          {{ hasChanges ? changedFieldsCount : 'None' }}
+                        </span>
+                      </div>
+                      <div class="flex justify-between items-center text-sm">
+                        <span class="text-base-content/70">Errors</span>
+                        <span class="font-semibold text-error">{{ Object.keys(formErrors).length }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- Enhanced Sidebar -->
-            <div class="w-80 bg-base-200/50 border-l border-base-200 p-6 overflow-auto custom-scrollbar">
-              <!-- Record Information -->
-              <div class="card bg-base-100 shadow-md mb-6">
-                <div class="card-body">
-                  <h3 class="card-title text-sm flex items-center gap-2">
-                    <InfoIcon class="w-4 h-4 text-primary" />
-                    Record Information
-                  </h3>
-                  <div class="space-y-3 mt-4">
-                    <div class="flex justify-between items-center text-sm">
-                      <span class="text-base-content/70">Record ID</span>
-                      <span class="font-mono font-semibold">{{ props.id }}</span>
-                    </div>
-                    <div class="flex justify-between items-center text-sm">
-                      <span class="text-base-content/70">Status</span>
-                      <div class="badge badge-success badge-sm">Active</div>
-                    </div>
-                    <div class="flex justify-between items-center text-sm">
-                      <span class="text-base-content/70">Changes</span>
-                      <span class="font-semibold" :class="hasChanges ? 'text-warning' : 'text-success'">
-                        {{ hasChanges ? changedFieldsCount : 'None' }}
-                      </span>
-                    </div>
-                    <div class="flex justify-between items-center text-sm">
-                      <span class="text-base-content/70">Errors</span>
-                      <span class="font-semibold text-error">{{ Object.keys(formErrors).length }}</span>
+                <div class="card bg-base-100 shadow-md mb-6">
+                  <div class="card-body">
+                    <h3 class="card-title text-sm flex items-center gap-2">
+                      <Zap class="w-4 h-4 text-primary" />
+                      Quick Actions
+                    </h3>
+                    <div class="space-y-2 mt-4">
+                      <button
+                        @click="resetChanges"
+                        :disabled="!hasChanges"
+                        class="btn btn-ghost btn-sm w-full justify-start gap-2"
+                        :class="{ 'btn-disabled': !hasChanges }"
+                      >
+                        <RotateCcw class="w-4 h-4" />
+                        Reset Changes
+                      </button>
+                      <button
+                        @click="saveChanges"
+                        :disabled="!hasChanges || isSubmitting"
+                        class="btn btn-primary btn-sm w-full justify-start gap-2"
+                        :class="{ 'btn-disabled': !hasChanges }"
+                      >
+                        <SaveIcon class="w-4 h-4" />
+                        Save Changes
+                      </button>
+                      <button
+                        @click="showChangeSummary = !showChangeSummary"
+                        :disabled="!hasChanges"
+                        class="btn btn-ghost btn-sm w-full justify-start gap-2"
+                        :class="{ 'btn-disabled': !hasChanges }"
+                      >
+                        <Eye class="w-4 h-4" />
+                        {{ showChangeSummary ? 'Hide' : 'Show' }} Changes
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Quick Actions -->
-              <div class="card bg-base-100 shadow-md mb-6">
-                <div class="card-body">
-                  <h3 class="card-title text-sm flex items-center gap-2">
-                    <Zap class="w-4 h-4 text-primary" />
-                    Quick Actions
-                  </h3>
-                  <div class="space-y-2 mt-4">
-                    <button
-                      @click="resetChanges"
-                      :disabled="!hasChanges"
-                      class="btn btn-ghost btn-sm w-full justify-start gap-2"
-                      :class="{ 'btn-disabled': !hasChanges }"
-                    >
-                      <RotateCcw class="w-4 h-4" />
-                      Reset Changes
-                    </button>
-                    <button
-                      @click="saveChanges"
-                      :disabled="!hasChanges || isSubmitting"
-                      class="btn btn-primary btn-sm w-full justify-start gap-2"
-                      :class="{ 'btn-disabled': !hasChanges }"
-                    >
-                      <SaveIcon class="w-4 h-4" />
-                      Save Changes
-                    </button>
-                    <button
-                      @click="showChangeSummary = !showChangeSummary"
-                      :disabled="!hasChanges"
-                      class="btn btn-ghost btn-sm w-full justify-start gap-2"
-                      :class="{ 'btn-disabled': !hasChanges }"
-                    >
-                      <Eye class="w-4 h-4" />
-                      {{ showChangeSummary ? 'Hide' : 'Show' }} Changes
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Field Navigation with Change Indicators -->
-              <div class="card bg-base-100 shadow-md">
-                <div class="card-body">
-                  <h3 class="card-title text-sm flex items-center gap-2">
-                    <NavigationIcon class="w-4 h-4 text-primary" />
-                    Field Navigation
-                  </h3>
-                  <div class="space-y-2 mt-4">
-                    <button
-                      v-for="field in availableFields.slice(0, 10)"
-                      :key="field.key"
-                      @click="scrollToField(field.key)"
-                      class="w-full text-left px-3 py-2 text-xs rounded-lg transition-all duration-200 flex items-center gap-2"
-                      :class="[
-                        formErrors[field.key]
-                          ? 'bg-error/10 text-error hover:bg-error/20 border border-error/30'
-                          : isFieldChanged(field.key)
-                          ? 'bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30'
-                          : 'hover:bg-base-200 text-base-content/70 hover:text-base-content'
-                      ]"
-                    >
-                      <div
+                <div class="card bg-base-100 shadow-md">
+                  <div class="card-body">
+                    <h3 class="card-title text-sm flex items-center gap-2">
+                      <NavigationIcon class="w-4 h-4 text-primary" />
+                      Field Navigation
+                    </h3>
+                    <div class="space-y-2 mt-4">
+                      <button
+                        v-for="field in availableFields.slice(0, 10)"
+                        :key="field.key"
+                        @click="scrollToField(field.key)"
+                        class="w-full text-left px-3 py-2 text-xs rounded-lg transition-all duration-200 flex items-center gap-2"
                         :class="[
-                          'w-2 h-2 rounded-full',
                           formErrors[field.key]
-                            ? 'bg-error animate-pulse'
+                            ? 'bg-error/10 text-error hover:bg-error/20 border border-error/30'
                             : isFieldChanged(field.key)
-                            ? 'bg-warning animate-pulse'
-                            : 'bg-base-300'
+                            ? 'bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30'
+                            : 'hover:bg-base-200 text-base-content/70 hover:text-base-content'
                         ]"
-                      ></div>
-                      <span class="truncate">{{ field.label }}</span>
-                      <div v-if="isFieldChanged(field.key)" class="ml-auto">
-                        <Edit3 class="w-3 h-3 text-warning" />
-                      </div>
-                    </button>
+                      >
+                        <div
+                          :class="[
+                            'w-2 h-2 rounded-full',
+                            formErrors[field.key]
+                              ? 'bg-error animate-pulse'
+                              : isFieldChanged(field.key)
+                              ? 'bg-warning animate-pulse'
+                              : 'bg-base-300'
+                          ]"
+                        ></div>
+                        <span class="truncate">{{ field.label }}</span>
+                        <div v-if="isFieldChanged(field.key)" class="ml-auto">
+                          <Edit3 class="w-3 h-3 text-warning" />
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -383,7 +358,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">

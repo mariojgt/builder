@@ -114,10 +114,11 @@
                             <!-- ENHANCED TABLE HEADER WITH SIMPLE SORT INDICATORS -->
                             <thead class="bg-base-200/50">
                                 <tr>
-                                    <th v-for="column in displayColumns" :key="column.key"
+                                    <th v-for="(column, index) in displayColumns" :key="column.key"
                                         @click="column.sortable && handleSort(column.key)"
                                         :class="getHeaderClasses(column)"
                                         :title="column.sortable ? `Click to sort by ${column.label}` : column.label"
+                                        :style="getColumnStyle(column, index)"
                                     >
                                         <div class="flex items-center justify-between gap-2 w-full">
                                             <!-- Left side: Icon + Label -->
@@ -150,7 +151,10 @@
                             <!-- Table Body -->
                             <tbody>
                                 <tr v-for="(item, index) in tableData" :key="item.id || index"
-                                    :class="getRowClasses(item)">
+                                    :class="getRowClasses(item)"
+                                    class="group cursor-pointer"
+                                    @click="handleRowClick(item, $event)"
+                                >
                                     <table-display-data
                                         :tableData="item"
                                         :columns="displayColumns"
@@ -159,19 +163,30 @@
                                         :compactMode="compactMode"
                                         :superCompactMode="superCompactMode"
                                         :columnOrder="columnOrder"
+                                        :isFirstColumn="true"
+                                        @column-click="handleColumnClick"
                                     />
                                     <td :class="getActionsCellClasses()" class="text-right">
-                                        <div :class="getActionsContainerClasses()">
+                                        <div :class="getActionsContainerClasses()" @click.stop>
+                                            <!-- Enhanced Action Buttons - Always Visible -->
                                             <!-- Edit Action -->
                                             <template v-if="!custom_edit_route">
-                                                <edit :columns="displayColumns" :endpoint="endpointEdit" :model="model"
-                                                    :modelValue="item" :id="item[props.defaultIdKey]"
-                                                    :permission="permission" @onEdit="refreshData" />
+                                                <edit
+                                                    :columns="displayColumns"
+                                                    :endpoint="endpointEdit"
+                                                    :model="model"
+                                                    :modelValue="item"
+                                                    :id="item[props.defaultIdKey]"
+                                                    :permission="permission"
+                                                    @onEdit="refreshData"
+                                                    :class="getEnhancedActionButtonClasses('edit')"
+                                                />
                                             </template>
                                             <template v-else>
                                                 <Link :href="custom_edit_route + item.id"
-                                                    :class="getActionButtonClasses('edit')"
+                                                    :class="getEnhancedActionButtonClasses('edit')"
                                                     :title="superCompactMode ? 'Edit' : ''"
+                                                    @click.stop
                                                 >
                                                     <PencilIcon :class="getActionIconSize()" />
                                                     <span v-if="!superCompactMode" class="hidden sm:inline">Edit</span>
@@ -181,8 +196,9 @@
                                             <!-- Custom Action -->
                                             <template v-if="custom_point_route">
                                                 <Link :href="custom_point_route + item.id"
-                                                    :class="getActionButtonClasses('custom')"
+                                                    :class="getEnhancedActionButtonClasses('custom')"
                                                     :title="superCompactMode ? custom_action_name : ''"
+                                                    @click.stop
                                                 >
                                                     <component :is="getCustomActionIcon()" :class="getActionIconSize()" />
                                                     <span v-if="!superCompactMode" class="hidden sm:inline">{{ custom_action_name }}</span>
@@ -197,6 +213,7 @@
                                                 :model="model"
                                                 :permission="permission"
                                                 @onDelete="refreshData"
+                                                :class="getEnhancedActionButtonClasses('delete')"
                                             />
                                         </div>
                                     </td>
@@ -209,6 +226,8 @@
                     <div v-else :class="getListViewClasses()">
                         <div v-for="(item, index) in tableData" :key="item.id || index"
                             :class="getListItemClasses(item)"
+                            class="cursor-pointer"
+                            @click="handleRowClick(item, $event)"
                         >
                             <table-display-data
                                 :tableData="item"
@@ -219,15 +238,26 @@
                                 :superCompactMode="superCompactMode"
                                 :columnOrder="columnOrder"
                             />
-                            <div :class="getListActionsClasses()">
+                            <div :class="getListActionsClasses()" @click.stop>
+                                <!-- Enhanced List Actions - Always Visible -->
                                 <!-- Edit Action -->
                                 <template v-if="!custom_edit_route">
-                                    <edit :columns="displayColumns" :endpoint="endpointEdit" :model="model" :modelValue="item"
-                                        :id="item[props.defaultIdKey]" :permission="permission" @onEdit="refreshData" />
+                                    <edit
+                                        :columns="displayColumns"
+                                        :endpoint="endpointEdit"
+                                        :model="model"
+                                        :modelValue="item"
+                                        :id="item[props.defaultIdKey]"
+                                        :permission="permission"
+                                        @onEdit="refreshData"
+                                        :class="getEnhancedActionButtonClasses('edit')"
+                                    />
                                 </template>
                                 <template v-else>
                                     <Link :href="custom_edit_route + item.id"
-                                        :class="getActionButtonClasses('edit')">
+                                        :class="getEnhancedActionButtonClasses('edit')"
+                                        @click.stop
+                                    >
                                         <PencilIcon :class="getActionIconSize()" />
                                         <span v-if="!superCompactMode" class="hidden sm:inline">Edit</span>
                                     </Link>
@@ -236,7 +266,9 @@
                                 <!-- Custom Action -->
                                 <template v-if="custom_point_route">
                                     <Link :href="custom_point_route + item.id"
-                                        :class="getActionButtonClasses('custom')">
+                                        :class="getEnhancedActionButtonClasses('custom')"
+                                        @click.stop
+                                    >
                                         <component :is="getCustomActionIcon()" :class="getActionIconSize()" />
                                         <span v-if="!superCompactMode" class="hidden sm:inline">{{ custom_action_name }}</span>
                                     </Link>
@@ -250,6 +282,7 @@
                                     :model="model"
                                     :permission="permission"
                                     @onDelete="refreshData"
+                                    :class="getEnhancedActionButtonClasses('delete')"
                                 />
                             </div>
                         </div>
@@ -310,9 +343,9 @@ const props = defineProps({
     custom_action_name: { type: String, default: null },
     defaultIdKey: { type: String, default: 'id' },
     rowStyling: { type: Object, default: () => ({}) },
-    disableDelete: { type: Boolean, default: false }, // Disable delete action
-    defaultFilters: { type: Object, default: () => ({}) }, // Simple key-value filters
-    advancedFilters: { type: Array, default: () => [] }    // ✨ NEW: Advanced filters from FormHelper
+    disableDelete: { type: Boolean, default: false },
+    defaultFilters: { type: Object, default: () => ({}) },
+    advancedFilters: { type: Array, default: () => [] }
 });
 
 // State
@@ -328,14 +361,14 @@ const paginationInfo = ref({
 
 const perPage = ref(10);
 const filterBy = ref(props.defaultIdKey);
-const orderBy = ref<string | null>('desc'); // Default to descending order
+const orderBy = ref<string | null>('desc');
 const search = ref<string | null>(null);
 const viewMode = ref('table');
 
 // ✨ Enhanced state for density and column management
 const hiddenColumns = ref(new Set<string>());
-const compactMode = ref(true); // Default to compact mode
-const superCompactMode = ref(false); // Super compact mode
+const compactMode = ref(true);
+const superCompactMode = ref(false);
 const columnOrder = ref<string[]>([]);
 
 // ✨ NEW: Filter state management
@@ -408,6 +441,98 @@ const displayColumns = computed(() => {
     return orderedColumns.filter(column => !hiddenColumns.value.has(column.key));
 });
 
+// ✨ NEW METHODS: Enhanced row interaction
+function handleRowClick(item: any, event?: Event) {
+    // Check if the click came from a link, button, or other interactive element
+    if (event) {
+        const target = event.target as HTMLElement;
+
+        // If clicking on a link, button, or other interactive element, don't navigate
+        if (target.tagName === 'A' ||
+            target.tagName === 'BUTTON' ||
+            target.closest('a') ||
+            target.closest('button') ||
+            target.closest('[role="button"]') ||
+            target.classList.contains('btn') ||
+            target.closest('.btn') ||
+            target.closest('.modal') ||
+            target.closest('.dropdown') ||
+            target.closest('[data-no-row-click]') ||
+            target.closest('.actions-container')) {
+            // Allow the original action to proceed
+            return;
+        }
+    }
+
+    // Navigate to edit/detail page when row is clicked
+    const route = props.custom_edit_route ?
+        props.custom_edit_route + item[props.defaultIdKey] :
+        props.custom_point_route ?
+        props.custom_point_route + item[props.defaultIdKey] : null;
+
+    if (route) {
+        // Use Inertia.js navigation
+        window.location.href = route;
+    }
+}
+
+function handleColumnClick(event: Event, column: any, item: any) {
+    // Handle column-specific clicks (like ID column)
+    handleRowClick(item, event);
+}
+
+// ✨ NEW: Enhanced column width management
+function getColumnStyle(column: any, index: number): string {
+    // Auto-expand columns to use full width on larger screens
+    const styles: string[] = [];
+
+    // Set minimum widths based on column type and content
+    if (index === 0) {
+        // First column (usually ID) - smaller width
+        styles.push('min-width: 80px; max-width: 120px;');
+    } else if (column.type === 'text' && column.key.includes('description')) {
+        // Description columns get more space
+        styles.push('min-width: 200px; max-width: 400px;');
+    } else if (column.type === 'number' || column.key.includes('score')) {
+        // Number columns are narrower
+        styles.push('min-width: 80px; max-width: 120px;');
+    } else {
+        // Default column width
+        styles.push('min-width: 120px; max-width: 250px;');
+    }
+
+    // Allow columns to expand on larger screens
+    styles.push('width: auto;');
+
+    return styles.join(' ');
+}
+
+// ✨ NEW: Enhanced action button styling - Always visible
+function getEnhancedActionButtonClasses(type: 'edit' | 'custom' | 'delete'): string {
+    const baseClasses = 'btn transition-all duration-200 shadow-md hover:shadow-lg';
+    let typeClasses = '';
+
+    switch (type) {
+        case 'edit':
+            typeClasses = 'btn-primary hover:btn-primary-focus';
+            break;
+        case 'custom':
+            typeClasses = 'btn-secondary hover:btn-secondary-focus';
+            break;
+        case 'delete':
+            typeClasses = 'btn-error hover:btn-error-focus';
+            break;
+    }
+
+    if (superCompactMode.value) {
+        return `${baseClasses} ${typeClasses} btn-xs px-2`;
+    }
+    if (compactMode.value) {
+        return `${baseClasses} ${typeClasses} btn-sm px-3`;
+    }
+    return `${baseClasses} ${typeClasses} btn-sm px-4`;
+}
+
 // ✨ SIMPLE SORT INDICATOR METHODS
 function getSortText(columnKey: string): string {
     if (filterBy.value === columnKey) {
@@ -458,7 +583,7 @@ function getEmptyStateTextSize(): string {
 }
 
 function getTableClasses(): string {
-    const baseClasses = 'table w-full';
+    const baseClasses = 'table w-full table-auto'; // Added table-auto for auto-sizing
     if (superCompactMode.value) return `${baseClasses} table-super-compact`;
     if (compactMode.value) return `${baseClasses} table-compact`;
     return baseClasses;
@@ -480,10 +605,10 @@ function getHeaderClasses(column: any): string {
     }
 
     if (superCompactMode.value) {
-        return [...baseClasses, 'px-1 py-1 text-xs leading-tight'].join(' ');
+        return [...baseClasses, 'px-2 py-1 text-xs leading-tight'].join(' ');
     }
     if (compactMode.value) {
-        return [...baseClasses, 'px-2 py-1 text-xs'].join(' ');
+        return [...baseClasses, 'px-3 py-2 text-xs'].join(' ');
     }
     return [...baseClasses, 'px-4 py-3 text-sm'].join(' ');
 }
@@ -496,39 +621,40 @@ function getHeaderIconSize(): string {
 function getActionsHeaderClasses(): string {
     const baseClasses = 'text-base-content text-right font-medium';
     if (superCompactMode.value) {
-        return `${baseClasses} px-1 py-1 text-xs w-10`;
+        return `${baseClasses} px-2 py-1 text-xs w-24`;
     }
     if (compactMode.value) {
-        return `${baseClasses} px-2 py-1 text-xs w-16`;
+        return `${baseClasses} px-3 py-2 text-xs w-32`;
     }
-    return `${baseClasses} px-4 py-3 text-sm w-20`;
+    return `${baseClasses} px-4 py-3 text-sm w-40`;
 }
 
 function getActionsHeaderText(): string {
-    if (superCompactMode.value) return 'Act';
-    if (compactMode.value) return 'Act';
+    if (superCompactMode.value) return 'Actions';
+    if (compactMode.value) return 'Actions';
     return 'Actions';
 }
 
 function getRowClasses(item: any): string {
-    const baseClasses = 'hover:bg-base-200/50 transition-colors duration-200 group';
+    const baseClasses = 'hover:bg-base-200/50 transition-all duration-200 group hover:shadow-sm';
     const conditionalClasses = getRowConditionalClasses(item);
-    const heightClass = superCompactMode.value ? 'h-6' : (compactMode.value ? 'h-8' : 'h-auto');
+    const heightClass = superCompactMode.value ? 'h-8' : (compactMode.value ? 'h-10' : 'h-auto');
 
     return `${baseClasses} ${conditionalClasses} ${heightClass}`;
 }
 
 function getActionsCellClasses(): string {
-    if (superCompactMode.value) return 'px-1 py-0';
-    if (compactMode.value) return 'px-2 py-1';
+    if (superCompactMode.value) return 'px-2 py-1';
+    if (compactMode.value) return 'px-3 py-2';
     return 'px-4 py-3';
 }
 
 function getActionsContainerClasses(): string {
-    const baseClasses = 'flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-200';
-    if (superCompactMode.value) return `${baseClasses} gap-0.5`;
-    if (compactMode.value) return `${baseClasses} gap-1`;
-    return `${baseClasses} gap-2`;
+    // Actions are now always visible, not just on hover
+    const baseClasses = 'flex items-center justify-end transition-all duration-200 actions-container';
+    if (superCompactMode.value) return `${baseClasses} gap-1`;
+    if (compactMode.value) return `${baseClasses} gap-2`;
+    return `${baseClasses} gap-3`;
 }
 
 function getActionButtonClasses(type: 'edit' | 'custom'): string {
@@ -536,7 +662,7 @@ function getActionButtonClasses(type: 'edit' | 'custom'): string {
     const typeClasses = type === 'edit' ? 'btn-primary' : 'btn-secondary';
 
     if (superCompactMode.value) {
-        return `${baseClasses} ${typeClasses} btn-xs p-0 w-5 h-5`;
+        return `${baseClasses} ${typeClasses} btn-xs p-1`;
     }
     if (compactMode.value) {
         return `${baseClasses} ${typeClasses} btn-xs`;
@@ -556,7 +682,7 @@ function getListViewClasses(): string {
 }
 
 function getListItemClasses(item: any): string {
-    const baseClasses = 'hover:bg-base-200/50 transition-colors duration-200';
+    const baseClasses = 'hover:bg-base-200/50 transition-all duration-200 hover:shadow-sm';
     const conditionalClasses = getRowConditionalClasses(item);
     const paddingClass = superCompactMode.value ? 'p-2' : (compactMode.value ? 'p-3' : 'p-4');
 
@@ -564,9 +690,9 @@ function getListItemClasses(item: any): string {
 }
 
 function getListActionsClasses(): string {
-    const baseClasses = 'flex justify-end';
-    const gapClass = superCompactMode.value ? 'gap-0.5' : (compactMode.value ? 'gap-1' : 'gap-2');
-    const marginClass = superCompactMode.value ? 'mt-1' : (compactMode.value ? 'mt-2' : 'mt-4');
+    const baseClasses = 'flex justify-end actions-container';
+    const gapClass = superCompactMode.value ? 'gap-1' : (compactMode.value ? 'gap-2' : 'gap-3');
+    const marginClass = superCompactMode.value ? 'mt-2' : (compactMode.value ? 'mt-3' : 'mt-4');
 
     return `${baseClasses} ${gapClass} ${marginClass}`;
 }
@@ -865,3 +991,84 @@ onMounted(() => {
     fetchData();
 });
 </script>
+
+<style scoped>
+/* Enhanced table styling for better usability */
+.table-auto {
+    table-layout: auto;
+}
+
+/* Row hover effects */
+.group:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Action button enhancements */
+.btn {
+    border: none;
+    font-weight: 500;
+}
+
+.btn:focus {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+}
+
+/* Column responsiveness */
+@media (min-width: 1024px) {
+    th, td {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+/* Compact mode adjustments */
+.table-compact th,
+.table-compact td {
+    padding: 0.5rem;
+}
+
+.table-super-compact th,
+.table-super-compact td {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+}
+
+/* Enhanced cursor styling */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.cursor-pointer:hover {
+    background-color: rgba(var(--primary-rgb), 0.05);
+}
+
+/* Action column styling */
+.text-right {
+    text-align: right;
+}
+
+/* Smooth transitions */
+* {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Focus styles for accessibility */
+.btn:focus-visible,
+.cursor-pointer:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+}
+
+/* Loading state overlay */
+.loading {
+    border-radius: inherit;
+}
+
+/* Enhanced card hover in list view */
+.cursor-pointer:hover {
+    border-color: hsl(var(--primary) / 0.3);
+}
+</style>

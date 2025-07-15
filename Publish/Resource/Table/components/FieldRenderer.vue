@@ -1,48 +1,49 @@
 <template>
   <div class="field-renderer" :class="containerClasses">
-    <!-- ✨ ULTRA COMPACT MODE - Maximum Data Density -->
-    <template v-if="ultraCompact">
-      <!-- ✨ Wrap everything in link if linkUrl exists -->
-      <component
-        :is="linkUrl ? 'a' : 'div'"
-        :href="linkUrl"
-        :target="linkTarget"
-        :class="[linkUrl ? 'field-link' : '', linkClasses]"
-        class="block"
-      >
-        <!-- Ultra Compact Model Search -->
-        <div v-if="type === 'model_search'" class="flex flex-wrap gap-1">
+    <component
+      :is="computedLinkUrl && !hasNativeLinkBehavior ? 'a' : 'div'"
+      :href="computedLinkUrl && !hasNativeLinkBehavior ? computedLinkUrl : undefined"
+      :target="computedLinkUrl && !hasNativeLinkBehavior ? computedLinkTarget : undefined"
+      :class="[
+        computedLinkUrl && !hasNativeLinkBehavior ? 'field-link' : '',
+        computedLinkClasses,
+        { 'cursor-pointer': computedLinkUrl && !hasNativeLinkBehavior }
+      ]"
+      class="block"
+      @click="handleWrapperClick"
+    >
+      <template v-if="ultraCompact">
+        <div v-if="type === 'model_search'" class="flex flex-wrap gap-0.5">
           <span
             v-for="(value, key) in getModelSearchData()"
             :key="key"
-            class="badge-micro inline-block bg-primary"
-            :title="`${key}: ${value}`"
+            class="badge-micro inline-flex items-center"
+            :class="getModelSearchBadgeColor(key)"
+            :title="`${formatModelSearchKey(key)}: ${value}`"
           >
-            {{ truncateText(`${key}:${value}`, 8) }}
+            <component
+              v-if="getModelSearchIcon(key)"
+              :is="getModelSearchIcon(key)"
+              class="w-2.5 h-2.5 mr-0.5 opacity-80"
+            />
+            {{ truncateText(`${formatModelSearchKey(key).charAt(0)}:${truncateText(String(value), 5)}`, 8) }}
           </span>
         </div>
 
-        <!-- Ultra Compact Status/Badge -->
         <span
-          v-else-if="shouldRenderAsBadge"
-          class="badge-micro inline-block"
+          v-else-if="shouldRenderAsBadge || hasConditionalStyling"
+          class="badge-micro inline-flex items-center"
           :class="getConditionalClasses()"
           :title="formatValue()"
         >
-          {{ truncateText(formatValue(), 3) }}
+          <component
+            v-if="getStatusIcon()"
+            :is="getStatusIcon()"
+            class="w-2.5 h-2.5 mr-0.5 opacity-80"
+          />
+          {{ truncateText(formatValue(), 4) }}
         </span>
 
-        <!-- Ultra Compact Numbers -->
-        <span
-          v-else-if="(type === 'number' || isNumeric) && hasConditionalStyling"
-          class="badge-micro inline-block tabular-nums font-medium"
-          :class="getConditionalClasses()"
-          :title="`${formatValue()} - ${getScoreLabel()}`"
-        >
-          {{ formatValue() }}
-        </span>
-
-        <!-- Ultra Compact Boolean -->
         <span
           v-else-if="type === 'boolean'"
           class="boolean-indicator"
@@ -50,40 +51,39 @@
           :title="booleanValue ? 'Yes' : 'No'"
         ></span>
 
-        <!-- Ultra Compact Date -->
         <span
           v-else-if="type === 'date' || type === 'timestamp'"
           class="date-compact tabular-nums"
-          :title="formatDate()"
+          :title="formatDate(false)"
         >
-          {{ formatDateUltraCompact() }}
+          {{ formatDateHumanDiff() }}
         </span>
 
-        <!-- Ultra Compact Email -->
-        <span
-          v-else-if="type === 'email'"
-          class="text-nano"
-          :title="value"
-        >
-          <a v-if="!linkUrl" :href="`mailto:${value}`" class="link">
+        <span v-else-if="type === 'email'" class="text-nano" :title="value">
+          <a
+            v-if="!computedLinkUrl"
+            :href="`mailto:${value}`"
+            class="link text-primary hover:text-primary-focus"
+            @click.stop
+          >
             {{ truncateText(value.split('@')[0], 4) }}
           </a>
           <span v-else>{{ truncateText(value.split('@')[0], 4) }}</span>
         </span>
 
-        <!-- Ultra Compact URL -->
-        <span
-          v-else-if="type === 'url'"
-          class="text-nano"
-          :title="value"
-        >
-          <a v-if="!linkUrl" :href="value" target="_blank" class="link">
+        <span v-else-if="type === 'url'" class="text-nano" :title="value">
+          <a
+            v-if="!computedLinkUrl"
+            :href="value"
+            target="_blank"
+            class="link text-primary hover:text-primary-focus"
+            @click.stop
+          >
             {{ truncateText(getDomainFromUrl(value), 6) }}
           </a>
           <span v-else>{{ truncateText(getDomainFromUrl(value), 6) }}</span>
         </span>
 
-        <!-- Ultra Compact Media -->
         <img
           v-if="type === 'media' && value"
           :src="value"
@@ -93,25 +93,14 @@
         />
         <span v-else-if="type === 'media'" class="text-nano opacity-50">-</span>
 
-        <!-- Ultra Compact Rating -->
-        <span
-          v-else-if="type === 'rating'"
-          class="text-nano tabular-nums"
-          :title="`${value}/5 stars`"
-        >
+        <span v-else-if="type === 'rating'" class="text-nano tabular-nums" :title="`${value}/5 stars`">
           {{ value }}/5
         </span>
 
-        <!-- Ultra Compact Price -->
-        <span
-          v-else-if="type === 'price'"
-          class="text-nano tabular-nums font-medium"
-          :title="formatPrice()"
-        >
+        <span v-else-if="type === 'price'" class="text-nano tabular-nums font-medium" :title="formatPrice()">
           {{ formatPriceCompact() }}
         </span>
 
-        <!-- Ultra Compact Progress -->
         <div v-else-if="type === 'progress' || type === 'percentage'" class="w-full">
           <div class="progress-micro">
             <div
@@ -123,7 +112,6 @@
           </div>
         </div>
 
-        <!-- Ultra Compact Chips/Tags -->
         <span
           v-else-if="type === 'chips' || type === 'tags'"
           class="text-nano"
@@ -132,71 +120,36 @@
           {{ getChipArray().length }}
         </span>
 
-        <!-- Ultra Compact Text with Conditional Styling -->
-        <span
-          v-else-if="hasConditionalStyling"
-          class="badge-micro inline-block"
-          :class="getConditionalClasses()"
-          :title="formatValue()"
-        >
-          {{ truncateText(formatValue(), 4) }}
-        </span>
-
-        <!-- Ultra Compact Default Text -->
-        <span
-          v-else
-          class="text-nano"
-          :title="formatValue()"
-        >
-          <span v-if="value !== null && value !== undefined && value !== ''">
-            <a v-if="linkUrl" :href="linkUrl" :target="linkTarget" class="link">
-              {{ truncateText(formatValue(), 6) }}
-            </a>
-            <span v-else>{{ truncateText(formatValue(), 8) }}</span>
+        <span v-else class="text-nano" :title="formatValue()">
+          <span v-if="hasValue">
+            {{ truncateText(formatValue(), 8) }}
           </span>
           <span v-else class="opacity-30">-</span>
         </span>
-      </component>
-    </template>
+      </template>
 
-    <!-- ✨ REGULAR COMPACT MODE -->
-    <template v-else>
-      <!-- ✨ Wrap everything in link if linkUrl exists -->
-      <component
-        :is="linkUrl ? 'a' : 'div'"
-        :href="linkUrl"
-        :target="linkTarget"
-        :class="[linkUrl ? 'field-link' : '', linkClasses]"
-        class="block"
-      >
-        <!-- Model Search Fields -->
+      <template v-else>
         <div v-if="type === 'model_search'" class="flex flex-wrap gap-1">
           <div
-            v-for="(value, key) in getModelSearchData()"
-            :key="key"
+            v-for="(val, k) in getModelSearchData()"
+            :key="k"
             class="inline-flex items-center rounded-full font-medium transition-all duration-200 hover:scale-105"
             :class="[
-              getModelSearchBadgeColor(key),
+              getModelSearchBadgeColor(k),
               compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
             ]"
-            :title="`${key}: ${value}`"
+            :title="`${formatModelSearchKey(k)}: ${val}`"
           >
             <component
-              v-if="getModelSearchIcon(key) && !compact"
-              :is="getModelSearchIcon(key)"
-              class="w-4 h-4 mr-2"
+              v-if="getModelSearchIcon(k)"
+              :is="getModelSearchIcon(k)"
+              :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
             />
-            <component
-              v-else-if="getModelSearchIcon(key)"
-              :is="getModelSearchIcon(key)"
-              class="w-3 h-3 mr-1"
-            />
-            <span class="font-medium">{{ formatModelSearchKey(key) }}:</span>
-            <span class="ml-1">{{ compact ? truncateText(String(value), 15) : value }}</span>
+            <span class="font-medium">{{ formatModelSearchKey(k) }}:</span>
+            <span class="ml-1">{{ compact ? truncateText(String(val), 15) : val }}</span>
           </div>
         </div>
 
-        <!-- Status/Badge Fields with Conditional Styling -->
         <div
           v-else-if="shouldRenderAsBadge"
           class="inline-flex items-center rounded-full font-medium transition-all duration-200 hover:scale-105"
@@ -206,19 +159,13 @@
           ]"
         >
           <component
-            v-if="getStatusIcon() && !compact"
+            v-if="getStatusIcon()"
             :is="getStatusIcon()"
-            class="w-4 h-4 mr-2"
-          />
-          <component
-            v-else-if="getStatusIcon()"
-            :is="getStatusIcon()"
-            class="w-3 h-3 mr-1"
+            :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
           />
           {{ formatValue() }}
         </div>
 
-        <!-- Text Fields with Conditional Background -->
         <div
           v-else-if="type === 'text' && hasConditionalStyling"
           class="inline-flex items-center rounded transition-all duration-200"
@@ -230,7 +177,6 @@
           {{ formatValue() }}
         </div>
 
-        <!-- Number Fields with Conditional Styling (like CVSS scores) -->
         <div
           v-else-if="(type === 'number' || isNumeric) && hasConditionalStyling"
           class="inline-flex items-center rounded-lg font-semibold transition-all duration-200"
@@ -245,7 +191,6 @@
           </span>
         </div>
 
-        <!-- Boolean Fields -->
         <div v-else-if="type === 'boolean'" class="flex items-center">
           <div
             class="inline-flex items-center rounded-full font-medium transition-all duration-200"
@@ -262,46 +207,56 @@
           </div>
         </div>
 
-        <!-- Date/Timestamp Fields -->
         <div v-else-if="type === 'date' || type === 'timestamp'" class="flex items-center" :class="compact ? 'text-xs' : 'text-sm'">
           <Calendar
             :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
             class="text-base-content/50"
           />
-          <span>{{ formatDate() }}</span>
+          <div>
+            <span>{{ formatDate(true) }}</span>
+            <span class="block text-base-content/60" :class="compact ? 'text-xs' : 'text-sm'">
+                ({{ formatDateHumanDiff() }})
+            </span>
+          </div>
         </div>
 
-        <!-- Email Fields -->
         <div v-else-if="type === 'email'" class="flex items-center" :class="compact ? 'text-xs' : 'text-sm'">
           <Mail
             :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
             class="text-primary/70"
           />
-          <!-- ✨ Don't nest links - show email as text when wrapped in link -->
-          <span v-if="linkUrl">{{ compact ? truncateText(value, 20) : value }}</span>
-          <a v-else :href="`mailto:${value}`" class="link link-primary hover:link-secondary transition-colors duration-200">
+          <span v-if="computedLinkUrl">{{ compact ? truncateText(value, 20) : value }}</span>
+          <a
+            v-else
+            :href="`mailto:${value}`"
+            class="link link-primary hover:link-secondary transition-colors duration-200"
+            @click.stop
+          >
             {{ compact ? truncateText(value, 20) : value }}
           </a>
         </div>
 
-        <!-- URL Fields -->
         <div v-else-if="type === 'url'" class="flex items-center" :class="compact ? 'text-xs' : 'text-sm'">
           <ExternalLink
             :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
             class="text-primary/70"
           />
-          <!-- ✨ Don't nest links - show URL as text when wrapped in link -->
-          <span v-if="linkUrl">{{ truncateUrl(value) }}</span>
-          <a v-else :href="value" target="_blank" class="link link-primary hover:link-secondary transition-colors duration-200">
-            {{ truncateUrl(value) }}
+          <span v-if="computedLinkUrl">{{ truncateUrl(value, true) }}</span>
+          <a
+            v-else
+            :href="value"
+            target="_blank"
+            class="link link-primary hover:link-secondary transition-colors duration-200"
+            @click.stop
+          >
+            {{ truncateUrl(value, true) }}
           </a>
         </div>
 
-        <!-- Media/Image Fields -->
         <div v-else-if="type === 'media'" class="flex items-center">
           <div v-if="value" class="avatar">
             <div :class="compact ? 'w-8 h-8 rounded' : 'w-12 h-12 rounded-lg'">
-              <img :src="value" :alt="'Media'" class="object-cover" />
+              <img :src="value" :alt="'Media'" class="object-cover" loading="lazy" />
             </div>
           </div>
           <div v-else class="flex items-center justify-center bg-base-200 rounded-lg" :class="compact ? 'w-8 h-8' : 'w-12 h-12'">
@@ -309,7 +264,6 @@
           </div>
         </div>
 
-        <!-- Rating/Stars -->
         <div v-else-if="type === 'rating'" class="flex items-center">
           <div class="rating" :class="compact ? 'rating-xs' : 'rating-sm'">
             <Star
@@ -327,13 +281,11 @@
           </span>
         </div>
 
-        <!-- Price/Currency -->
         <div v-else-if="type === 'price'" class="flex items-center font-semibold" :class="compact ? 'text-xs' : 'text-sm'">
           <DollarSign :class="compact ? 'w-3 h-3 mr-0.5' : 'w-4 h-4 mr-1'" class="text-green-600" />
           <span class="tabular-nums">{{ formatPrice() }}</span>
         </div>
 
-        <!-- Progress/Percentage -->
         <div v-else-if="type === 'progress' || type === 'percentage'" class="w-full">
           <div class="flex items-center justify-between" :class="compact ? 'mb-0.5' : 'mb-1'">
             <span :class="compact ? 'text-xs' : 'text-sm'">{{ formatValue() }}%</span>
@@ -353,7 +305,6 @@
           </div>
         </div>
 
-        <!-- Chip/Tag Lists -->
         <div v-else-if="type === 'chips' || type === 'tags'" class="flex flex-wrap gap-1">
           <div
             v-for="(chip, index) in getChipArray()"
@@ -365,7 +316,6 @@
           </div>
         </div>
 
-        <!-- Long Text with Truncation -->
         <div v-else-if="isLongText" class="group">
           <div class="leading-relaxed" :class="compact ? 'text-xs' : 'text-sm'">
             <span v-if="!showFullText">
@@ -392,9 +342,8 @@
           </div>
         </div>
 
-        <!-- Default Text -->
         <div v-else :class="compact ? 'text-xs' : 'text-sm'">
-          <span v-if="value !== null && value !== undefined && value !== ''">
+          <span v-if="hasValue">
             <span
               v-if="hasConditionalStyling"
               class="inline-flex items-center rounded transition-all duration-200"
@@ -407,9 +356,9 @@
             </span>
             <template v-else>
               <div
-                v-if="props.linkStyle === 'link-compact'"
+                v-if="props.linkStyle === 'link-compact' && computedLinkUrl"
                 class="inline-flex items-center rounded transition-all duration-200"
-                :class="[linkClasses, compact ? 'px-1 py-0.5 text-xs' : 'px-2 py-1 text-sm']"
+                :class="[computedLinkClasses, compact ? 'px-1 py-0.5 text-xs' : 'px-2 py-1 text-sm']"
               >
                 <span class="text-base-content">{{ compact ? 'Link' : 'Open Link' }}</span>
                 <ExternalLink :class="compact ? 'w-3 h-3 ml-0.5' : 'w-4 h-4 ml-1'" />
@@ -423,14 +372,14 @@
             {{ compact ? 'N/A' : 'No data' }}
           </span>
         </div>
-      </component>
-    </template>
+      </template>
+    </component>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNowStrict } from 'date-fns';
 import {
   CheckCircle,
   XCircle,
@@ -452,6 +401,14 @@ import {
   Phone
 } from 'lucide-vue-next';
 
+interface ConditionalRule {
+  operator: string;
+  value?: any;
+  min?: number;
+  max?: number;
+  classes: string;
+}
+
 interface Props {
   value: any;
   type?: string;
@@ -461,13 +418,7 @@ interface Props {
       default?: string;
     };
     advancedStyling?: {
-      conditions: Array<{
-        operator: string;
-        value?: any;
-        min?: number;
-        max?: number;
-        classes: string;
-      }>;
+      conditions: ConditionalRule[];
       default?: string;
     };
     enhanced?: boolean;
@@ -475,7 +426,6 @@ interface Props {
     truncateLength?: number;
     compact?: boolean;
   };
-  // ✨ NEW: Add link props
   link?: string | null;
   linkTarget?: string;
   linkStyle?: string;
@@ -495,168 +445,18 @@ const props = withDefaults(defineProps<Props>(), {
   ultraCompact: false
 });
 
-// State for text expansion
 const showFullText = ref(false);
 
-// ✨ NEW: Model search helper functions
-function getModelSearchData(): Record<string, any> {
-  if (!props.value || typeof props.value !== 'object') return {};
+// ===========================================================================
+// COMPUTED PROPERTIES FOR SIMPLIFIED LOGIC
+// ===========================================================================
 
-  // Filter out null, undefined, and empty string values
-  const filteredData: Record<string, any> = {};
-  for (const [key, value] of Object.entries(props.value)) {
-    if (value !== null && value !== undefined && value !== '') {
-      filteredData[key] = value;
-    }
-  }
-
-  return filteredData;
-}
-
-function formatModelSearchKey(key: string): string {
-  // Convert snake_case or camelCase to Title Case
-  return key
-    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
-    .replace(/[_-]/g, ' ') // Replace underscores and hyphens with spaces
-    .replace(/\b\w/g, l => l.toUpperCase()) // Capitalize first letter of each word
-    .trim();
-}
-
-function getModelSearchIcon(key: string) {
-  const normalizedKey = key.toLowerCase();
-
-  const iconMap: Record<string, any> = {
-    'name': User,
-    'username': User,
-    'user': User,
-    'email': Mail,
-    'mail': Mail,
-    'id': Hash,
-    'identifier': Hash,
-    'tag': Tag,
-    'tags': Tag,
-    'category': Tag,
-    'status': CheckCircle,
-    'state': CheckCircle,
-    'url': Globe,
-    'website': Globe,
-    'link': Globe,
-    'phone': Phone,
-    'telephone': Phone,
-    'mobile': Phone,
-    'date': Calendar,
-    'created': Calendar,
-    'updated': Calendar,
-    'modified': Calendar,
-  };
-
-  // Check for exact matches first
-  if (iconMap[normalizedKey]) {
-    return iconMap[normalizedKey];
-  }
-
-  // Check for partial matches
-  for (const [iconKey, icon] of Object.entries(iconMap)) {
-    if (normalizedKey.includes(iconKey)) {
-      return icon;
-    }
-  }
-
-  // Default icon
-  return Tag;
-}
-
-function getModelSearchBadgeColor(key: string): string {
-  const normalizedKey = key.toLowerCase();
-
-  const colorMap: Record<string, string> = {
-    'name': 'bg-blue-100 text-blue-800 border border-blue-200',
-    'username': 'bg-blue-100 text-blue-800 border border-blue-200',
-    'user': 'bg-blue-100 text-blue-800 border border-blue-200',
-    'email': 'bg-green-100 text-green-800 border border-green-200',
-    'mail': 'bg-green-100 text-green-800 border border-green-200',
-    'id': 'bg-gray-100 text-gray-800 border border-gray-200',
-    'identifier': 'bg-gray-100 text-gray-800 border border-gray-200',
-    'status': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-    'state': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-    'tag': 'bg-purple-100 text-purple-800 border border-purple-200',
-    'tags': 'bg-purple-100 text-purple-800 border border-purple-200',
-    'category': 'bg-purple-100 text-purple-800 border border-purple-200',
-    'url': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
-    'website': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
-    'link': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
-    'phone': 'bg-teal-100 text-teal-800 border border-teal-200',
-    'telephone': 'bg-teal-100 text-teal-800 border border-teal-200',
-    'mobile': 'bg-teal-100 text-teal-800 border border-teal-200',
-    'date': 'bg-orange-100 text-orange-800 border border-orange-200',
-    'created': 'bg-orange-100 text-orange-800 border border-orange-200',
-    'updated': 'bg-orange-100 text-orange-800 border border-orange-200',
-    'modified': 'bg-orange-100 text-orange-800 border border-orange-200',
-  };
-
-  // Check for exact matches first
-  if (colorMap[normalizedKey]) {
-    return colorMap[normalizedKey];
-  }
-
-  // Check for partial matches
-  for (const [colorKey, colorClass] of Object.entries(colorMap)) {
-    if (normalizedKey.includes(colorKey)) {
-      return colorClass;
-    }
-  }
-
-  // Default color
-  return 'bg-gray-100 text-gray-800 border border-gray-200';
-}
-
-function getModelSearchName(): string {
-  if (!props.value || typeof props.value !== 'object') return '';
-  return props.value.name || 'Unknown';
-}
-
-function getModelSearchEmail(): string {
-  if (!props.value || typeof props.value !== 'object') return '';
-  return props.value.email || '';
-}
-
-function getModelSearchId(): string | number {
-  if (!props.value || typeof props.value !== 'object') return '';
-  return props.value.id || '';
-}
-
-function getModelSearchTooltip(): string {
-  const data = getModelSearchData();
-  return Object.entries(data)
-    .map(([key, value]) => `${formatModelSearchKey(key)}: ${value}`)
-    .join('\n');
-}
-
-// ✨ NEW: Link computed properties
-const linkUrl = computed(() => {
-  if (!props.link) return null;
-
-  let url = props.link;
-
-  // Replace {value} with actual field value
-  if (typeof url === 'string') {
-    url = url.replace('{value}', encodeURIComponent(props.value || ''));
-  }
-
-  return url;
-});
-
-const linkTarget = computed(() => {
-  return props.linkTarget || '_self';
-});
-
-// Existing computed properties with compact mode considerations
-const numericValue = computed(() => {
+const numericValue = computed<number | null>(() => {
   const num = parseFloat(props.value);
   return isNaN(num) ? null : num;
 });
 
-const booleanValue = computed(() => {
+const booleanValue = computed<boolean>(() => {
   if (typeof props.value === 'boolean') return props.value;
   if (typeof props.value === 'string') {
     return ['true', '1', 'yes', 'on', 'active'].includes(props.value.toLowerCase());
@@ -664,16 +464,18 @@ const booleanValue = computed(() => {
   return Boolean(props.value);
 });
 
-const isNumeric = computed(() => numericValue.value !== null);
+const isNumeric = computed<boolean>(() => numericValue.value !== null);
 
-const hasConditionalStyling = computed(() => {
-  return props.options.conditionalStyling || props.options.advancedStyling;
+const hasValue = computed<boolean>(() => {
+  return props.value !== null && props.value !== undefined && props.value !== '';
 });
 
-const shouldRenderAsBadge = computed(() => {
-  if (!props.value || (props.value === null || props.value === undefined || props.value === '')) {
-    return false;
-  }
+const hasConditionalStyling = computed<boolean>(() => {
+  return !!(props.options.conditionalStyling || props.options.advancedStyling);
+});
+
+const shouldRenderAsBadge = computed<boolean>(() => {
+  if (!hasValue.value) return false;
 
   const badgeTypes = ['status', 'badge', 'tag'];
   const statusFields = ['status', 'state', 'condition'];
@@ -684,35 +486,53 @@ const shouldRenderAsBadge = computed(() => {
          ))) && hasConditionalStyling.value;
 });
 
-const isLongText = computed(() => {
+const isLongText = computed<boolean>(() => {
   const maxLength = props.compact ? 50 : (props.options.truncateLength || 100);
-  return props.type === 'text' &&
-         props.value &&
-         String(props.value).length > maxLength;
+  return props.type === 'text' && hasValue.value && String(props.value).length > maxLength;
 });
 
-const needsTruncation = computed(() => {
+const needsTruncation = computed<boolean>(() => {
   const maxLength = props.compact ? 50 : (props.options.truncateLength || 100);
-  return props.value && String(props.value).length > maxLength;
+  return hasValue.value && String(props.value).length > maxLength;
 });
 
-const truncatedText = computed(() => {
-  if (!props.value) return '';
+const truncatedText = computed<string>(() => {
+  if (!hasValue.value) return '';
   const text = String(props.value);
   const maxLength = props.compact ? 50 : (props.options.truncateLength || 100);
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  return truncateText(text, maxLength);
 });
 
-const containerClasses = computed(() => {
+// Link specific computed properties
+const computedLinkUrl = computed<string | null>(() => {
+  if (!props.link) return null;
+  let url = props.link;
+  if (typeof url === 'string') {
+    url = url.replace('{value}', encodeURIComponent(props.value || ''));
+  }
+  return url;
+});
+
+const computedLinkTarget = computed<string>(() => {
+  return props.linkTarget || '_self';
+});
+
+// Flag to prevent the wrapper `<a>` from conflicting with native links inside
+const hasNativeLinkBehavior = computed<boolean>(() => {
+  const typesWithOwnLinks = ['email', 'url'];
+  return typesWithOwnLinks.includes(props.type || '');
+});
+
+// Classes for the main field container
+const containerClasses = computed<string>(() => {
   const classes = [];
   if (props.options.enhanced && !props.compact) classes.push('enhanced-field');
-  if (linkUrl.value) classes.push('cursor-pointer');
   return classes.join(' ');
 });
 
-// ✨ NEW: Link style classes with compact mode support
-const linkClasses = computed(() => {
-  if (!linkUrl.value) return '';
+// Classes for the link wrapper if `linkUrl` is present and no native link behavior
+const computedLinkClasses = computed<string>(() => {
+  if (!computedLinkUrl.value || hasNativeLinkBehavior.value) return '';
 
   const baseClasses = ['transition-all', 'duration-200'];
   const compactSuffix = props.compact ? '-sm' : '';
@@ -720,72 +540,231 @@ const linkClasses = computed(() => {
   switch (props.linkStyle) {
     case 'button':
       return [...baseClasses, 'btn', `btn${compactSuffix}`, 'btn-outline'].join(' ');
-
     case 'button-primary':
       return [...baseClasses, 'btn', `btn${compactSuffix}`, 'btn-primary'].join(' ');
-
     case 'button-secondary':
       return [...baseClasses, 'btn', `btn${compactSuffix}`, 'btn-secondary'].join(' ');
-
     case 'badge':
       return [...baseClasses, 'badge', props.compact ? 'badge-xs' : 'badge-sm', 'badge-primary', 'hover:badge-secondary'].join(' ');
-
     case 'underline':
       return [...baseClasses, 'underline', 'hover:no-underline', 'text-primary', 'hover:text-primary-focus'].join(' ');
-
     case 'none':
       return [...baseClasses, 'no-underline', 'hover:opacity-80'].join(' ');
-
     case 'link-compact':
     case 'link':
       return [...baseClasses, 'link', 'link-primary', 'hover:link-secondary'].join(' ');
-
-    default: // 'default'
-      return props.linkStyle || [...baseClasses, 'text-primary', 'hover:text-primary-focus'].join(' ');
+    default: // 'default' or any unknown style
+      return [...baseClasses, 'text-primary', 'hover:text-primary-focus'].join(' ');
   }
 });
 
-// ✨ ULTRA COMPACT HELPER FUNCTIONS
-// Ultra compact date formatting
-function formatDateUltraCompact(): string {
-  if (!props.value) return '';
 
+// ===========================================================================
+// HELPER FUNCTIONS (composed for clarity and reusability)
+// ===========================================================================
+
+function handleWrapperClick(event: Event) {
+  // Prevent propagation for non-link wrappers to avoid unintended parent clicks (e.g., row clicks)
+  if (!computedLinkUrl.value || hasNativeLinkBehavior.value) {
+    event.stopPropagation();
+  }
+  // If it's a valid link wrapper, let the browser handle it naturally.
+}
+
+// Model Search Functions
+function getModelSearchData(): Record<string, any> {
+  if (!props.value || typeof props.value !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(props.value).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  );
+}
+
+function formatModelSearchKey(key: string): string {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase())
+    .trim();
+}
+
+function getModelSearchIcon(key: string) {
+  const normalizedKey = key.toLowerCase();
+  const iconMap: Record<string, any> = {
+    'name': User, 'username': User, 'user': User, 'email': Mail, 'mail': Mail, 'id': Hash, 'identifier': Hash,
+    'tag': Tag, 'tags': Tag, 'category': Tag, 'status': CheckCircle, 'state': CheckCircle, 'url': Globe,
+    'website': Globe, 'link': Globe, 'phone': Phone, 'telephone': Phone, 'mobile': Phone, 'date': Calendar,
+    'created': Calendar, 'updated': Calendar, 'modified': Calendar,
+  };
+  return iconMap[normalizedKey] || Tag;
+}
+
+function getModelSearchBadgeColor(key: string): string {
+  const normalizedKey = key.toLowerCase();
+  const colorMap: Record<string, string> = {
+    'name': 'bg-blue-100 text-blue-800 border border-blue-200', 'username': 'bg-blue-100 text-blue-800 border border-blue-200', 'user': 'bg-blue-100 text-blue-800 border border-blue-200',
+    'email': 'bg-green-100 text-green-800 border border-green-200', 'mail': 'bg-green-100 text-green-800 border border-green-200',
+    'id': 'bg-gray-100 text-gray-800 border border-gray-200', 'identifier': 'bg-gray-100 text-gray-800 border border-gray-200',
+    'status': 'bg-yellow-100 text-yellow-800 border border-yellow-200', 'state': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+    'tag': 'bg-purple-100 text-purple-800 border border-purple-200', 'tags': 'bg-purple-100 text-purple-800 border border-purple-200', 'category': 'bg-purple-100 text-purple-800 border border-purple-200',
+    'url': 'bg-indigo-100 text-indigo-800 border border-indigo-200', 'website': 'bg-indigo-100 text-indigo-800 border border-indigo-200', 'link': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+    'phone': 'bg-teal-100 text-teal-800 border border-teal-200', 'telephone': 'bg-teal-100 text-teal-800 border border-teal-200', 'mobile': 'bg-teal-100 text-teal-800 border border-teal-200',
+    'date': 'bg-orange-100 text-orange-800 border border-orange-200', 'created': 'bg-orange-100 text-orange-800 border border-orange-200', 'updated': 'bg-orange-100 text-orange-800 border border-orange-200', 'modified': 'bg-orange-100 text-orange-800 border border-orange-200',
+  };
+  return colorMap[normalizedKey] || 'bg-gray-100 text-gray-800 border border-gray-200';
+}
+
+// Conditional Styling & Rules Evaluation
+function evaluateCondition(condition: ConditionalRule): boolean {
+  const value = numericValue.value !== null ? numericValue.value : props.value;
+
+  switch (condition.operator) {
+    case 'exists': return value !== null && value !== undefined && value !== '' && String(value).trim() !== '';
+    case 'not_exists': return value === null || value === undefined || value === '' || String(value).trim() === '';
+    case 'equals': return value == condition.value;
+    case 'not_equals': return value != condition.value;
+    case 'greater_than': return typeof value === 'number' && value > (condition.value as number);
+    case 'greater_than_equal': return typeof value === 'number' && value >= (condition.value as number);
+    case 'less_than': return typeof value === 'number' && value < (condition.value as number);
+    case 'less_than_equal': return typeof value === 'number' && value <= (condition.value as number);
+    case 'between': return typeof value === 'number' && value >= (condition.min as number) && value <= (condition.max as number);
+    case 'contains': return String(value).toLowerCase().includes(String(condition.value).toLowerCase());
+    case 'starts_with': return String(value).toLowerCase().startsWith(String(condition.value).toLowerCase());
+    case 'ends_with': return String(value).toLowerCase().endsWith(String(condition.value).toLowerCase());
+    default: return false;
+  }
+}
+
+function getConditionalClasses(): string {
+  if (!hasValue.value) return '';
+
+  // Priority to advanced styling
+  if (props.options.advancedStyling) {
+    for (const condition of props.options.advancedStyling.conditions) {
+      if (evaluateCondition(condition)) {
+        return condition.classes;
+      }
+    }
+    return props.options.advancedStyling.default || '';
+  }
+
+  // Fallback to simple conditional styling
+  if (props.options.conditionalStyling) {
+    const { conditions, default: defaultStyle } = props.options.conditionalStyling;
+    const normalizedValue = String(props.value).toLowerCase().trim();
+    return conditions[normalizedValue] || defaultStyle || '';
+  }
+  return '';
+}
+
+function getBooleanClasses(): string {
+  return booleanValue.value
+    ? 'bg-green-100 text-green-800 border border-green-200'
+    : 'bg-red-100 text-red-800 border border-red-200';
+}
+
+function getProgressClasses(): string {
+  const val = numericValue.value || 0;
+  if (val >= 90) return 'bg-green-100 text-green-800';
+  if (val >= 70) return 'bg-blue-100 text-blue-800';
+  if (val >= 50) return 'bg-yellow-100 text-yellow-800';
+  return 'bg-red-100 text-red-800';
+}
+
+function getProgressBarClasses(): string {
+  const val = numericValue.value || 0;
+  if (val >= 90) return 'bg-green-500';
+  if (val >= 70) return 'bg-blue-500';
+  if (val >= 50) return 'bg-yellow-500';
+  return 'bg-red-500';
+}
+
+function getProgressLabel(): string {
+  const val = numericValue.value || 0;
+  if (val >= 90) return 'Excellent';
+  if (val >= 70) return 'Good';
+  if (val >= 50) return 'Average';
+  return 'Poor';
+}
+
+function getProgressLabelShort(): string {
+  const val = numericValue.value || 0;
+  if (val >= 90) return 'Exc';
+  if (val >= 70) return 'Good';
+  if (val >= 50) return 'Avg';
+  return 'Poor';
+}
+
+function getStatusIcon() {
+  const normalizedValue = String(props.value || '').toLowerCase();
+  const iconMap: Record<string, any> = {
+    'unpatched': AlertTriangle, 'patched': CheckSquare, 'active': CheckCircle, 'inactive': XCircle,
+    'pending': Clock, 'completed': CheckCircle, 'critical': Shield, 'high': Zap,
+    'validated': CheckSquare, 'rejected': XCircle,
+  };
+  return iconMap[normalizedValue];
+}
+
+function getScoreLabel(): string {
+  if (props.type !== 'number' && !isNumeric.value) return '';
+  const val = numericValue.value || 0;
+  if (val >= 9.0) return 'Critical';
+  if (val >= 7.0) return 'High';
+  if (val >= 4.0) return 'Medium';
+  if (val > 0) return 'Low';
+  return 'None';
+}
+
+// Formatting Functions
+function formatValue(): string {
+  if (!hasValue.value) return '';
+
+  if (props.type === 'model_search') {
+    const data = getModelSearchData();
+    const entries = Object.entries(data);
+    if (entries.length === 0) return 'No data';
+    return entries.map(([key, value]) => `${formatModelSearchKey(key)}: ${value}`).join(', ');
+  }
+  return String(props.value);
+}
+
+function formatDate(isCompactMode: boolean): string {
+  if (!props.value) return '';
   try {
     const date = new Date(props.value);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const fmt = isCompactMode ? (props.type === 'timestamp' ? 'MM/dd/yy HH:mm' : 'MM/dd/yy') :
+                                (props.type === 'timestamp' ? 'MMM dd, yyyy HH:mm' : 'MMM dd, yyyy');
+    return format(date, fmt);
+  } catch {
+    return String(props.value);
+  }
+}
 
-    if (diffDays < 7) {
-      return `${diffDays}d`;
-    } else if (diffDays < 30) {
-      return `${Math.floor(diffDays / 7)}w`;
-    } else if (diffDays < 365) {
-      return `${Math.floor(diffDays / 30)}m`;
-    } else {
-      return `${Math.floor(diffDays / 365)}y`;
-    }
+function formatDateHumanDiff(): string {
+  if (!props.value) return '';
+  try {
+    const date = new Date(props.value);
+    return formatDistanceToNowStrict(date, { addSuffix: true });
   } catch {
     return '';
   }
 }
 
-// Ultra compact price formatting
-function formatPriceCompact(): string {
+function formatPrice(): string {
   if (!isNumeric.value) return String(props.value);
-
-  const value = numericValue.value || 0;
-
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
-  } else if (value >= 1000) {
-    return `$${(value / 1000).toFixed(1)}K`;
-  } else {
-    return `$${value}`;
-  }
+  const options = props.compact
+    ? { style: 'currency', currency: 'USD', notation: 'compact' } as const
+    : { style: 'currency', currency: 'USD' } as const;
+  return new Intl.NumberFormat('en-US', options).format(numericValue.value || 0);
 }
 
-// Extract domain from URL
+function formatPriceCompact(): string {
+  if (!isNumeric.value) return String(props.value);
+  const val = numericValue.value || 0;
+  if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+  if (val >= 1000) return `${(val / 1000).toFixed(1)}K`;
+  return `${val}`;
+}
+
 function getDomainFromUrl(url: string): string {
   try {
     return new URL(url).hostname.replace('www.', '');
@@ -794,292 +773,87 @@ function getDomainFromUrl(url: string): string {
   }
 }
 
-// Enhanced truncate function with intelligent word breaking
 function truncateText(text: string, maxLength: number): string {
   if (!text) return '';
   const str = String(text);
-
   if (str.length <= maxLength) return str;
 
-  // Try to break at word boundaries for better readability
   const truncated = str.substring(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
-
-  if (lastSpace > maxLength * 0.6) {
-    return truncated.substring(0, lastSpace) + '…';
-  }
-
-  return truncated + '…';
+  return (lastSpace > maxLength * 0.6) ? truncated.substring(0, lastSpace) + '…' : truncated + '…';
 }
 
-// All existing methods with compact mode considerations
-function getConditionalClasses(): string {
-  if (props.options.conditionalStyling) {
-    const { conditions, default: defaultStyle } = props.options.conditionalStyling;
-    const normalizedValue = String(props.value || '').toLowerCase().trim();
-
-    if (!normalizedValue) return '';
-
-    for (const [condition, classes] of Object.entries(conditions)) {
-      if (normalizedValue === condition.toLowerCase()) {
-        return classes;
-      }
-    }
-    return defaultStyle || '';
-  }
-
-  if (props.options.advancedStyling) {
-    const { conditions, default: defaultStyle } = props.options.advancedStyling;
-
-    if (props.value === null || props.value === undefined || props.value === '') {
-      return '';
-    }
-
-    for (const condition of conditions) {
-      if (evaluateCondition(condition)) {
-        return condition.classes;
-      }
-    }
-    return defaultStyle || '';
-  }
-
-  return '';
-}
-
-function evaluateCondition(condition: any): boolean {
-  const value = numericValue.value !== null ? numericValue.value : props.value;
-
-  switch (condition.operator) {
-    case 'exists':
-      return value !== null &&
-             value !== undefined &&
-             value !== '' &&
-             String(value).trim() !== '';
-
-    case 'not_exists':
-      return value === null ||
-             value === undefined ||
-             value === '' ||
-             String(value).trim() === '';
-
-    case 'equals':
-      return value == condition.value;
-
-    case 'not_equals':
-      return value != condition.value;
-
-    case 'greater_than':
-      return typeof value === 'number' && value > condition.value;
-
-    case 'greater_than_equal':
-      return typeof value === 'number' && value >= condition.value;
-
-    case 'less_than':
-      return typeof value === 'number' && value < condition.value;
-
-    case 'less_than_equal':
-      return typeof value === 'number' && value <= condition.value;
-
-    case 'between':
-      return typeof value === 'number' &&
-             value >= condition.min &&
-             value <= condition.max;
-
-    case 'contains':
-      return String(value).toLowerCase().includes(String(condition.value).toLowerCase());
-
-    case 'starts_with':
-      return String(value).toLowerCase().startsWith(String(condition.value).toLowerCase());
-
-    case 'ends_with':
-      return String(value).toLowerCase().endsWith(String(condition.value).toLowerCase());
-
-    default:
-      return false;
-  }
-}
-
-function getBooleanClasses(): string {
-  if (booleanValue.value) {
-    return 'bg-green-100 text-green-800 border border-green-200';
-  } else {
-    return 'bg-red-100 text-red-800 border border-red-200';
-  }
-}
-
-function getProgressClasses(): string {
-  const value = numericValue.value || 0;
-  if (value >= 90) return 'bg-green-100 text-green-800';
-  if (value >= 70) return 'bg-blue-100 text-blue-800';
-  if (value >= 50) return 'bg-yellow-100 text-yellow-800';
-  return 'bg-red-100 text-red-800';
-}
-
-function getProgressBarClasses(): string {
-  const value = numericValue.value || 0;
-  if (value >= 90) return 'bg-green-500';
-  if (value >= 70) return 'bg-blue-500';
-  if (value >= 50) return 'bg-yellow-500';
-  return 'bg-red-500';
-}
-
-function getProgressLabel(): string {
-  const value = numericValue.value || 0;
-  if (value >= 90) return 'Excellent';
-  if (value >= 70) return 'Good';
-  if (value >= 50) return 'Average';
-  return 'Poor';
-}
-
-function getProgressLabelShort(): string {
-  const value = numericValue.value || 0;
-  if (value >= 90) return 'Exc';
-  if (value >= 70) return 'Good';
-  if (value >= 50) return 'Avg';
-  return 'Poor';
-}
-
-function getStatusIcon() {
-  const normalizedValue = String(props.value || '').toLowerCase();
-
-  const iconMap: Record<string, any> = {
-    'unpatched': AlertTriangle,
-    'patched': CheckSquare,
-    'active': CheckCircle,
-    'inactive': XCircle,
-    'pending': Clock,
-    'completed': CheckCircle,
-    'critical': Shield,
-    'high': Zap,
-    'validated': CheckSquare,
-    'rejected': XCircle,
-  };
-
-  return iconMap[normalizedValue];
-}
-
-function getScoreLabel(): string {
-  if (props.type !== 'number' && !isNumeric.value) return '';
-
-  const value = numericValue.value || 0;
-
-  if (value >= 9.0) return 'Critical';
-  if (value >= 7.0) return 'High';
-  if (value >= 4.0) return 'Medium';
-  if (value > 0) return 'Low';
-  return 'None';
-}
-
-function formatValue(): string {
-  if (props.value === null || props.value === undefined) return '';
-
-  // Handle model_search type - return a summary of all fields
-  if (props.type === 'model_search') {
-    const data = getModelSearchData();
-    const entries = Object.entries(data);
-    if (entries.length === 0) return 'No data';
-
-    // Create a brief summary for display
-    return entries.map(([key, value]) => `${formatModelSearchKey(key)}: ${value}`).join(', ');
-  }
-
-  return String(props.value);
-}
-
-function formatDate(): string {
-  if (!props.value) return '';
-
-  try {
-    const date = new Date(props.value);
-    if (props.type === 'timestamp') {
-      return format(date, props.compact ? 'MM/dd/yy HH:mm' : 'MMM dd, yyyy HH:mm');
-    }
-    return format(date, props.compact ? 'MM/dd/yy' : 'MMM dd, yyyy');
-  } catch {
-    return String(props.value);
-  }
-}
-
-function formatPrice(): string {
-  if (!isNumeric.value) return String(props.value);
-
-  const options = props.compact
-    ? { style: 'currency', currency: 'USD', notation: 'compact' } as const
-    : { style: 'currency', currency: 'USD' } as const;
-
-  return new Intl.NumberFormat('en-US', options).format(numericValue.value || 0);
-}
-
-function truncateUrl(url: string): string {
+function truncateUrl(url: string, isCompactMode: boolean): string {
   if (!url) return '';
-  const maxLength = props.compact ? 25 : 40;
+  const maxLength = isCompactMode ? 25 : 40;
   return url.length > maxLength ? url.substring(0, maxLength) + '...' : url;
 }
 
 function getChipArray(): string[] {
   if (!props.value) return [];
+  let chips: string[] = [];
 
   if (Array.isArray(props.value)) {
-    return props.compact ? props.value.slice(0, 3).map(String) : props.value.map(String);
+    chips = props.value.map(String);
+  } else if (typeof props.value === 'string') {
+    chips = props.value.split(',').map(s => s.trim()).filter(Boolean);
+  } else {
+    chips = [String(props.value)];
   }
-
-  if (typeof props.value === 'string') {
-    const chips = props.value.split(',').map(s => s.trim()).filter(Boolean);
-    return props.compact ? chips.slice(0, 3) : chips;
-  }
-
-  return [String(props.value)];
+  return props.compact ? chips.slice(0, 3) : chips;
 }
 </script>
 
 <style scoped>
-/* Enhanced field animations */
-.enhanced-field {
+/* Base transitions for all interactable elements */
+.field-renderer * {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Enhanced field animations */
 .enhanced-field:hover {
   transform: translateY(-1px);
 }
 
-/* ✨ NEW: Link styling */
+/* Base link styling to inherit color and remove default underline */
 .field-link {
   text-decoration: none;
   color: inherit;
-  transition: all 0.2s ease;
+  display: block; /* Ensure it takes full width for click area */
 }
 
+/* Hover effects for the field-link wrapper */
 .field-link:hover {
+  opacity: 0.9;
   text-decoration: none;
-  opacity: 0.8;
 }
 
 .cursor-pointer {
   cursor: pointer;
 }
 
-/* Badge hover effects */
+/* DaisyUI Badge hover effects */
 .badge:hover {
-  transform: scale(1.05);
+  transform: scale(1.03); /* Slightly less aggressive than 1.05 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Progress bar animations */
-.h-2, .h-1 {
+/* Progress bar transitions */
+.progress-bar {
   transition: width 0.5s ease-in-out;
 }
 
-/* Link hover effects */
+/* Default DaisyUI Link styling (for inner links not wrapped by field-link) */
 .link {
-  transition: all 0.2s ease;
+  text-decoration: none; /* Override default underline */
 }
-
 .link:hover {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 2px;
 }
 
-/* Rating stars */
+/* Rating stars shadow */
 .rating .text-yellow-400 {
   filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.3));
 }
@@ -1088,56 +862,44 @@ function getChipArray(): string[] {
 .avatar img {
   transition: transform 0.2s ease;
 }
-
 .avatar:hover img {
   transform: scale(1.1);
 }
 
-/* Chip animations */
-.badge {
-  transition: all 0.2s ease;
-}
-
-.badge:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Text expansion animations */
+/* Text expansion animations for smoother transitions */
 .group span {
   transition: all 0.3s ease;
 }
 
-/* Tabular numbers for better number alignment */
+/* Tabular numbers for better alignment of figures */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Compact mode specific styles */
-.rating-xs .w-3 {
-  width: 0.75rem;
-  height: 0.75rem;
-}
+/* ===========================================================================
+// ✨ ULTRA COMPACT MODE SPECIFIC STYLES
+// =========================================================================== */
 
-/* ✨ ULTRA COMPACT MODE STYLES */
 .badge-micro {
   font-size: 0.5rem; /* 8px */
-  padding: 0.0625rem 0.125rem;
-  height: 0.875rem;
+  padding: 0.0625rem 0.25rem; /* Tighter padding */
+  height: 0.875rem; /* 14px */
   min-height: 0.875rem;
   line-height: 1;
-  border-radius: 0.125rem;
-  display: inline-block;
+  border-radius: 0.125rem; /* 2px */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 4rem;
+  max-width: 4rem; /* Max width to prevent overflow in tight spaces */
   font-weight: 500;
+  display: inline-flex; /* Use flex for icon alignment */
+  align-items: center;
+  gap: 0.1rem; /* Small gap between icon and text */
 }
 
 .progress-micro {
-  height: 0.125rem;
-  border-radius: 0.0625rem;
+  height: 0.1875rem; /* 3px, slightly more visible */
+  border-radius: 0.09375rem;
   background: hsl(var(--b3));
   overflow: hidden;
   margin: 0.125rem 0;
@@ -1146,19 +908,18 @@ function getChipArray(): string[] {
 
 .progress-micro .progress-bar {
   height: 100%;
-  border-radius: 0.0625rem;
-  transition: width 0.3s ease;
+  border-radius: 0.09375rem;
 }
 
 .avatar-micro {
-  width: 1rem !important;
+  width: 1rem !important; /* 16px */
   height: 1rem !important;
   border-radius: 0.125rem;
   object-fit: cover;
 }
 
 .boolean-indicator {
-  width: 0.75rem;
+  width: 0.75rem; /* 12px */
   height: 0.75rem;
   border-radius: 50%;
   display: inline-block;
@@ -1174,103 +935,70 @@ function getChipArray(): string[] {
 
 .date-compact {
   font-variant-numeric: tabular-nums;
-  font-size: 0.625rem;
+  font-size: 0.625rem; /* 10px */
   line-height: 1;
   font-weight: 500;
 }
 
-.text-micro {
-  font-size: 0.5rem;
-  line-height: 1;
-}
-
 .text-nano {
-  font-size: 0.625rem;
+  font-size: 0.625rem; /* 10px */
   line-height: 1.1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-.text-pico {
-  font-size: 0.6875rem;
-  line-height: 1.2;
-}
-
-/* Ultra compact hover effects */
-.badge-micro:hover {
-  transform: scale(1.05);
-}
-
-.boolean-indicator:hover {
-  transform: scale(1.1);
-}
-
-/* Tooltip enhancements for ultra compact mode */
+/* Tooltip enhancement */
 [title] {
   cursor: help;
 }
 
-/* Ultra compact link styling */
-.text-nano .link,
-.text-micro .link {
-  text-decoration: none;
-  color: hsl(var(--p));
+/* Ultra compact link styling - ensure visibility and clickability */
+.text-nano .link {
+  color: hsl(var(--p)); /* Primary color for links */
+  text-decoration: none; /* No underline by default */
+  position: relative; /* Ensure it stacks correctly */
+  z-index: 10; /* Ensure links are above other elements in tight spaces */
 }
 
-.text-nano .link:hover,
-.text-micro .link:hover {
-  text-decoration: underline;
-  color: hsl(var(--pf));
+.text-nano .link:hover {
+  text-decoration: underline; /* Underline on hover for discoverability */
+  color: hsl(var(--pf)); /* Primary focus color */
 }
 
-/* Progress bar color variants */
-.progress-bar.bg-green-500 {
-  background-color: #22c55e;
+/* Ensure consistent spacing in ultra compact mode */
+.field-renderer.ultra-compact-container > * {
+  margin: 0;
 }
 
-.progress-bar.bg-blue-500 {
-  background-color: #3b82f6;
-}
+/* ===========================================================================
+// RESPONSIVENESS & ACCESSIBILITY
+// =========================================================================== */
 
-.progress-bar.bg-yellow-500 {
-  background-color: #eab308;
-}
-
-.progress-bar.bg-red-500 {
-  background-color: #ef4444;
-}
-
-/* Enhanced accessibility for ultra compact elements */
-.badge-micro:focus,
-.boolean-indicator:focus {
-  outline: 1px solid hsl(var(--p));
-  outline-offset: 1px;
-}
-
-/* Responsive compact adjustments */
-@media (max-width: 640px) {
-  .field-renderer {
-    font-size: 0.8rem;
+/* Responsive compact adjustments (using Tailwind breakpoints implicitly) */
+@media (max-width: 640px) { /* Equivalent to sm: breakpoint */
+  .field-renderer:not(.compact):not(.ultraCompact) {
+    /* Adjust general sizing for smaller screens if not in compact/ultra compact modes */
+    font-size: 0.875rem; /* 14px */
   }
 
-  .badge-micro {
-    font-size: 0.45rem;
-    padding: 0.0625rem 0.0625rem;
+  /* Further compress ultra compact elements on very small screens */
+  .ultraCompact .badge-micro {
+    font-size: 0.45rem; /* 7.2px, even smaller */
+    padding: 0.05rem 0.1rem;
     max-width: 3rem;
   }
 
-  .text-nano {
-    font-size: 0.55rem;
+  .ultraCompact .text-nano {
+    font-size: 0.55rem; /* 8.8px */
   }
 
-  .text-micro {
-    font-size: 0.45rem;
-  }
-
-  .boolean-indicator {
+  .ultraCompact .boolean-indicator {
     width: 0.625rem;
     height: 0.625rem;
   }
 
-  .avatar-micro {
+  .ultraCompact .avatar-micro {
     width: 0.875rem !important;
     height: 0.875rem !important;
   }
@@ -1278,100 +1006,74 @@ function getChipArray(): string[] {
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-  .badge-micro {
-    border: 1px solid;
+  .badge-micro, .badge {
+    border: 1px solid currentColor; /* Use current text color for contrast */
   }
-
   .boolean-indicator {
-    border: 1px solid;
+    border: 1px solid currentColor;
   }
-
   .progress-micro {
-    border: 1px solid;
+    border: 1px solid currentColor;
+  }
+  .link, .field-link {
+    outline: 2px solid; /* Stronger outline for links */
+    outline-offset: 2px;
   }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  .badge-micro,
-  .boolean-indicator,
-  .progress-bar {
-    transition: none;
+  .badge-micro, .boolean-indicator, .progress-bar,
+  .badge, .avatar img, .link, .field-link,
+  .transition-all, .transition-transform, .transition-opacity {
+    transition: none !important; /* Disable all transitions */
+    animation: none !important; /* Disable all animations */
   }
 
-  .badge-micro:hover,
-  .boolean-indicator:hover {
-    transform: none;
+  .badge-micro:hover, .boolean-indicator:hover, .badge:hover,
+  .avatar:hover img, .field-link:hover {
+    transform: none !important; /* Disable hover transforms */
+    opacity: 1 !important; /* Maintain full opacity */
   }
 }
 
-/* Print styles */
+/* Print styles - ensure content is legible on paper */
 @media print {
-  .badge-micro,
-  .text-nano,
-  .text-micro {
-    color: black !important;
-    background: white !important;
+  .field-renderer {
+    color: #000 !important; /* Force black text */
+    background: #fff !important; /* Force white background */
   }
 
-  .boolean-true {
-    background: #000 !important;
+  .badge-micro, .badge {
+    border: 1px solid #ccc !important;
+    background: #f0f0f0 !important;
+    color: #333 !important;
   }
 
-  .boolean-false {
-    background: #666 !important;
+  .boolean-true, .boolean-false {
+    background: #ccc !important; /* Neutral color for print */
+    color: #000 !important;
+    border: 1px solid #999 !important;
+  }
+
+  .link, a {
+    text-decoration: underline !important; /* Always show underlines for links */
+    color: #0000ee !important; /* Standard blue link color */
+  }
+
+  .progress-bar {
+    background: #ccc !important; /* Gray for progress bars */
+  }
+
+  .avatar img {
+    border: 1px solid #eee; /* Light border for images */
   }
 }
 
-/* Enhanced focus indicators */
+/* Enhanced focus indicators for keyboard navigation */
 .field-renderer:focus-within {
-  outline: 1px solid hsl(var(--p));
-  outline-offset: 2px;
-  border-radius: 0.25rem;
-}
-
-/* Ensure text readability at micro sizes */
-.text-micro,
-.text-nano {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-/* Status color coding for ultra compact badges */
-.badge-critical {
-  background: #dc2626;
-  color: white;
-}
-
-.badge-high {
-  background: #ea580c;
-  color: white;
-}
-
-.badge-medium {
-  background: #ca8a04;
-  color: white;
-}
-
-.badge-low {
-  background: #16a34a;
-  color: white;
-}
-
-.badge-info {
-  background: #2563eb;
-  color: white;
-}
-
-/* Ensure consistent spacing in ultra compact mode */
-.field-renderer > * {
-  margin: 0;
-}
-
-/* Optimize for maximum data density */
-.ultra-compact-container {
-  line-height: 1;
-  letter-spacing: -0.025em;
+  outline: 2px solid hsl(var(--p)); /* Stronger focus outline */
+  outline-offset: 3px;
+  border-radius: 0.375rem; /* Slightly larger border-radius for focus */
 }
 </style>
