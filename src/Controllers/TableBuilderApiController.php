@@ -106,7 +106,8 @@ class TableBuilderApiController extends Controller
     /**
      * Helper to prune a collection of data items to include only explicitly requested columns.
      * This iterates through the items and removes fields not present in $rawColumns,
-     * maintaining dot-notation as flat keys and handling fallback values.
+     * maintaining dot-notation as flat keys and handling fallback values for both
+     * the main column key and the url_field key.
      *
      * @param \Illuminate\Support\Collection $collection The collection of data items (after columnReplacements)
      * @param \Illuminate\Support\Collection $rawColumns The collection of raw column definitions from the request
@@ -119,32 +120,54 @@ class TableBuilderApiController extends Controller
         foreach ($collection as $item) {
             $prunedItem = [];
 
-            foreach ($rawColumns as $columnDefinition) { // Iterate through full column definitions
-                $originalKey = $columnDefinition['key']; // Get the original key from the column definition
-
+            foreach ($rawColumns as $columnDefinition) {
+                // --- Handle the main column key (e.g., 'reportedData.comp_name' or 'reportedTempData.affected_in|reportedData.vuln_version') ---
+                $originalKey = $columnDefinition['key'];
                 $resolvedValue = null;
-                $outputKey = $originalKey; // Keep the originalKey as the output key by default
+                $outputKey = $originalKey; // The output JSON key must be the exact original key
 
-                // Check if the key contains a pipe for fallback value retrieval
+                // Resolve the VALUE using fallback logic if 'key' contains a pipe
                 if (strpos($originalKey, '|') !== false) {
                     $keys = explode('|', $originalKey);
                     $firstKey = trim($keys[0]);
                     $fallbackKey = trim($keys[1]);
 
-                    // Try to get value from the first key
                     $resolvedValue = data_get($item, $firstKey);
-
-                    // If first key's value is empty or null, try fallback
                     if (is_null($resolvedValue) || (is_string($resolvedValue) && trim($resolvedValue) === '')) {
                         $resolvedValue = data_get($item, $fallbackKey);
                     }
-                    // Crucial: $outputKey remains $originalKey here.
                 } else {
-                    // No pipe, get value directly
                     $resolvedValue = data_get($item, $originalKey);
                 }
-
                 $prunedItem[$outputKey] = $resolvedValue;
+
+                // --- NEW: Handle the 'url_field' if it exists in the 'link' definition ---
+                if (isset($columnDefinition['link']['url_field'])) {
+                    $urlFieldKey = $columnDefinition['link']['url_field'];
+                    $urlFieldValue = null;
+                    $urlOutputKey = $urlFieldKey; // The output JSON key for url_field must be the exact url_field string
+
+                    // Resolve the VALUE for url_field using fallback logic if it contains a pipe
+                    if (strpos($urlFieldKey, '|') !== false) {
+                        $urlKeys = explode('|', $urlFieldKey);
+                        $firstUrlKey = trim($urlKeys[0]);
+                        $fallbackUrlKey = trim($urlKeys[1]);
+
+                        $urlFieldValue = data_get($item, $firstUrlKey);
+                        if (is_null($urlFieldValue) || (is_string($urlFieldValue) && trim($urlFieldValue) === '')) {
+                            $urlFieldValue = data_get($item, $fallbackUrlKey);
+                        }
+                    } else {
+                        $urlFieldValue = data_get($item, $urlFieldKey);
+                    }
+                    // TODO: IMPROVE THIS LOGIC
+                    $formattedKey = $columnDefinition['key'] . '_link';
+                    $prunedItem[$formattedKey] = [
+                        'url' => $urlFieldValue,
+                        'target' => $columnDefinition['link']['target'] ?? '_blank',
+                        'style' => $columnDefinition['link']['style'] ?? 'default',
+                    ];
+                }
             }
             $prunedCollection->push($prunedItem);
         }
