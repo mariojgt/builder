@@ -352,7 +352,7 @@ class TableBuilderApiController extends Controller
                     $query->whereHas($relationPath, $options['callback']);
                 } else {
                     // Apply the filter on the relationship's attribute
-                    $query->whereHas($relationPath, function ($subQuery) use ($attribute, $value, $options) {
+                    $query->whereHas($relationPath, function ($subQuery) use ($attribute, $value, $options): void {
                         $subOperator = $options['operator'] ?? '=';
                         if ($value !== null) {
                             $subQuery->where($attribute, $subOperator, $value);
@@ -365,7 +365,7 @@ class TableBuilderApiController extends Controller
                 if (isset($options['callback']) && is_callable($options['callback'])) {
                     $query->whereDoesntHave($relationPath, $options['callback']);
                 } else {
-                    $query->whereDoesntHave($relationPath, function ($subQuery) use ($attribute, $value, $options) {
+                    $query->whereDoesntHave($relationPath, function ($subQuery) use ($attribute, $value, $options): void {
                         $subOperator = $options['operator'] ?? '=';
                         if ($value !== null) {
                             $subQuery->where($attribute, $subOperator, $value);
@@ -387,7 +387,7 @@ class TableBuilderApiController extends Controller
             case 'whereDay':
             case 'whereTime':
                 // Apply the advanced filter within the relationship context
-                $query->whereHas($relationPath, function ($subQuery) use ($attribute, $operator, $value, $options) {
+                $query->whereHas($relationPath, function ($subQuery) use ($attribute, $operator, $value, $options): void {
                     $this->applyAdvancedDirectFilter($subQuery, $attribute, $operator, $value, $options);
                 });
                 break;
@@ -599,7 +599,7 @@ class TableBuilderApiController extends Controller
             // Handle fallback relationships (separated by |)
             if (strpos($key, '|') !== false) {
                 $fallbackKeys = explode('|', $key);
-                $query->where(function ($fallbackQuery) use ($fallbackKeys, $value, $column, $customAttributes) {
+                $query->where(function ($fallbackQuery) use ($fallbackKeys, $value, $column, $customAttributes): void {
                     foreach ($fallbackKeys as $fallbackKey) {
                         $fallbackKey = trim($fallbackKey);
 
@@ -627,7 +627,7 @@ class TableBuilderApiController extends Controller
             return $column['sortable'] == true && ! in_array($column['key'], $customAttributes);
         });
 
-        $query->where(function ($q) use ($search, $sortableColumns, $customAttributes) {
+        $query->where(function ($q) use ($search, $sortableColumns, $customAttributes): void {
             foreach ($sortableColumns as $column) {
                 $key = $column['key'];
 
@@ -712,7 +712,7 @@ class TableBuilderApiController extends Controller
             $relationPath = implode('.', $parts);
 
             try {
-                $query->$methodHas($relationPath, function ($subQuery) use ($attribute, $search) {
+                $query->$methodHas($relationPath, function ($subQuery) use ($attribute, $search): void {
                     $subQuery->where($attribute, 'like', '%'.$search.'%');
                 });
             } catch (\Exception $e) {
@@ -820,7 +820,7 @@ class TableBuilderApiController extends Controller
         $method = $useOr ? 'orWhereHas' : 'whereHas';
 
         try {
-            $query->$method($relationPath, function ($q) use ($attribute, $value, $column) {
+            $query->$method($relationPath, function ($q) use ($attribute, $value, $column): void {
                 switch ($column['type']) {
                     case 'boolean':
                         $q->where($attribute, $value === 'true');
