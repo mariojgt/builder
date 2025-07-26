@@ -3,14 +3,13 @@
 namespace Mariojgt\Builder\Helpers;
 
 use Carbon\Carbon;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Mariojgt\Builder\Enums\FieldTypes;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\ValidationException;
-use Mariojgt\Magnifier\Resources\MediaResource;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Mariojgt\Builder\Enums\FieldTypes;
+use Mariojgt\Magnifier\Resources\MediaResource;
 
 class BuilderHelper
 {
@@ -28,13 +27,13 @@ class BuilderHelper
             $authorized = $user->$classMethod($request->permission['key'][$checkType]);
         } catch (\Throwable $th) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have permission to ' . $checkType . ' this item',
+                'permission' => 'You don\'t have permission to '.$checkType.' this item',
             ]);
         }
 
-        if (!$authorized) {
+        if (! $authorized) {
             throw ValidationException::withMessages([
-                'permission' => 'You don\'t have permission to ' . $checkType . ' this item',
+                'permission' => 'You don\'t have permission to '.$checkType.' this item',
             ]);
         }
 
@@ -51,26 +50,26 @@ class BuilderHelper
         $type = $column['type'];
         $messages = [];
 
-        if (!empty($column['rules'])) {
+        if (! empty($column['rules'])) {
             $validationRules = [];
 
             foreach ($column['rules'] as $rule) {
                 if ($rule['type'] === 'validator') {
                     try {
                         $validatorClass = decrypt($rule['class']);
-                        if (!empty($rule['params'])) {
+                        if (! empty($rule['params'])) {
                             $validationRules[] = new $validatorClass(...$rule['params']);
                         } else {
-                            $validationRules[] = new $validatorClass();
+                            $validationRules[] = new $validatorClass;
                         }
                     } catch (\Exception $e) {
                         throw ValidationException::withMessages([
-                            $key => 'Invalid validation rule'
+                            $key => 'Invalid validation rule',
                         ]);
                     }
                 } else {
                     $validationRules[] = $rule['value'];
-                    if (!empty($column['messages'])) {
+                    if (! empty($column['messages'])) {
                         $ruleKey = explode(':', $rule['value'])[0];
                         $messageKey = "{$key}.{$ruleKey}";
                         if (isset($column['messages'][$messageKey])) {
@@ -106,7 +105,7 @@ class BuilderHelper
                         $modelCheck::where($key, Str::slug($value))->first();
 
                     if ($modelCheck) {
-                        $errorMessage = $column['messages'][$key . '.unique'] ?? 'The slug must be unique.';
+                        $errorMessage = $column['messages'][$key.'.unique'] ?? 'The slug must be unique.';
                         throw ValidationException::withMessages([$key => $errorMessage]);
                     }
                 }
@@ -114,8 +113,8 @@ class BuilderHelper
                 break;
 
             case FieldTypes::EMAIL->value:
-                if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                    $errorMessage = $column['messages'][$key . '.email'] ?? 'Must be a valid email.';
+                if (! filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    $errorMessage = $column['messages'][$key.'.email'] ?? 'Must be a valid email.';
                     throw ValidationException::withMessages([$key => $errorMessage]);
                 }
                 $model->$key = $value;
@@ -126,21 +125,21 @@ class BuilderHelper
                 try {
                     $model->$key = Carbon::parse($value);
                 } catch (\Exception $e) {
-                    $errorMessage = $column['messages'][$key . '.date'] ?? 'Invalid date format.';
+                    $errorMessage = $column['messages'][$key.'.date'] ?? 'Invalid date format.';
                     throw ValidationException::withMessages([$key => $errorMessage]);
                 }
                 break;
 
             case FieldTypes::NUMBER->value:
-                if (!is_numeric($value)) {
-                    $errorMessage = $column['messages'][$key . '.numeric'] ?? 'Must be a valid number.';
+                if (! is_numeric($value)) {
+                    $errorMessage = $column['messages'][$key.'.numeric'] ?? 'Must be a valid number.';
                     throw ValidationException::withMessages([$key => $errorMessage]);
                 }
                 $model->$key = $value;
                 break;
 
             case FieldTypes::MODEL_SEARCH->value:
-                $valueData = !empty($value['id']) ? $value['id'] : collect($value)->pluck('id')->first();
+                $valueData = ! empty($value['id']) ? $value['id'] : collect($value)->pluck('id')->first();
                 $model->$key = $column['singleSearch'] ? $valueData : json_encode($valueData);
                 break;
 
@@ -175,13 +174,14 @@ class BuilderHelper
 
                     // ✨ SIMPLE: Add link if configured
                     if (isset($column['link'])) {
-                        $item->{$key . '_link'} = $this->processSimpleLink($column['link'], $item);
+                        $item->{$key.'_link'} = $this->processSimpleLink($column['link'], $item);
                     }
+
                     continue;
                 }
 
                 // Handle existing field types for non-relationship fields
-                if (!empty($column['type'])) {
+                if (! empty($column['type'])) {
                     switch ($column['type']) {
                         case FieldTypes::MEDIA->value:
                             $field = $column['key'];
@@ -193,7 +193,7 @@ class BuilderHelper
                         case FieldTypes::MODEL_SEARCH->value:
                             $field = $column['key'];
                             $modelRelation = decrypt($column['model']);
-                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push(app($modelRelation)->getTable() . '.id');
+                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push(app($modelRelation)->getTable().'.id');
 
                             if ($column['singleSearch']) {
                                 $item->$field = $modelRelation::where('id', $item->$field)->select($columnFilters->toArray())->first();
@@ -212,7 +212,7 @@ class BuilderHelper
                         case FieldTypes::PIVOT_MODEL->value:
                             $field = $column['key'];
                             $relation = $item->{$column['relation']}();
-                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push($relation->getQuery()->from . '.id');
+                            $columnFilters = collect($column['columns'])->where('sortable', true)->pluck('key')->push($relation->getQuery()->from.'.id');
                             $item->$field = $relation->select($columnFilters->toArray())->get();
                             break;
 
@@ -223,9 +223,10 @@ class BuilderHelper
 
                 // ✨ SIMPLE: Add link if configured for regular fields too
                 if (isset($column['link'])) {
-                    $item->{$key . '_link'} = $this->processSimpleLink($column['link'], $item);
+                    $item->{$key.'_link'} = $this->processSimpleLink($column['link'], $item);
                 }
             }
+
             return $item;
         });
 
@@ -240,10 +241,11 @@ class BuilderHelper
         // Handle field-based URLs
         if (isset($linkConfig['url_field'])) {
             $url = $this->getRelationshipValue($item, $linkConfig['url_field']);
+
             return $url ? [
                 'url' => $url,
                 'target' => $linkConfig['target'] ?? '_self',
-                'style' => $linkConfig['style'] ?? 'default'
+                'style' => $linkConfig['style'] ?? 'default',
             ] : null;
         }
 
@@ -261,19 +263,21 @@ class BuilderHelper
         // Replace other simple placeholders
         $url = preg_replace_callback('/\{(\w+)\}/', function ($matches) use ($item) {
             $field = $matches[1];
+
             return $item->$field ?? '';
         }, $url);
 
         // Replace relationship placeholders like {reportedData.comp_name}
         $url = preg_replace_callback('/\{(\w+\.\w+)\}/', function ($matches) use ($item) {
             $path = $matches[1];
+
             return $this->getRelationshipValue($item, $path) ?? '';
         }, $url);
 
         return [
             'url' => $url,
             'target' => $linkConfig['target'] ?? '_self',
-            'style' => $linkConfig['style'] ?? 'default'
+            'style' => $linkConfig['style'] ?? 'default',
         ];
     }
 
@@ -291,14 +295,14 @@ class BuilderHelper
                     $tryKey = trim($tryKey);
 
                     // If it's a static value (no dots), return as-is
-                    if (strpos($tryKey, '.') === false && !property_exists($item, $tryKey)) {
+                    if (strpos($tryKey, '.') === false && ! property_exists($item, $tryKey)) {
                         return $tryKey;
                     }
 
                     // Try to get the relationship value
                     $value = data_get($item, $tryKey);
 
-                    if (!empty($value)) {
+                    if (! empty($value)) {
                         return $this->formatValue($value);
                     }
                 }
@@ -308,6 +312,7 @@ class BuilderHelper
 
             // Regular single key
             $value = data_get($item, $key);
+
             return $this->formatValue($value);
         } catch (\Exception $e) {
             return $this->manualRelationshipTraversal($item, $key);
@@ -375,7 +380,8 @@ class BuilderHelper
 
             return $current;
         } catch (\Exception $e) {
-            \Log::warning("Error accessing relationship path '{$key}': " . $e->getMessage());
+            \Log::warning("Error accessing relationship path '{$key}': ".$e->getMessage());
+
             return null;
         }
     }

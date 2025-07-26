@@ -41,7 +41,7 @@ class Install extends Command
         // Copy the need file to make the Builder to work
         Artisan::call('vendor:publish', [
             '--provider' => 'Mariojgt\Builder\BuilderProvider',
-            '--force'    => true,
+            '--force' => true,
         ]);
 
         $this->newLine();

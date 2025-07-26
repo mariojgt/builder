@@ -2,11 +2,11 @@
 
 namespace Mariojgt\Builder\Helpers;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Mariojgt\Builder\Enums\FieldTypes;
 use Mariojgt\Builder\Enums\StylingOperator;
-use Illuminate\Contracts\Validation\ValidationRule;
 
 class FormHelper
 {
@@ -31,24 +31,26 @@ class FormHelper
 
     /**
      * Default sort key
-     * @var string|null
      */
     private ?string $defaultIdKey = null;
 
     /**
      * Row-level styling configuration
+     *
      * @var array<string, mixed>
      */
     private array $rowStyling = [];
 
     /**
      * Default filters configuration (simple key-value filters)
+     *
      * @var array<string, mixed>
      */
     private array $defaultFilters = [];
 
     /**
      * ✨ NEW: Advanced query filters (for complex operations like whereNotIn, whereBetween, etc.)
+     *
      * @var array<array>
      */
     private array $advancedFilters = [];
@@ -59,42 +61,42 @@ class FormHelper
     public function tab(string $tabName): self
     {
         $this->currentTab = $tabName;
+
         return $this;
     }
 
     /**
      * Add default filters that will be applied automatically (simple key-value filters)
      *
-     * @param array<string, mixed> $filters Array of field => value pairs
-     * @return self
+     * @param  array<string, mixed>  $filters  Array of field => value pairs
      */
     public function withDefaultFilters(array $filters): self
     {
         $this->defaultFilters = array_merge($this->defaultFilters, $filters);
+
         return $this;
     }
 
     /**
      * Add a single default filter (simple key-value filter)
      *
-     * @param string $field The field key to filter
-     * @param mixed $value The filter value
-     * @return self
+     * @param  string  $field  The field key to filter
+     * @param  mixed  $value  The filter value
      */
     public function withDefaultFilter(string $field, mixed $value): self
     {
         $this->defaultFilters[$field] = $value;
+
         return $this;
     }
 
     /**
      * ✨ NEW: Add advanced query filter with custom operator
      *
-     * @param string $field The field to filter
-     * @param string $operator Query operator (whereIn, whereNotIn, whereBetween, whereNull, etc.)
-     * @param mixed $value The value(s) for the filter
-     * @param array $options Additional options for the filter
-     * @return self
+     * @param  string  $field  The field to filter
+     * @param  string  $operator  Query operator (whereIn, whereNotIn, whereBetween, whereNull, etc.)
+     * @param  mixed  $value  The value(s) for the filter
+     * @param  array  $options  Additional options for the filter
      */
     public function withAdvancedFilter(string $field, string $operator, mixed $value = null, array $options = []): self
     {
@@ -102,7 +104,7 @@ class FormHelper
             'field' => $field,
             'operator' => $operator,
             'value' => $value,
-            'options' => $options
+            'options' => $options,
         ];
 
         return $this;
@@ -111,9 +113,8 @@ class FormHelper
     /**
      * ✨ NEW: Add whereNotIn filter
      *
-     * @param string $field The field to filter
-     * @param array $values Array of values to exclude
-     * @return self
+     * @param  string  $field  The field to filter
+     * @param  array  $values  Array of values to exclude
      */
     public function withNotInFilter(string $field, array $values): self
     {
@@ -123,9 +124,8 @@ class FormHelper
     /**
      * ✨ NEW: Add whereIn filter
      *
-     * @param string $field The field to filter
-     * @param array $values Array of values to include
-     * @return self
+     * @param  string  $field  The field to filter
+     * @param  array  $values  Array of values to include
      */
     public function withInFilter(string $field, array $values): self
     {
@@ -135,10 +135,9 @@ class FormHelper
     /**
      * ✨ NEW: Add whereBetween filter
      *
-     * @param string $field The field to filter
-     * @param mixed $min Minimum value
-     * @param mixed $max Maximum value
-     * @return self
+     * @param  string  $field  The field to filter
+     * @param  mixed  $min  Minimum value
+     * @param  mixed  $max  Maximum value
      */
     public function withBetweenFilter(string $field, mixed $min, mixed $max): self
     {
@@ -148,10 +147,9 @@ class FormHelper
     /**
      * ✨ NEW: Add whereNotBetween filter
      *
-     * @param string $field The field to filter
-     * @param mixed $min Minimum value to exclude
-     * @param mixed $max Maximum value to exclude
-     * @return self
+     * @param  string  $field  The field to filter
+     * @param  mixed  $min  Minimum value to exclude
+     * @param  mixed  $max  Maximum value to exclude
      */
     public function withNotBetweenFilter(string $field, mixed $min, mixed $max): self
     {
@@ -161,8 +159,7 @@ class FormHelper
     /**
      * ✨ NEW: Add whereNull filter
      *
-     * @param string $field The field to check for null
-     * @return self
+     * @param  string  $field  The field to check for null
      */
     public function withNullFilter(string $field): self
     {
@@ -172,8 +169,7 @@ class FormHelper
     /**
      * ✨ NEW: Add whereNotNull filter
      *
-     * @param string $field The field to check for not null
-     * @return self
+     * @param  string  $field  The field to check for not null
      */
     public function withNotNullFilter(string $field): self
     {
@@ -183,10 +179,9 @@ class FormHelper
     /**
      * ✨ NEW: Add where with custom operator
      *
-     * @param string $field The field to filter
-     * @param string $operator SQL operator (=, !=, >, <, >=, <=, LIKE, etc.)
-     * @param mixed $value The value to compare
-     * @return self
+     * @param  string  $field  The field to filter
+     * @param  string  $operator  SQL operator (=, !=, >, <, >=, <=, LIKE, etc.)
+     * @param  mixed  $value  The value to compare
      */
     public function withWhereFilter(string $field, string $operator, mixed $value): self
     {
@@ -196,20 +191,19 @@ class FormHelper
     /**
      * ✨ NEW: Add whereLike filter (shorthand for LIKE operator)
      *
-     * @param string $field The field to search
-     * @param string $value The value to search for
-     * @param bool $startsWith If true, searches for values starting with the term
-     * @param bool $endsWith If true, searches for values ending with the term
-     * @return self
+     * @param  string  $field  The field to search
+     * @param  string  $value  The value to search for
+     * @param  bool  $startsWith  If true, searches for values starting with the term
+     * @param  bool  $endsWith  If true, searches for values ending with the term
      */
     public function withLikeFilter(string $field, string $value, bool $startsWith = false, bool $endsWith = false): self
     {
         if ($startsWith) {
-            $searchValue = $value . '%';
+            $searchValue = $value.'%';
         } elseif ($endsWith) {
-            $searchValue = '%' . $value;
+            $searchValue = '%'.$value;
         } else {
-            $searchValue = '%' . $value . '%';
+            $searchValue = '%'.$value.'%';
         }
 
         return $this->withWhereFilter($field, 'LIKE', $searchValue);
@@ -218,10 +212,9 @@ class FormHelper
     /**
      * ✨ NEW: Add date-based filters
      *
-     * @param string $field The date field
-     * @param string $operator Date operator (whereDate, whereMonth, whereYear, whereDay, etc.)
-     * @param mixed $value The date value
-     * @return self
+     * @param  string  $field  The date field
+     * @param  string  $operator  Date operator (whereDate, whereMonth, whereYear, whereDay, etc.)
+     * @param  mixed  $value  The date value
      */
     public function withDateFilter(string $field, string $operator, mixed $value): self
     {
@@ -231,9 +224,8 @@ class FormHelper
     /**
      * ✨ NEW: Helper for common status exclusions
      *
-     * @param string $statusField The status field name (default: 'status')
-     * @param array $excludedStatuses Array of statuses to exclude
-     * @return self
+     * @param  string  $statusField  The status field name (default: 'status')
+     * @param  array  $excludedStatuses  Array of statuses to exclude
      */
     public function withExcludeStatuses(string $statusField = 'status', array $excludedStatuses = ['unknown', 'unvalidated', 'incomplete', 'published', 'rejected', 'finished']): self
     {
@@ -243,9 +235,8 @@ class FormHelper
     /**
      * ✨ NEW: Helper for including only specific statuses
      *
-     * @param string $statusField The status field name (default: 'status')
-     * @param array $includedStatuses Array of statuses to include
-     * @return self
+     * @param  string  $statusField  The status field name (default: 'status')
+     * @param  array  $includedStatuses  Array of statuses to include
      */
     public function withIncludeStatuses(string $statusField = 'status', array $includedStatuses = ['active', 'pending', 'in_progress']): self
     {
@@ -255,35 +246,34 @@ class FormHelper
     /**
      * ✨ NEW: Helper for recent items (created within X days)
      *
-     * @param string $dateField The date field name (default: 'created_at')
-     * @param int $days Number of days back (default: 30)
-     * @return self
+     * @param  string  $dateField  The date field name (default: 'created_at')
+     * @param  int  $days  Number of days back (default: 30)
      */
     public function withRecentItems(string $dateField = 'created_at', int $days = 30): self
     {
         $date = now()->subDays($days)->format('Y-m-d H:i:s');
+
         return $this->withWhereFilter($dateField, '>=', $date);
     }
 
     /**
      * ✨ NEW: Helper for items from specific year
      *
-     * @param string $dateField The date field name (default: 'created_at')
-     * @param int $year The year to filter by
-     * @return self
+     * @param  string  $dateField  The date field name (default: 'created_at')
+     * @param  int  $year  The year to filter by
      */
-    public function withYear(string $dateField = 'created_at', int $year = null): self
+    public function withYear(string $dateField = 'created_at', ?int $year = null): self
     {
         $year = $year ?? now()->year;
+
         return $this->withDateFilter($dateField, 'whereYear', $year);
     }
 
     /**
      * ✨ NEW: Complex relationship filters
      *
-     * @param string $relationship The relationship name
-     * @param callable $callback Callback function to apply filters on the relationship
-     * @return self
+     * @param  string  $relationship  The relationship name
+     * @param  callable  $callback  Callback function to apply filters on the relationship
      */
     public function withRelationshipFilter(string $relationship, callable $callback): self
     {
@@ -293,10 +283,9 @@ class FormHelper
     /**
      * Helper method for date range filter (simple filter)
      *
-     * @param string $field The date field to filter
-     * @param string|null $from Start date (Y-m-d format)
-     * @param string|null $to End date (Y-m-d format)
-     * @return self
+     * @param  string  $field  The date field to filter
+     * @param  string|null  $from  Start date (Y-m-d format)
+     * @param  string|null  $to  End date (Y-m-d format)
      */
     public function withDateRangeFilter(string $field, ?string $from = null, ?string $to = null): self
     {
@@ -308,7 +297,7 @@ class FormHelper
             $dateFilter['to'] = $to;
         }
 
-        if (!empty($dateFilter)) {
+        if (! empty($dateFilter)) {
             $this->defaultFilters[$field] = $dateFilter;
         }
 
@@ -318,9 +307,8 @@ class FormHelper
     /**
      * Helper method for created_at date range (simple filter)
      *
-     * @param string|null $from Start date
-     * @param string|null $to End date
-     * @return self
+     * @param  string|null  $from  Start date
+     * @param  string|null  $to  End date
      */
     public function withCreatedAtFilter(?string $from = null, ?string $to = null): self
     {
@@ -330,10 +318,9 @@ class FormHelper
     /**
      * ✨ SIMPLE: Add link to the last added field
      *
-     * @param string $url URL pattern with {placeholders} OR field key to use as URL
-     * @param bool $newTab Open in new tab
-     * @param string|null $style Link style: 'default', 'button', 'button-primary', 'button-secondary', 'badge', 'underline', 'none'
-     * @return self
+     * @param  string  $url  URL pattern with {placeholders} OR field key to use as URL
+     * @param  bool  $newTab  Open in new tab
+     * @param  string|null  $style  Link style: 'default', 'button', 'button-primary', 'button-secondary', 'badge', 'underline', 'none'
      */
     public function withLink(string $url, bool $newTab = false, ?string $style = null): self
     {
@@ -345,7 +332,7 @@ class FormHelper
         $this->columns[$lastIndex]['link'] = [
             'url' => $url,
             'target' => $newTab ? '_blank' : '_self',
-            'style' => $style ?? 'default'
+            'style' => $style ?? 'default',
         ];
 
         return $this;
@@ -354,10 +341,9 @@ class FormHelper
     /**
      * ✨ NEW: Use another field's value as the link URL
      *
-     * @param string $fieldKey The field key to use as URL (e.g., 'reportedData.link')
-     * @param bool $newTab Open in new tab
-     * @param string|null $style Link style: 'default', 'button', 'button-primary', 'button-secondary', 'badge', 'underline', 'none'
-     * @return self
+     * @param  string  $fieldKey  The field key to use as URL (e.g., 'reportedData.link')
+     * @param  bool  $newTab  Open in new tab
+     * @param  string|null  $style  Link style: 'default', 'button', 'button-primary', 'button-secondary', 'badge', 'underline', 'none'
      */
     public function withLinkFromField(string $fieldKey, bool $newTab = false, ?string $style = null): self
     {
@@ -369,7 +355,7 @@ class FormHelper
         $this->columns[$lastIndex]['link'] = [
             'url_field' => $fieldKey, // Mark this as a field reference
             'target' => $newTab ? '_blank' : '_self',
-            'style' => $style ?? 'default'
+            'style' => $style ?? 'default',
         ];
 
         return $this;
@@ -378,9 +364,7 @@ class FormHelper
     /**
      * ✨ SIMPLE: Add external link (opens in new tab by default)
      *
-     * @param string $url
-     * @param string|null $style Link style
-     * @return self
+     * @param  string|null  $style  Link style
      */
     public function withExternalLink(string $url, ?string $style = null): self
     {
@@ -390,13 +374,11 @@ class FormHelper
     /**
      * ✨ SIMPLE: Add edit link
      *
-     * @param string $baseUrl
-     * @param string|null $style Link style
-     * @return self
+     * @param  string|null  $style  Link style
      */
     public function withEditLink(string $baseUrl = '/edit', ?string $style = null): self
     {
-        return $this->withLink($baseUrl . '/{id}', false, $style);
+        return $this->withLink($baseUrl.'/{id}', false, $style);
     }
 
     /**
@@ -416,8 +398,8 @@ class FormHelper
     /**
      * Process a validation rule
      *
-     * @param mixed $rule The rule to process
-     * @param array<string, mixed> $params Additional parameters for the rule
+     * @param  mixed  $rule  The rule to process
+     * @param  array<string, mixed>  $params  Additional parameters for the rule
      * @return array{type: string, class?: string, value?: mixed, params?: array}
      */
     private function processRule(mixed $rule, array $params = []): array
@@ -429,7 +411,7 @@ class FormHelper
                 return [
                     'type' => 'validator',
                     'class' => $this->encryptValidatorClass($class),
-                    'params' => $params
+                    'params' => $params,
                 ];
             }
         }
@@ -441,14 +423,14 @@ class FormHelper
                 return [
                     'type' => 'validator',
                     'class' => $this->encryptValidatorClass($rule),
-                    'params' => $params
+                    'params' => $params,
                 ];
             }
         }
 
         return [
             'type' => 'rule',
-            'value' => $rule
+            'value' => $rule,
         ];
     }
 
@@ -485,14 +467,14 @@ class FormHelper
         }
 
         // Format messages with field key
-        if (!empty($messages)) {
+        if (! empty($messages)) {
             foreach ($messages as $rule => $message) {
                 $formattedMessages["$fieldKey.$rule"] = $message;
             }
         }
 
         $this->columns[$lastIndex]['rules'] = $processedRules;
-        if (!empty($formattedMessages)) {
+        if (! empty($formattedMessages)) {
             $this->columns[$lastIndex]['messages'] = $formattedMessages;
         }
 
@@ -502,9 +484,8 @@ class FormHelper
     /**
      * Add conditional styling to the last added field (simple value => class mapping)
      *
-     * @param array<string, string> $styleConditions Array of value => class mappings
-     * @param string $defaultStyle Default style when no condition matches
-     * @return self
+     * @param  array<string, string>  $styleConditions  Array of value => class mappings
+     * @param  string  $defaultStyle  Default style when no condition matches
      */
     public function withConditionalStyling(array $styleConditions, string $defaultStyle = ''): self
     {
@@ -515,7 +496,7 @@ class FormHelper
 
         $this->columns[$lastIndex]['conditionalStyling'] = [
             'conditions' => $styleConditions,
-            'default' => $defaultStyle
+            'default' => $defaultStyle,
         ];
 
         return $this;
@@ -524,10 +505,10 @@ class FormHelper
     /**
      * Create an advanced styling condition array
      *
-     * @param StylingOperator $operator The comparison operator
-     * @param string $classes The CSS classes to apply
-     * @param mixed $value The value to compare against (optional for some operators)
-     * @param array<string, mixed> $params Additional parameters (min, max for between, array for in_array, etc.)
+     * @param  StylingOperator  $operator  The comparison operator
+     * @param  string  $classes  The CSS classes to apply
+     * @param  mixed  $value  The value to compare against (optional for some operators)
+     * @param  array<string, mixed>  $params  Additional parameters (min, max for between, array for in_array, etc.)
      * @return array{operator: string, value?: mixed, classes: string, min?: mixed, max?: mixed, array?: array, date_format?: string}
      */
     public static function createCondition(
@@ -538,17 +519,17 @@ class FormHelper
     ): array {
         $condition = [
             'operator' => $operator->value,
-            'classes' => $classes
+            'classes' => $classes,
         ];
 
         // Add value for operators that need it
-        if (!in_array($operator, [
+        if (! in_array($operator, [
             StylingOperator::EXISTS,
             StylingOperator::NOT_EXISTS,
             StylingOperator::IS_NUMERIC,
             StylingOperator::IS_NOT_NUMERIC,
             StylingOperator::IS_EMPTY_ARRAY,
-            StylingOperator::HAS_ITEMS
+            StylingOperator::HAS_ITEMS,
         ])) {
             $condition['value'] = $value;
         }
@@ -564,11 +545,11 @@ class FormHelper
     /**
      * Create a row styling condition with field key
      *
-     * @param string $fieldKey The field key to check
-     * @param StylingOperator $operator The comparison operator
-     * @param string $classes The CSS classes to apply
-     * @param mixed $value The value to compare against (optional for some operators)
-     * @param array<string, mixed> $params Additional parameters
+     * @param  string  $fieldKey  The field key to check
+     * @param  StylingOperator  $operator  The comparison operator
+     * @param  string  $classes  The CSS classes to apply
+     * @param  mixed  $value  The value to compare against (optional for some operators)
+     * @param  array<string, mixed>  $params  Additional parameters
      * @return array{field: string, operator: string, value?: mixed, classes: string, min?: mixed, max?: mixed, array?: array, date_format?: string}
      */
     public static function createRowCondition(
@@ -587,9 +568,8 @@ class FormHelper
     /**
      * Add advanced conditional styling with operators
      *
-     * @param array<array{operator: string, value?: mixed, classes: string, min?: mixed, max?: mixed, array?: array}> $conditions Array of condition arrays
-     * @param string $defaultStyle Default style when no condition matches
-     * @return self
+     * @param  array<array{operator: string, value?: mixed, classes: string, min?: mixed, max?: mixed, array?: array}>  $conditions  Array of condition arrays
+     * @param  string  $defaultStyle  Default style when no condition matches
      */
     public function withAdvancedStyling(array $conditions, string $defaultStyle = ''): self
     {
@@ -600,7 +580,7 @@ class FormHelper
 
         $this->columns[$lastIndex]['advancedStyling'] = [
             'conditions' => $conditions,
-            'default' => $defaultStyle
+            'default' => $defaultStyle,
         ];
 
         return $this;
@@ -609,17 +589,16 @@ class FormHelper
     /**
      * Add row-level conditional styling (simple value => class mapping)
      *
-     * @param string $fieldKey The field key to check for styling conditions
-     * @param array<string, string> $styleConditions Array of value => class mappings
-     * @param string $defaultStyle Default style when no condition matches
-     * @return self
+     * @param  string  $fieldKey  The field key to check for styling conditions
+     * @param  array<string, string>  $styleConditions  Array of value => class mappings
+     * @param  string  $defaultStyle  Default style when no condition matches
      */
     public function withRowConditionalStyling(string $fieldKey, array $styleConditions, string $defaultStyle = ''): self
     {
         $this->rowStyling['conditionalStyling'] = [
             'field' => $fieldKey,
             'conditions' => $styleConditions,
-            'default' => $defaultStyle
+            'default' => $defaultStyle,
         ];
 
         return $this;
@@ -628,15 +607,14 @@ class FormHelper
     /**
      * Add advanced row-level styling with operators
      *
-     * @param array<array{field: string, operator: string, value?: mixed, classes: string, min?: mixed, max?: mixed, array?: array}> $conditions Array of condition arrays with field keys
-     * @param string $defaultStyle Default style when no condition matches
-     * @return self
+     * @param  array<array{field: string, operator: string, value?: mixed, classes: string, min?: mixed, max?: mixed, array?: array}>  $conditions  Array of condition arrays with field keys
+     * @param  string  $defaultStyle  Default style when no condition matches
      */
     public function withAdvancedRowStyling(array $conditions, string $defaultStyle = ''): self
     {
         $this->rowStyling['advancedStyling'] = [
             'conditions' => $conditions,
-            'default' => $defaultStyle
+            'default' => $defaultStyle,
         ];
 
         return $this;
@@ -652,7 +630,7 @@ class FormHelper
     ): self {
         return $this->withAdvancedRowStyling([
             self::createRowCondition($fieldKey, StylingOperator::EXISTS, $existsClasses),
-            self::createRowCondition($fieldKey, StylingOperator::NOT_EXISTS, $notExistsClasses)
+            self::createRowCondition($fieldKey, StylingOperator::NOT_EXISTS, $notExistsClasses),
         ]);
     }
 
@@ -731,7 +709,7 @@ class FormHelper
         int $oldDays = 30,
         int $recentDays = 7
     ): self {
-        $now = new \DateTime();
+        $now = new \DateTime;
         $recent = clone $now;
         $recent->modify("-{$recentDays} days");
         $old = clone $now;
@@ -752,16 +730,14 @@ class FormHelper
     ): self {
         return $this->withAdvancedStyling([
             self::createCondition(StylingOperator::EXISTS, $existsClasses),
-            self::createCondition(StylingOperator::NOT_EXISTS, $notExistsClasses)
+            self::createCondition(StylingOperator::NOT_EXISTS, $notExistsClasses),
         ]);
     }
 
     /**
      * Helper method for numeric range styling
      *
-     * @param array<array{min?: float, max?: float, classes: string}> $ranges
-     * @param string $defaultStyle
-     * @return self
+     * @param  array<array{min?: float, max?: float, classes: string}>  $ranges
      */
     public function withNumericRangeStyling(array $ranges, string $defaultStyle = ''): self
     {
@@ -795,10 +771,7 @@ class FormHelper
     /**
      * Helper method for array-based styling
      *
-     * @param array<mixed> $inArrayValues
-     * @param string $inClasses
-     * @param string $outClasses
-     * @return self
+     * @param  array<mixed>  $inArrayValues
      */
     public function withArrayStyling(array $inArrayValues, string $inClasses, string $outClasses = ''): self
     {
@@ -809,7 +782,7 @@ class FormHelper
                 null,
                 ['array' => $inArrayValues]
             ),
-            self::createCondition(StylingOperator::NOT_IN_ARRAY, $outClasses)
+            self::createCondition(StylingOperator::NOT_IN_ARRAY, $outClasses),
         ]);
     }
 
@@ -843,8 +816,7 @@ class FormHelper
     /**
      * Add status badge styling (common use case)
      *
-     * @param array<string, string> $statusStyles Optional custom status styles
-     * @return self
+     * @param  array<string, string>  $statusStyles  Optional custom status styles
      */
     public function withStatusStyling(array $statusStyles = []): self
     {
@@ -896,8 +868,7 @@ class FormHelper
     /**
      * Add severity/priority styling
      *
-     * @param array<string, string> $severityStyles Optional custom severity styles
-     * @return self
+     * @param  array<string, string>  $severityStyles  Optional custom severity styles
      */
     public function withSeverityStyling(array $severityStyles = []): self
     {
@@ -931,7 +902,7 @@ class FormHelper
             self::createCondition(StylingOperator::GREATER_THAN_EQUAL, 'bg-red-500 text-white border-red-600', 7.0),
             self::createCondition(StylingOperator::GREATER_THAN_EQUAL, 'bg-yellow-500 text-black border-yellow-600', 4.0),
             self::createCondition(StylingOperator::GREATER_THAN, 'bg-green-500 text-white border-green-600', 0),
-            self::createCondition(StylingOperator::EQUALS, 'bg-gray-200 text-gray-800 border-gray-300', 0)
+            self::createCondition(StylingOperator::EQUALS, 'bg-gray-200 text-gray-800 border-gray-300', 0),
         ], 'bg-gray-200 text-gray-800 border-gray-300');
     }
 
@@ -945,7 +916,7 @@ class FormHelper
             self::createCondition(StylingOperator::GREATER_THAN_EQUAL, 'bg-green-500 text-white border-green-600', 70),
             self::createCondition(StylingOperator::GREATER_THAN_EQUAL, 'bg-yellow-500 text-black border-yellow-600', 50),
             self::createCondition(StylingOperator::GREATER_THAN_EQUAL, 'bg-orange-500 text-white border-orange-600', 30),
-            self::createCondition(StylingOperator::LESS_THAN, 'bg-red-500 text-white border-red-600', 30)
+            self::createCondition(StylingOperator::LESS_THAN, 'bg-red-500 text-white border-red-600', 30),
         ], 'bg-gray-200 text-gray-800 border-gray-300');
     }
 
@@ -992,7 +963,7 @@ class FormHelper
                 foreach (explode('|', $rules) as $rule) {
                     $processedRules[] = [
                         'type' => 'rule',
-                        'value' => trim($rule)
+                        'value' => trim($rule),
                     ];
                 }
             }
@@ -1016,22 +987,23 @@ class FormHelper
             'rules' => $processedRules,
             'messages' => $messages,
             'filterable' => $filterable,
-            'filter_options' => $filterOptions
+            'filter_options' => $filterOptions,
         ];
 
-        if (!empty($options)) {
+        if (! empty($options)) {
             $field['options'] = $options;
         }
 
         // Add conditional styling if provided
-        if (!empty($conditionalStyling)) {
+        if (! empty($conditionalStyling)) {
             $field['conditionalStyling'] = [
                 'conditions' => $conditionalStyling,
-                'default' => $defaultStyle
+                'default' => $defaultStyle,
             ];
         }
 
         $this->columns[] = $field;
+
         return $this;
     }
 
@@ -1043,6 +1015,7 @@ class FormHelper
         string $key = 'id'
     ): self {
         $this->defaultIdKey = $key;
+
         return $this->addField(
             label: $label,
             key: $key,
@@ -1090,6 +1063,7 @@ class FormHelper
     public function clearDefaultFilters(): self
     {
         $this->defaultFilters = [];
+
         return $this;
     }
 
@@ -1099,6 +1073,7 @@ class FormHelper
     public function clearAdvancedFilters(): self
     {
         $this->advancedFilters = [];
+
         return $this;
     }
 
@@ -1109,6 +1084,7 @@ class FormHelper
     {
         $this->defaultFilters = [];
         $this->advancedFilters = [];
+
         return $this;
     }
 
@@ -1122,6 +1098,7 @@ class FormHelper
         $this->rowStyling = [];
         $this->defaultFilters = [];
         $this->advancedFilters = [];
+
         return $this;
     }
 
@@ -1130,7 +1107,7 @@ class FormHelper
      */
     public function getCreatableFields(): array
     {
-        return array_filter($this->columns, fn($field) => $field['canCreate'] ?? false);
+        return array_filter($this->columns, fn ($field) => $field['canCreate'] ?? false);
     }
 
     /**
@@ -1138,7 +1115,7 @@ class FormHelper
      */
     public function getEditableFields(): array
     {
-        return array_filter($this->columns, fn($field) => $field['canEdit'] ?? false);
+        return array_filter($this->columns, fn ($field) => $field['canEdit'] ?? false);
     }
 
     /**
@@ -1146,7 +1123,7 @@ class FormHelper
      */
     public function getSortableFields(): array
     {
-        return array_filter($this->columns, fn($field) => $field['sortable'] ?? false);
+        return array_filter($this->columns, fn ($field) => $field['sortable'] ?? false);
     }
 
     /**
@@ -1172,10 +1149,10 @@ class FormHelper
     public function setEndpointsFromRoutes(string $prefix): self
     {
         return $this->setEndpoints(
-            listEndpoint: route($prefix . '.api.generic.table'),
-            deleteEndpoint: route($prefix . '.api.generic.table.delete'),
-            createEndpoint: route($prefix . '.api.generic.table.create'),
-            editEndpoint: route($prefix . '.api.generic.table.update')
+            listEndpoint: route($prefix.'.api.generic.table'),
+            deleteEndpoint: route($prefix.'.api.generic.table.delete'),
+            createEndpoint: route($prefix.'.api.generic.table.create'),
+            editEndpoint: route($prefix.'.api.generic.table.update')
         );
     }
 
@@ -1184,11 +1161,12 @@ class FormHelper
      */
     public function setModel(string $modelClass): self
     {
-        if (!class_exists($modelClass)) {
+        if (! class_exists($modelClass)) {
             throw new \InvalidArgumentException("Model class {$modelClass} does not exist");
         }
 
         $this->config['model'] = encrypt($modelClass);
+
         return $this;
     }
 
@@ -1228,6 +1206,7 @@ class FormHelper
     public function setCustomEditRoute(string $route): self
     {
         $this->config['custom_edit_route'] = $route;
+
         return $this;
     }
 
@@ -1237,6 +1216,7 @@ class FormHelper
     public function setCustomCreateRoute(string $route): self
     {
         $this->config['custom_create_route'] = $route;
+
         return $this;
     }
 
@@ -1247,6 +1227,7 @@ class FormHelper
     {
         $this->config['custom_point_route'] = $route;
         $this->config['custom_action_name'] = $customActionName;
+
         return $this;
     }
 
@@ -1256,6 +1237,7 @@ class FormHelper
     public function disableDelete(): self
     {
         $this->config['disableDelete'] = true;
+
         return $this;
     }
 

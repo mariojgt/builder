@@ -2,9 +2,6 @@
 
 namespace Mariojgt\Builder\Trailt;
 
-/**
- *
- */
 trait EnumToArray
 {
     public static function names(): array
