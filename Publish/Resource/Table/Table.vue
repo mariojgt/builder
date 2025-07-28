@@ -11,15 +11,33 @@
                         <TableIcon class="w-8 h-8 text-primary" />
                         {{ props.tableTitle }}
                     </h1>
+                    <!-- subheader -->
+                    <p v-if="props.subheader" class="text-base-content/70 text-sm mt-1">
+                        {{ props.subheader}}
+                    </p>
                     <p v-if="totalItems" class="text-base-content/70 text-sm mt-1 flex items-center gap-2">
                         Showing {{ totalItems.toLocaleString() }} items
                         <!-- Density Indicators -->
                         <span v-if="superCompactMode" class="badge badge-accent badge-xs">Super Compact</span>
                         <span v-else-if="compactMode" class="badge badge-secondary badge-xs">Compact</span>
                         <span v-else class="badge badge-ghost badge-xs">Standard</span>
-                        <!-- ✨ NEW: Advanced Filters Indicator -->
-                        <span v-if="hasAdvancedFilters" class="badge badge-info badge-xs" title="Advanced filters active">
-                            Advanced
+
+                        <!-- ✨ NEW: Model Scopes Indicator -->
+                        <span v-if="hasModelScopes" class="badge badge-success badge-xs"
+                              :title="`${props.modelScopes.length} model scope(s) active: ${getScopesTitle}`">
+                            Scoped ({{ props.modelScopes.length }})
+                        </span>
+
+                        <!-- ✨ Advanced Filters Indicator -->
+                        <span v-if="props.advancedFilters && props.advancedFilters.length > 0"
+                              class="badge badge-info badge-xs"
+                              :title="`${props.advancedFilters.length} advanced filter(s) active`">
+                            Advanced ({{ props.advancedFilters.length }})
+                        </span>
+
+                        <!-- Active Filters Indicator -->
+                        <span v-if="hasNonDefaultFilters" class="badge badge-warning badge-xs" title="User filters active">
+                            Filtered
                         </span>
                     </p>
                 </div>
@@ -170,20 +188,20 @@
                                         <div :class="getActionsContainerClasses()" @click.stop>
                                             <!-- Enhanced Action Buttons - Always Visible -->
                                             <!-- Edit Action -->
-                                            <template v-if="!custom_edit_route">
+                                            <template v-if="!props.custom_edit_route">
                                                 <edit
                                                     :columns="displayColumns"
-                                                    :endpoint="endpointEdit"
-                                                    :model="model"
+                                                    :endpoint="props.endpointEdit"
+                                                    :model="props.model"
                                                     :modelValue="item"
                                                     :id="item[props.defaultIdKey]"
-                                                    :permission="permission"
+                                                    :permission="props.permission"
                                                     @onEdit="refreshData"
                                                     :class="getEnhancedActionButtonClasses('edit')"
                                                 />
                                             </template>
                                             <template v-else>
-                                                <Link :href="custom_edit_route + item.id"
+                                                <Link :href="props.custom_edit_route + item.id"
                                                     :class="getEnhancedActionButtonClasses('edit')"
                                                     :title="superCompactMode ? 'Edit' : ''"
                                                     @click.stop
@@ -194,14 +212,14 @@
                                             </template>
 
                                             <!-- Custom Action -->
-                                            <template v-if="custom_point_route">
-                                                <Link :href="custom_point_route + item.id"
+                                            <template v-if="props.custom_point_route">
+                                                <Link :href="props.custom_point_route + item.id"
                                                     :class="getEnhancedActionButtonClasses('custom')"
-                                                    :title="superCompactMode ? custom_action_name : ''"
+                                                    :title="superCompactMode ? props.custom_action_name : ''"
                                                     @click.stop
                                                 >
                                                     <component :is="getCustomActionIcon()" :class="getActionIconSize()" />
-                                                    <span v-if="!superCompactMode" class="hidden sm:inline">{{ custom_action_name }}</span>
+                                                    <span v-if="!superCompactMode" class="hidden sm:inline">{{ props.custom_action_name }}</span>
                                                 </Link>
                                             </template>
 
@@ -209,9 +227,9 @@
                                             <delete
                                                 v-if="!props.disableDelete"
                                                 :id="item[props.defaultIdKey]"
-                                                :endpoint="endpointDelete"
-                                                :model="model"
-                                                :permission="permission"
+                                                :endpoint="props.endpointDelete"
+                                                :model="props.model"
+                                                :permission="props.permission"
                                                 @onDelete="refreshData"
                                                 :class="getEnhancedActionButtonClasses('delete')"
                                             />
@@ -241,20 +259,20 @@
                             <div :class="getListActionsClasses()" @click.stop>
                                 <!-- Enhanced List Actions - Always Visible -->
                                 <!-- Edit Action -->
-                                <template v-if="!custom_edit_route">
+                                <template v-if="!props.custom_edit_route">
                                     <edit
                                         :columns="displayColumns"
-                                        :endpoint="endpointEdit"
-                                        :model="model"
+                                        :endpoint="props.endpointEdit"
+                                        :model="props.model"
                                         :modelValue="item"
                                         :id="item[props.defaultIdKey]"
-                                        :permission="permission"
+                                        :permission="props.permission"
                                         @onEdit="refreshData"
                                         :class="getEnhancedActionButtonClasses('edit')"
                                     />
                                 </template>
                                 <template v-else>
-                                    <Link :href="custom_edit_route + item.id"
+                                    <Link :href="props.custom_edit_route + item.id"
                                         :class="getEnhancedActionButtonClasses('edit')"
                                         @click.stop
                                     >
@@ -264,13 +282,13 @@
                                 </template>
 
                                 <!-- Custom Action -->
-                                <template v-if="custom_point_route">
-                                    <Link :href="custom_point_route + item.id"
+                                <template v-if="props.custom_point_route">
+                                    <Link :href="props.custom_point_route + item.id"
                                         :class="getEnhancedActionButtonClasses('custom')"
                                         @click.stop
                                     >
                                         <component :is="getCustomActionIcon()" :class="getActionIconSize()" />
-                                        <span v-if="!superCompactMode" class="hidden sm:inline">{{ custom_action_name }}</span>
+                                        <span v-if="!superCompactMode" class="hidden sm:inline">{{ props.custom_action_name }}</span>
                                     </Link>
                                 </template>
 
@@ -278,9 +296,9 @@
                                 <delete
                                     v-if="!props.disableDelete"
                                     :id="item[props.defaultIdKey]"
-                                    :endpoint="endpointDelete"
-                                    :model="model"
-                                    :permission="permission"
+                                    :endpoint="props.endpointDelete"
+                                    :model="props.model"
+                                    :permission="props.permission"
                                     @onDelete="refreshData"
                                     :class="getEnhancedActionButtonClasses('delete')"
                                 />
@@ -292,7 +310,7 @@
                 <!-- Pagination -->
                 <div :class="getPaginationMargin()">
                     <table-pagination v-if="tableData.length" @onPagination="handlePageChange"
-                        :paginationInfo="paginationInfo" :endpoint="endpoint" />
+                        :paginationInfo="paginationInfo" :endpoint="props.endpoint" />
                 </div>
             </div>
         </div>
@@ -327,9 +345,10 @@ import AdvancedFilter from './components/filter/advancedFilter.vue';
 import ColumnVisibilityManager from './components/filter/ColumnVisibilityManager.vue';
 import ExportData from './components/filter/ExportData.vue';
 
-// Props
+// ✨ ENHANCED: Props with model scopes support
 const props = defineProps({
     tableTitle: { type: String, default: 'Table' },
+    subheader: { type: String, default: null },
     columns: { type: Array, default: () => [] },
     model: { type: String, required: true },
     endpoint: { type: String, required: true },
@@ -345,7 +364,9 @@ const props = defineProps({
     rowStyling: { type: Object, default: () => ({}) },
     disableDelete: { type: Boolean, default: false },
     defaultFilters: { type: Object, default: () => ({}) },
-    advancedFilters: { type: Array, default: () => [] }
+    advancedFilters: { type: Array, default: () => [] },
+    // ✨ NEW: Model scopes prop
+    modelScopes: { type: Array, default: () => [] }
 });
 
 // State
@@ -371,15 +392,21 @@ const compactMode = ref(true);
 const superCompactMode = ref(false);
 const columnOrder = ref<string[]>([]);
 
-// ✨ NEW: Filter state management
+// ✨ Filter state management
 const activeFilters = ref({});
 
 // Computed
 const totalItems = computed(() => paginationInfo.value.total);
 
-// ✨ NEW: Check if advanced filters are active
-const hasAdvancedFilters = computed(() => {
-    return props.advancedFilters && props.advancedFilters.length > 0;
+// ✨ NEW: Check if model scopes are active
+const hasModelScopes = computed(() => {
+    return props.modelScopes && props.modelScopes.length > 0;
+});
+
+// ✨ NEW: Get scopes title for tooltip
+const getScopesTitle = computed(() => {
+    if (!props.modelScopes || props.modelScopes.length === 0) return '';
+    return props.modelScopes.map(scope => scope.name).join(', ');
 });
 
 const hasActiveFilters = computed(() => {
@@ -400,7 +427,7 @@ const hasActiveFilters = computed(() => {
         Object.keys(currentFilters).length > 0;
 });
 
-// ✨ NEW: Check if current filters differ from defaults
+// ✨ Check if current filters differ from defaults
 const hasNonDefaultFilters = computed(() => {
     const currentFilters = { ...activeFilters.value };
     const defaultFilters = { ...props.defaultFilters };
@@ -441,7 +468,7 @@ const displayColumns = computed(() => {
     return orderedColumns.filter(column => !hiddenColumns.value.has(column.key));
 });
 
-// ✨ NEW METHODS: Enhanced row interaction
+// ✨ Enhanced row interaction
 function handleRowClick(item: any, event?: Event) {
     // Check if the click came from a link, button, or other interactive element
     if (event) {
@@ -481,7 +508,7 @@ function handleColumnClick(event: Event, column: any, item: any) {
     handleRowClick(item, event);
 }
 
-// ✨ NEW: Enhanced column width management
+// ✨ Enhanced column width management
 function getColumnStyle(column: any, index: number): string {
     // Auto-expand columns to use full width on larger screens
     const styles: string[] = [];
@@ -507,7 +534,7 @@ function getColumnStyle(column: any, index: number): string {
     return styles.join(' ');
 }
 
-// ✨ NEW: Enhanced action button styling - Always visible
+// ✨ Enhanced action button styling - Always visible
 function getEnhancedActionButtonClasses(type: 'edit' | 'custom' | 'delete'): string {
     const baseClasses = 'btn transition-all duration-200 shadow-md hover:shadow-lg';
     let typeClasses = '';
@@ -655,19 +682,6 @@ function getActionsContainerClasses(): string {
     if (superCompactMode.value) return `${baseClasses} gap-1`;
     if (compactMode.value) return `${baseClasses} gap-2`;
     return `${baseClasses} gap-3`;
-}
-
-function getActionButtonClasses(type: 'edit' | 'custom'): string {
-    const baseClasses = 'btn gap-1 transition-all duration-200';
-    const typeClasses = type === 'edit' ? 'btn-primary' : 'btn-secondary';
-
-    if (superCompactMode.value) {
-        return `${baseClasses} ${typeClasses} btn-xs p-1`;
-    }
-    if (compactMode.value) {
-        return `${baseClasses} ${typeClasses} btn-xs`;
-    }
-    return `${baseClasses} ${typeClasses} btn-sm`;
 }
 
 function getActionIconSize(): string {
@@ -849,12 +863,12 @@ function getCustomActionIcon() {
 
 const emit = defineEmits(['tableDataLoaded']);
 
-// ✨ ENHANCED: Fetch data with advanced filters support
+// ✨ ENHANCED: Fetch data with model scopes and advanced filters support
 const fetchData = async (endpoint = props.endpoint) => {
     try {
         isLoading.value = true;
 
-        // ✨ NEW: Build request payload with advanced filters
+        // ✨ ENHANCED: Build request payload with model scopes support
         const requestPayload = {
             model: props.model,
             columns: props.columns,
@@ -866,9 +880,16 @@ const fetchData = async (endpoint = props.endpoint) => {
             permission: props.permission
         };
 
-        // ✨ NEW: Add advanced filters if they exist
+        // ✨ NEW: Add model scopes if they exist
+        if (props.modelScopes && props.modelScopes.length > 0) {
+            requestPayload.modelScopes = props.modelScopes;
+            console.log('Sending model scopes:', props.modelScopes);
+        }
+
+        // ✨ EXISTING: Add advanced filters if they exist
         if (props.advancedFilters && props.advancedFilters.length > 0) {
             requestPayload.advancedFilters = props.advancedFilters;
+            console.log('Sending advanced filters:', props.advancedFilters);
         }
 
         const response = await axios.post(endpoint, requestPayload);
@@ -882,17 +903,23 @@ const fetchData = async (endpoint = props.endpoint) => {
             links: response.data.links
         };
 
-        // ADD THIS LINE - emit the table data to parent
+        // Emit the table data to parent
         emit('tableDataLoaded', tableData.value);
     } catch (error: any) {
+        console.error('Fetch data error:', error);
+
         if (error.response?.data?.errors) {
             Object.values(error.response.data.errors).forEach((errorMessages: any) => {
                 if (Array.isArray(errorMessages)) {
                     errorMessages.forEach(msg => {
                         startWindToast('error', msg);
                     });
+                } else {
+                    startWindToast('error', errorMessages);
                 }
             });
+        } else if (error.response?.data?.message) {
+            startWindToast('error', error.response.data.message);
         } else {
             startWindToast('error', 'Failed to fetch data');
         }
@@ -940,6 +967,9 @@ const handleSearch = (value: string) => {
     if (value && value.length > 2) {
         search.value = value;
         fetchData();
+    } else if (!value) {
+        search.value = null;
+        fetchData();
     }
 };
 
@@ -976,11 +1006,21 @@ const updateColumnOrder = (newOrder: string[]) => {
     columnOrder.value = newOrder;
 };
 
-// ✨ NEW: Initialize component with default filters and advanced filters
+// ✨ ENHANCED: Initialize component with default filters, advanced filters, and model scopes
 onMounted(() => {
     // Merge default filters with any existing active filters
     if (props.defaultFilters && Object.keys(props.defaultFilters).length > 0) {
         activeFilters.value = { ...props.defaultFilters, ...activeFilters.value };
+        console.log('Default filters loaded:', props.defaultFilters);
+    }
+
+    // ✨ NEW: Log model scopes for debugging
+    if (props.modelScopes && props.modelScopes.length > 0) {
+        console.log('Model scopes loaded:', props.modelScopes);
+        console.log('Model scopes details:', props.modelScopes.map(scope => ({
+            name: scope.name,
+            parameters: scope.parameters || []
+        })));
     }
 
     // Log advanced filters for debugging
@@ -1070,5 +1110,55 @@ onMounted(() => {
 /* Enhanced card hover in list view */
 .cursor-pointer:hover {
     border-color: hsl(var(--primary) / 0.3);
+}
+
+/* Sort indicator styles */
+.sort-indicator {
+    transition: all 0.2s ease-in-out;
+    min-width: 16px;
+    text-align: center;
+    display: inline-block;
+}
+
+/* Enhanced badge styling */
+.badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+}
+
+/* Improved action button spacing and alignment */
+.actions-container {
+    min-width: fit-content;
+}
+
+/* Better responsive behavior */
+@media (max-width: 640px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+
+    .actions-container {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
+
+/* Loading spinner customization */
+.loading-spinner {
+    border-color: hsl(var(--primary));
+    border-top-color: transparent;
+}
+
+/* Enhanced empty state styling */
+.empty-state {
+    min-height: 300px;
+}
+
+/* Better focus management */
+.table th:focus-within,
+.table td:focus-within {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: -2px;
 }
 </style>

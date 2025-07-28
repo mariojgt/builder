@@ -2,20 +2,21 @@
 
 namespace Mariojgt\Builder\Controllers;
 
-use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\ValidationException;
 use Mariojgt\Builder\Helpers\BuilderHelper;
+use Illuminate\Validation\ValidationException;
 
 class TableBuilderApiController extends Controller
 {
     /**
      * Handle data display to the table with AUTOMATIC relationship detection, custom attributes support,
-     * and advanced filters support.
+     * advanced filters support, and MODEL SCOPES support.
      *
+     * @param Request $request
      * @return array
      */
     public function index(Request $request)
@@ -25,13 +26,13 @@ class TableBuilderApiController extends Controller
             'columns' => 'required',
         ]);
 
-        $builderHelper = new BuilderHelper;
-        if (! empty($request->permission)) {
+        $builderHelper = new BuilderHelper();
+        if (!empty($request->permission)) {
             $builderHelper->permissionCheck($request, 'index');
         }
 
         $model = decrypt($request->model);
-        $model = new $model;
+        $model = new $model();
         $rawColumns = collect($request->columns);
 
         // 🚀 AUTO-DETECT RELATIONSHIPS from dot notation
@@ -45,7 +46,7 @@ class TableBuilderApiController extends Controller
 
         // Add timestamps if model has them
         $hasTimestamps = $model->timestamps;
-        if ($hasTimestamps && ! $columns->contains('updated_at')) {
+        if ($hasTimestamps && !$columns->contains('updated_at')) {
             $columns->push('updated_at');
         }
 
@@ -54,27 +55,32 @@ class TableBuilderApiController extends Controller
 
         // Start query with AUTO-LOADED relationships
         $query = $model->query();
-        if (! empty($relationships)) {
+        if (!empty($relationships)) {
             $query->with($relationships);
         }
 
-        // ✨ NEW: Apply advanced filters FIRST (these are part of the table configuration)
-        if ($request->has('advancedFilters') && ! empty($request->advancedFilters)) {
+        // ✨ NEW: Apply model scopes FIRST (these are part of the table configuration)
+        if ($request->has('modelScopes') && !empty($request->modelScopes)) {
+            $this->applyModelScopes($query, $request->modelScopes);
+        }
+
+        // ✨ Apply advanced filters SECOND (these are part of the table configuration)
+        if ($request->has('advancedFilters') && !empty($request->advancedFilters)) {
             $this->applyAdvancedFilters($query, $request->advancedFilters, $rawColumns, $customAttributes);
         }
 
         // Handle regular filters (with relationship support, excluding custom attributes)
-        if ($request->has('filters') && ! empty($request->filters)) {
+        if ($request->has('filters') && !empty($request->filters)) {
             $this->applyFilters($query, $request->filters, $rawColumns, $customAttributes);
         }
 
         // Handle search (with relationship support, excluding custom attributes)
-        if ($request->has('search') && ! empty($request->search)) {
+        if ($request->has('search') && !empty($request->search)) {
             $this->applySearch($query, $request->search, $rawColumns, $customAttributes);
         }
 
         // Handle sorting with relationship support (excluding custom attributes)
-        if (! empty($request->sort)) {
+        if (!empty($request->sort)) {
             $this->applySorting($query, $request->sort, $request->direction ?? 'asc', $rawColumns, $customAttributes);
         }
 
@@ -85,7 +91,6 @@ class TableBuilderApiController extends Controller
         $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
 
         $data = $this->pruneUnrequestedColumns($data, $rawColumns);
-
         return [
             'data' => $data,
             'current_page' => $modelPaginated->currentPage(),
@@ -104,13 +109,49 @@ class TableBuilderApiController extends Controller
     }
 
     /**
+     * ✨ NEW: Apply model scopes to the query
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array $modelScopes
+     * @return void
+     */
+    private function applyModelScopes($query, $modelScopes)
+    {
+        foreach ($modelScopes as $scope) {
+            $scopeName = $scope['name'];
+            $parameters = $scope['parameters'] ?? [];
+
+            try {
+                // Check if the scope method exists on the model
+                $model = $query->getModel();
+                $scopeMethod = 'scope' . ucfirst($scopeName);
+
+                if (method_exists($model, $scopeMethod)) {
+                    // Apply the scope with parameters
+                    if (empty($parameters)) {
+                        $query->$scopeName();
+                    } else {
+                        $query->$scopeName(...$parameters);
+                    }
+
+                    \Log::info("Applied scope '{$scopeName}' with parameters: " . json_encode($parameters));
+                } else {
+                    \Log::warning("Scope method '{$scopeMethod}' does not exist on model " . get_class($model));
+                }
+            } catch (\Exception $e) {
+                \Log::error("Failed to apply scope '{$scopeName}': " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Helper to prune a collection of data items to include only explicitly requested columns.
      * This iterates through the items and removes fields not present in $rawColumns,
      * maintaining dot-notation as flat keys and handling fallback values for both
      * the main column key and the url_field key.
      *
-     * @param  \Illuminate\Support\Collection  $collection  The collection of data items (after columnReplacements)
-     * @param  \Illuminate\Support\Collection  $rawColumns  The collection of raw column definitions from the request
+     * @param \Illuminate\Support\Collection $collection The collection of data items (after columnReplacements)
+     * @param \Illuminate\Support\Collection $rawColumns The collection of raw column definitions from the request
      * @return \Illuminate\Support\Collection A new collection with pruned data
      */
     private function pruneUnrequestedColumns($collection, $rawColumns)
@@ -161,7 +202,7 @@ class TableBuilderApiController extends Controller
                         $urlFieldValue = data_get($item, $urlFieldKey);
                     }
                     // TODO: IMPROVE THIS LOGIC
-                    $formattedKey = $columnDefinition['key'].'_link';
+                    $formattedKey = $columnDefinition['key'] . '_link';
                     $prunedItem[$formattedKey] = [
                         'url' => $urlFieldValue,
                         'target' => $columnDefinition['link']['target'] ?? '_blank',
@@ -178,10 +219,10 @@ class TableBuilderApiController extends Controller
     /**
      * ✨ NEW: Apply advanced filters with complex operators
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  array  $advancedFilters
-     * @param  \Illuminate\Support\Collection  $rawColumns
-     * @param  array  $customAttributes
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param array $advancedFilters
+     * @param \Illuminate\Support\Collection $rawColumns
+     * @param array $customAttributes
      * @return void
      */
     private function applyAdvancedFilters($query, $advancedFilters, $rawColumns, $customAttributes = [])
@@ -195,7 +236,6 @@ class TableBuilderApiController extends Controller
             // Skip custom attributes - they can't be filtered in the database
             if (in_array($field, $customAttributes)) {
                 \Log::info("Skipping advanced filter for custom attribute: {$field}");
-
                 continue;
             }
 
@@ -208,7 +248,7 @@ class TableBuilderApiController extends Controller
                     $this->applyAdvancedDirectFilter($query, $field, $operator, $value, $options);
                 }
             } catch (\Exception $e) {
-                \Log::warning("Advanced filter failed for field '{$field}' with operator '{$operator}': ".$e->getMessage());
+                \Log::warning("Advanced filter failed for field '{$field}' with operator '{$operator}': " . $e->getMessage());
             }
         }
     }
@@ -216,24 +256,24 @@ class TableBuilderApiController extends Controller
     /**
      * ✨ NEW: Apply advanced filters on direct model fields
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  string  $field
-     * @param  string  $operator
-     * @param  mixed  $value
-     * @param  array  $options
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $field
+     * @param string $operator
+     * @param mixed $value
+     * @param array $options
      * @return void
      */
     private function applyAdvancedDirectFilter($query, $field, $operator, $value, $options)
     {
         switch ($operator) {
             case 'whereIn':
-                if (is_array($value) && ! empty($value)) {
+                if (is_array($value) && !empty($value)) {
                     $query->whereIn($field, $value);
                 }
                 break;
 
             case 'whereNotIn':
-                if (is_array($value) && ! empty($value)) {
+                if (is_array($value) && !empty($value)) {
                     $query->whereNotIn($field, $value);
                 }
                 break;
@@ -332,11 +372,11 @@ class TableBuilderApiController extends Controller
     /**
      * ✨ NEW: Apply advanced filters on relationship fields
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  string  $field
-     * @param  string  $operator
-     * @param  mixed  $value
-     * @param  array  $options
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $field
+     * @param string $operator
+     * @param mixed $value
+     * @param array $options
      * @return void
      */
     private function applyAdvancedRelationshipFilter($query, $field, $operator, $value, $options)
@@ -352,7 +392,7 @@ class TableBuilderApiController extends Controller
                     $query->whereHas($relationPath, $options['callback']);
                 } else {
                     // Apply the filter on the relationship's attribute
-                    $query->whereHas($relationPath, function ($subQuery) use ($attribute, $value, $options): void {
+                    $query->whereHas($relationPath, function ($subQuery) use ($attribute, $value, $options) {
                         $subOperator = $options['operator'] ?? '=';
                         if ($value !== null) {
                             $subQuery->where($attribute, $subOperator, $value);
@@ -365,7 +405,7 @@ class TableBuilderApiController extends Controller
                 if (isset($options['callback']) && is_callable($options['callback'])) {
                     $query->whereDoesntHave($relationPath, $options['callback']);
                 } else {
-                    $query->whereDoesntHave($relationPath, function ($subQuery) use ($attribute, $value, $options): void {
+                    $query->whereDoesntHave($relationPath, function ($subQuery) use ($attribute, $value, $options) {
                         $subOperator = $options['operator'] ?? '=';
                         if ($value !== null) {
                             $subQuery->where($attribute, $subOperator, $value);
@@ -387,7 +427,7 @@ class TableBuilderApiController extends Controller
             case 'whereDay':
             case 'whereTime':
                 // Apply the advanced filter within the relationship context
-                $query->whereHas($relationPath, function ($subQuery) use ($attribute, $operator, $value, $options): void {
+                $query->whereHas($relationPath, function ($subQuery) use ($attribute, $operator, $value, $options) {
                     $this->applyAdvancedDirectFilter($subQuery, $attribute, $operator, $value, $options);
                 });
                 break;
@@ -424,9 +464,9 @@ class TableBuilderApiController extends Controller
             }
 
             // Check if this is a custom attribute (not in database but accessible on model)
-            if (! in_array($key, $databaseColumns)) {
+            if (!in_array($key, $databaseColumns)) {
                 // Check if the model has an accessor for this attribute
-                $accessorMethod = 'get'.str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $key))).'Attribute';
+                $accessorMethod = 'get' . str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $key))) . 'Attribute';
 
                 if (method_exists($model, $accessorMethod)) {
                     $customAttributes[] = $key;
@@ -485,7 +525,7 @@ class TableBuilderApiController extends Controller
             $parts = explode('.', $key);
             array_pop($parts); // Remove attribute, keep relationship path
 
-            if (! empty($parts)) {
+            if (!empty($parts)) {
                 $relationshipPath = implode('.', $parts);
                 $relationships[] = $relationshipPath;
 
@@ -526,11 +566,10 @@ class TableBuilderApiController extends Controller
                 // If type is not defined, assume it's a regular column
                 return false;
             }
-
             // Exclude special field types
-            return ! in_array($column['type'], ['media', 'pivot_model']);
+            return !in_array($column['type'], ['media', 'pivot_model']);
         })
-            ->pluck('key');
+        ->pluck('key');
     }
 
     /**
@@ -546,28 +585,27 @@ class TableBuilderApiController extends Controller
                 // If type is not defined, assume it's a regular column
                 return false;
             }
-
             return strpos($key, '.') === false &&
                    strpos($key, '|') === false &&
-                   ! in_array($key, $customAttributes) &&
-                   ! in_array($column['type'], ['media', 'pivot_model']);
+                   !in_array($key, $customAttributes) &&
+                   !in_array($column['type'], ['media', 'pivot_model']);
         })
-            ->pluck('key')
-            ->toArray();
+        ->pluck('key')
+        ->toArray();
 
         // Get the model to determine the correct primary key
         $request = request();
         $modelClass = decrypt($request->model);
-        $model = new $modelClass;
+        $model = new $modelClass();
         $primaryKey = $model->getKeyName();
 
         // Always include primary key
-        if (! in_array($primaryKey, $baseColumns)) {
+        if (!in_array($primaryKey, $baseColumns)) {
             array_unshift($baseColumns, $primaryKey);
         }
 
         // If we have relationships, just select all columns to be safe
-        if (! empty($relationships)) {
+        if (!empty($relationships)) {
             return ['*'];
         }
 
@@ -587,19 +625,18 @@ class TableBuilderApiController extends Controller
             // 🚀 SKIP custom attributes - they can't be filtered in the database
             if (in_array($key, $customAttributes)) {
                 \Log::info("Skipping filter for custom attribute: {$key}");
-
                 continue;
             }
 
             $column = $rawColumns->firstWhere('key', $key);
-            if (! $column) {
+            if (!$column) {
                 continue;
             }
 
             // Handle fallback relationships (separated by |)
             if (strpos($key, '|') !== false) {
                 $fallbackKeys = explode('|', $key);
-                $query->where(function ($fallbackQuery) use ($fallbackKeys, $value, $column, $customAttributes): void {
+                $query->where(function ($fallbackQuery) use ($fallbackKeys, $value, $column, $customAttributes) {
                     foreach ($fallbackKeys as $fallbackKey) {
                         $fallbackKey = trim($fallbackKey);
 
@@ -624,10 +661,10 @@ class TableBuilderApiController extends Controller
     {
         $sortableColumns = $rawColumns->filter(function ($column) use ($customAttributes) {
             // Only include sortable columns that are not custom attributes
-            return $column['sortable'] == true && ! in_array($column['key'], $customAttributes);
+            return $column['sortable'] == true && !in_array($column['key'], $customAttributes);
         });
 
-        $query->where(function ($q) use ($search, $sortableColumns, $customAttributes): void {
+        $query->where(function ($q) use ($search, $sortableColumns, $customAttributes) {
             foreach ($sortableColumns as $column) {
                 $key = $column['key'];
 
@@ -665,7 +702,6 @@ class TableBuilderApiController extends Controller
         if (in_array($sort, $customAttributes)) {
             \Log::info("Skipping sort for custom attribute: {$sort}. Sorting by ID instead.");
             $query->orderBy('id', $direction);
-
             return;
         }
 
@@ -677,7 +713,7 @@ class TableBuilderApiController extends Controller
             try {
                 $query->orderBy($sort, $direction);
             } catch (\Exception $e) {
-                \Log::warning("Could not sort by column '{$sort}': ".$e->getMessage().'. Sorting by ID instead.');
+                \Log::warning("Could not sort by column '{$sort}': " . $e->getMessage() . ". Sorting by ID instead.");
                 $query->orderBy('id', $direction);
             }
         }
@@ -712,18 +748,18 @@ class TableBuilderApiController extends Controller
             $relationPath = implode('.', $parts);
 
             try {
-                $query->$methodHas($relationPath, function ($subQuery) use ($attribute, $search): void {
-                    $subQuery->where($attribute, 'like', '%'.$search.'%');
+                $query->$methodHas($relationPath, function ($subQuery) use ($attribute, $search) {
+                    $subQuery->where($attribute, 'like', '%' . $search . '%');
                 });
             } catch (\Exception $e) {
-                \Log::warning("Search failed for relationship '{$relationPath}': ".$e->getMessage());
+                \Log::warning("Search failed for relationship '{$relationPath}': " . $e->getMessage());
             }
         } else {
             // Search in main model
             try {
-                $query->$method($key, 'like', '%'.$search.'%');
+                $query->$method($key, 'like', '%' . $search . '%');
             } catch (\Exception $e) {
-                \Log::warning("Search failed for column '{$key}': ".$e->getMessage());
+                \Log::warning("Search failed for column '{$key}': " . $e->getMessage());
             }
         }
     }
@@ -754,8 +790,8 @@ class TableBuilderApiController extends Controller
                         $mainTable = $model->getTable();
 
                         $query->leftJoin($relatedTable, "{$mainTable}.{$foreignKey}", '=', "{$relatedTable}.{$ownerKey}")
-                            ->orderBy("{$relatedTable}.{$attribute}", $direction)
-                            ->select("{$mainTable}.*");
+                              ->orderBy("{$relatedTable}.{$attribute}", $direction)
+                              ->select("{$mainTable}.*");
 
                         return;
                     }
@@ -766,7 +802,7 @@ class TableBuilderApiController extends Controller
             $query->orderBy('id', $direction);
 
         } catch (\Exception $e) {
-            \Log::warning("Could not sort by relationship field '{$sort}': ".$e->getMessage());
+            \Log::warning("Could not sort by relationship field '{$sort}': " . $e->getMessage());
             $query->orderBy('id', $direction);
         }
     }
@@ -789,10 +825,10 @@ class TableBuilderApiController extends Controller
                     break;
                 case 'date':
                 case 'timestamp':
-                    if (! empty($value['from'])) {
+                    if (!empty($value['from'])) {
                         $query->$methodDate($key, '>=', Carbon::parse($value['from']));
                     }
-                    if (! empty($value['to'])) {
+                    if (!empty($value['to'])) {
                         $query->$methodDate($key, '<=', Carbon::parse($value['to']));
                     }
                     break;
@@ -804,7 +840,7 @@ class TableBuilderApiController extends Controller
                     break;
             }
         } catch (\Exception $e) {
-            \Log::warning("Filter failed for column '{$key}': ".$e->getMessage());
+            \Log::warning("Filter failed for column '{$key}': " . $e->getMessage());
         }
     }
 
@@ -820,7 +856,7 @@ class TableBuilderApiController extends Controller
         $method = $useOr ? 'orWhereHas' : 'whereHas';
 
         try {
-            $query->$method($relationPath, function ($q) use ($attribute, $value, $column): void {
+            $query->$method($relationPath, function ($q) use ($attribute, $value, $column) {
                 switch ($column['type']) {
                     case 'boolean':
                         $q->where($attribute, $value === 'true');
@@ -838,7 +874,7 @@ class TableBuilderApiController extends Controller
                 }
             });
         } catch (\Exception $e) {
-            \Log::warning("Filter failed for relationship '{$relationPath}': ".$e->getMessage());
+            \Log::warning("Filter failed for relationship '{$relationPath}': " . $e->getMessage());
         }
     }
 
@@ -854,7 +890,7 @@ class TableBuilderApiController extends Controller
                 $query->whereDate($key, $value);
             }
         } elseif (is_array($value)) {
-            if (isset($value['from']) && ! empty($value['from'])) {
+            if (isset($value['from']) && !empty($value['from'])) {
                 if ($useOr) {
                     $query->orWhereDate($key, '>=', $value['from']);
                 } else {
@@ -862,7 +898,7 @@ class TableBuilderApiController extends Controller
                 }
             }
 
-            if (isset($value['to']) && ! empty($value['to'])) {
+            if (isset($value['to']) && !empty($value['to'])) {
                 if ($useOr) {
                     $query->orWhereDate($key, '<=', $value['to']);
                 } else {
@@ -882,13 +918,13 @@ class TableBuilderApiController extends Controller
 
             $this->dynamicFieldValidation($request);
 
-            $builderHelper = new BuilderHelper;
-            if (! empty($request->permission)) {
+            $builderHelper = new BuilderHelper();
+            if (!empty($request->permission)) {
                 $builderHelper->permissionCheck($request, 'store');
             }
 
             $model = decrypt($request->model);
-            $model = new $model;
+            $model = new $model();
 
             // 🚀 AUTO-DETECT custom attributes to exclude from saving
             $rawColumns = collect($request->data);
@@ -906,7 +942,6 @@ class TableBuilderApiController extends Controller
                 // 🚀 SKIP custom attributes automatically
                 if (in_array($column['key'], $customAttributes)) {
                     \Log::info("Skipping save for custom attribute: {$column['key']}");
-
                     continue;
                 }
 
@@ -923,7 +958,7 @@ class TableBuilderApiController extends Controller
 
             // Handle media relations
             foreach ($mediaRelations as $mediaRelation) {
-                if (! empty($mediaRelation['value']) && is_array($mediaRelation['value'])) {
+                if (!empty($mediaRelation['value']) && is_array($mediaRelation['value'])) {
                     foreach ($mediaRelation['value'] as $item) {
                         if (isset($item['id'])) {
                             $model->media()->create([
@@ -953,7 +988,7 @@ class TableBuilderApiController extends Controller
                 'data' => [
                     'id' => $model->id,
                     'created_at' => $model->created_at,
-                ],
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -961,7 +996,7 @@ class TableBuilderApiController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while creating the item: '.$e->getMessage(),
+                'message' => 'An error occurred while creating the item: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -976,8 +1011,8 @@ class TableBuilderApiController extends Controller
 
             $this->dynamicFieldValidation($request);
 
-            $builderHelper = new BuilderHelper;
-            if (! empty($request->permission)) {
+            $builderHelper = new BuilderHelper();
+            if (!empty($request->permission)) {
                 $builderHelper->permissionCheck($request, 'update');
             }
 
@@ -1000,7 +1035,6 @@ class TableBuilderApiController extends Controller
                 // 🚀 SKIP custom attributes automatically
                 if (in_array($column['key'], $customAttributes)) {
                     \Log::info("Skipping update for custom attribute: {$column['key']}");
-
                     continue;
                 }
 
@@ -1016,10 +1050,10 @@ class TableBuilderApiController extends Controller
             $model->save();
 
             // Handle media relations
-            if (! empty($mediaRelations)) {
+            if (!empty($mediaRelations)) {
                 $model->media()->delete();
                 foreach ($mediaRelations as $mediaRelation) {
-                    if (! empty($mediaRelation['value']) && is_array($mediaRelation['value'])) {
+                    if (!empty($mediaRelation['value']) && is_array($mediaRelation['value'])) {
                         foreach ($mediaRelation['value'] as $item) {
                             if (isset($item['id'])) {
                                 $model->media()->create([
@@ -1050,7 +1084,7 @@ class TableBuilderApiController extends Controller
                 'data' => [
                     'id' => $model->id,
                     'updated_at' => $model->updated_at,
-                ],
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -1058,7 +1092,7 @@ class TableBuilderApiController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while updating the item: '.$e->getMessage(),
+                'message' => 'An error occurred while updating the item: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1070,18 +1104,18 @@ class TableBuilderApiController extends Controller
     {
         $request->validate([
             'model' => 'required',
-            'id' => 'required',
+            'id'    => 'required',
         ]);
 
         DB::beginTransaction();
 
-        $builderHelper = new BuilderHelper;
-        if (! empty($request->permission)) {
+        $builderHelper = new BuilderHelper();
+        if (!empty($request->permission)) {
             $builderHelper->permissionCheck($request, 'delete');
         }
 
         $model = decrypt($request->model);
-        $model = new $model;
+        $model = new $model();
         $modelItem = $model->find($request->id);
 
         $relations = $model->getRelations();
@@ -1106,7 +1140,7 @@ class TableBuilderApiController extends Controller
         $request->validate(
             [
                 'model' => 'required',
-                'data' => 'required',
+                'data'  => 'required',
             ],
             [
                 'data.required' => 'Fields are required',
@@ -1117,7 +1151,7 @@ class TableBuilderApiController extends Controller
 
         // Get model to detect custom attributes
         $modelClass = decrypt($request->model);
-        $model = new $modelClass;
+        $model = new $modelClass();
         $customAttributes = $this->autoDetectCustomAttributes($model, collect($request->data));
 
         foreach ($request->data as $value) {
@@ -1135,7 +1169,7 @@ class TableBuilderApiController extends Controller
                 if ($value['type'] === 'boolean' && $value['value'] === false) {
                     continue;
                 }
-                $errorMessages[] = 'The '.$value['label'].' is required';
+                $errorMessages[] = 'The ' . $value['label'] . ' is required';
             }
         }
 

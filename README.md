@@ -102,10 +102,13 @@ class VulnerabilityController extends Controller
                 editEndpoint: route('admin.api.generic.table.update')
             )
             ->setModel(Vulnerability::class)
+            ->withScope('notPublished') // if you have a scope in your model
             ->build();
 
         return Inertia::render('Admin/Vulnerabilities/Index', [
-            'tableConfig' => $formConfig  // ✨ Pass complete config
+            'title' => 'Vulnerabilities',
+            'subheader' => 'Manage all vulnerabilities in the system',
+            ...$formConfig,
         ]);
     }
 }
@@ -117,23 +120,26 @@ class VulnerabilityController extends Controller
 <template>
     <AppLayout>
         <Table
-            :columns="props.columns"
-            :model="props.model"
-            :endpoint="props.endpoint"
-            :endpoint-delete="props.endpointDelete"
-            :endpoint-create="props.endpointCreate"
-            :endpoint-edit="props.endpointEdit"
-            :table-title="props.title"
-            :permission="props.permission"
-            :defaultIdKey="props.defaultIdKey"
-            :custom_edit_route="props.custom_edit_route"
-            :custom_create_route="props.custom_create_route"
-            :custom_point_route="props.custom_point_route"
-            :custom_action_name="props.custom_action_name"
-            :row-styling="props.rowStyling"
+            :columns="page.props.columns"
+            :model="page.props.model"
+            :modelScopes="page.props.modelScopes"
+            :endpoint="page.props.endpoint"
+            :endpoint-delete="page.props.endpointDelete"
+            :endpoint-create="page.props.endpointCreate"
+            :endpoint-edit="page.props.endpointEdit"
+            :table-title="page.props.title"
+            :subheader="page.props.subheader"
+            :permission="page.props.permission"
+            :defaultIdKey="page.props.defaultIdKey"
+            :custom_edit_route="page.props.custom_edit_route"
+            :custom_create_route="page.props.custom_create_route"
+            :custom_point_route="page.props.custom_point_route"
+            :custom_action_name="page.props.custom_action_name"
+            :row-styling="page.props.rowStyling"
+            :default-filters="page.props.defaultFilters"
+            :advanced-filters="page.props.advancedFilters"
             :disableDelete="page.props.disableDelete"
-            :default-filters="props.defaultFilters"
-            :advanced-filters="props.advancedFilters"
+            @tableDataLoaded="handleTableData"
         />
     </AppLayout>
 </template>
@@ -146,11 +152,13 @@ const props = defineProps({
     endpoint: { type: String, default: '' },
     columns: { type: Object, default: () => ({}) },
     model: { type: String, default: '' },
+    modelScopes: { type: Object, default: () => ({}) },
     endpointDelete: { type: String, default: '' },
     endpointCreate: { type: String, default: '' },
     endpointEdit: { type: String, default: '' },
     permission: { type: String, default: '' },
     title: { type: String, default: '' },
+    subheader: { type: String, default: '' },
     defaultIdKey: { type: String, default: '' },
     custom_edit_route: { type: String, default: '' },
     custom_point_route: { type: String, default: '' },
