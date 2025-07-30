@@ -201,7 +201,7 @@
                                                 />
                                             </template>
                                             <template v-else>
-                                                <Link :href="props.custom_edit_route + item.id"
+                                                <Link :href="props.custom_edit_route + item[props.defaultIdKey]"
                                                     :class="getEnhancedActionButtonClasses('edit')"
                                                     :title="superCompactMode ? 'Edit' : ''"
                                                     @click.stop
@@ -213,7 +213,7 @@
 
                                             <!-- Custom Action -->
                                             <template v-if="props.custom_point_route">
-                                                <Link :href="props.custom_point_route + item.id"
+                                                <Link :href="props.custom_point_route + item[props.defaultIdKey]"
                                                     :class="getEnhancedActionButtonClasses('custom')"
                                                     :title="superCompactMode ? props.custom_action_name : ''"
                                                     @click.stop
@@ -272,7 +272,7 @@
                                     />
                                 </template>
                                 <template v-else>
-                                    <Link :href="props.custom_edit_route + item.id"
+                                    <Link :href="props.custom_edit_route + item[props.defaultIdKey]"
                                         :class="getEnhancedActionButtonClasses('edit')"
                                         @click.stop
                                     >
@@ -283,7 +283,7 @@
 
                                 <!-- Custom Action -->
                                 <template v-if="props.custom_point_route">
-                                    <Link :href="props.custom_point_route + item.id"
+                                    <Link :href="props.custom_point_route + item[props.defaultIdKey]"
                                         :class="getEnhancedActionButtonClasses('custom')"
                                         @click.stop
                                     >
