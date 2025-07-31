@@ -64,6 +64,21 @@
                         @update:superCompactMode="updateSuperCompactMode"
                         @update:columnOrder="updateColumnOrder"
                     />
+                    <!-- Row Click Navigation Toggle -->
+                    <div class="tooltip tooltip-bottom" data-tip="Toggle row click navigation">
+                        <button
+                            @click="toggleRowClickNavigation"
+                            :class="[
+                                'btn btn-sm gap-2 transition-all duration-200',
+                                rowClickNavigationEnabled ? 'btn-success' : 'btn-ghost'
+                            ]"
+                        >
+                            <User class="w-4 h-4" />
+                            <span v-if="!superCompactMode" class="hidden sm:inline">
+                                {{ rowClickNavigationEnabled ? 'Click To Edit On' : 'Click To Edit Off' }}
+                            </span>
+                        </button>
+                    </div>
                     <ExportData
                         :data="tableData"
                         :columns="displayColumns"
@@ -95,7 +110,6 @@
             <table-filter @onPerPage="handlePerPageChange" @onOrderBy="handleOrderChange" @onSearch="handleSearch"
                 @onFilter="handleFilterChange" @onFilterReset="handleFilterReset" :columns="props.columns" />
 
-            <!-- ✨ UPDATED: Advanced Filter Component with Backend Filters Support -->
             <AdvancedFilter
                 class="mt-3"
                 :columns="props.columns"
@@ -189,6 +203,8 @@
                                         :superCompactMode="superCompactMode"
                                         :columnOrder="columnOrder"
                                         :isFirstColumn="true"
+                                        :rowClickEnabled="rowClickNavigationEnabled"
+                                        :showSettings="false"
                                         @column-click="handleColumnClick"
                                     />
                                     <td :class="getActionsCellClasses()" class="text-right">
@@ -262,6 +278,8 @@
                                 :compactMode="compactMode"
                                 :superCompactMode="superCompactMode"
                                 :columnOrder="columnOrder"
+                                :rowClickEnabled="rowClickNavigationEnabled"
+                                :showSettings="false"
                             />
                             <div :class="getListActionsClasses()" @click.stop>
                                 <!-- Enhanced List Actions - Always Visible -->
@@ -338,7 +356,8 @@ import {
     ArrowUpDown as ArrowUpDownIcon,
     Pencil as PencilIcon,
     List as ListIcon,
-    Settings as SettingsIcon
+    Settings as SettingsIcon,
+    User
 } from 'lucide-vue-next';
 
 // Components
@@ -392,7 +411,6 @@ const orderBy = ref<string | null>('desc');
 const search = ref<string | null>(null);
 const viewMode = ref('table');
 
-// ✨ NEW: Advanced filter state
 const currentAdvancedFilters = ref([]);
 
 // ✨ Enhanced state for density and column management
@@ -401,24 +419,27 @@ const compactMode = ref(true);
 const superCompactMode = ref(false);
 const columnOrder = ref<string[]>([]);
 
+// ✨ NEW: Row click navigation state
+const rowClickNavigationEnabled = ref((() => {
+    const stored = localStorage.getItem('table-row-click-navigation');
+    return stored ? JSON.parse(stored) : false; // Default is false
+})());
+
 // ✨ Filter state management
 const activeFilters = ref({});
 
 // Computed
 const totalItems = computed(() => paginationInfo.value.total);
 
-// ✨ NEW: Check if model scopes are active
 const hasModelScopes = computed(() => {
     return props.modelScopes && props.modelScopes.length > 0;
 });
 
-// ✨ NEW: Get scopes title for tooltip
 const getScopesTitle = computed(() => {
     if (!props.modelScopes || props.modelScopes.length === 0) return '';
     return props.modelScopes.map(scope => scope.name).join(', ');
 });
 
-// ✨ NEW: Advanced filter computed properties
 const hasActiveAdvancedFilters = computed(() => {
     return currentAdvancedFilters.value && currentAdvancedFilters.value.length > 0;
 });
@@ -449,7 +470,6 @@ const hasActiveFilters = computed(() => {
         Object.keys(currentFilters).length > 0;
 });
 
-// ✨ Check if current filters differ from defaults
 const hasNonDefaultFilters = computed(() => {
     const currentFilters = { ...activeFilters.value };
     const defaultFilters = { ...props.defaultFilters };
@@ -507,6 +527,11 @@ const handleAdvancedFilterChange = (userFilters, modifiedAdvancedFilters) => {
 
 // ✨ Enhanced row interaction
 function handleRowClick(item: any, event?: Event) {
+    // If row click navigation is disabled, do nothing
+    if (!rowClickNavigationEnabled.value) {
+        return;
+    }
+
     // Check if the click came from a link, button, or other interactive element
     if (event) {
         const target = event.target as HTMLElement;
@@ -1046,6 +1071,12 @@ const updateSuperCompactMode = (newSuperCompactMode: boolean) => {
 
 const updateColumnOrder = (newOrder: string[]) => {
     columnOrder.value = newOrder;
+};
+
+// ✨ NEW: Row click navigation toggle
+const toggleRowClickNavigation = () => {
+    rowClickNavigationEnabled.value = !rowClickNavigationEnabled.value;
+    localStorage.setItem('table-row-click-navigation', JSON.stringify(rowClickNavigationEnabled.value));
 };
 
 // ✨ NEW: Watch for changes in advancedFilters prop
