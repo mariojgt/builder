@@ -13,95 +13,131 @@
       @click="handleWrapperClick"
     >
       <template v-if="ultraCompact">
-        <div v-if="type === 'model_search'" class="flex flex-wrap gap-0.5">
+        <!-- Model Search Data -->
+        <div v-if="type === 'model_search'" class="ultra-compact-model-search">
+          <div v-if="!showFullText" class="ultra-compact-inline">
+            <span class="text-nano text-primary font-medium" :title="getModelSearchSummary()">
+              {{ Object.keys(getModelSearchData()).length }} items
+            </span>
+            <button
+              v-if="Object.keys(getModelSearchData()).length > 0"
+              @click.stop="showFullText = true"
+              class="ultra-compact-btn ml-1"
+              title="Show details"
+            >
+              ▼
+            </button>
+          </div>
+          <div v-else class="ultra-compact-expanded">
+            <div class="ultra-compact-content">
+              <div v-for="(val, k) in getModelSearchData()" :key="k" class="mb-1 last:mb-0">
+                <span class="text-xs font-medium text-base-content/70">{{ formatModelSearchKey(k) }}:</span>
+                <span class="text-xs text-base-content ml-1">{{ val }}</span>
+              </div>
+            </div>
+            <button
+              @click.stop="showFullText = false"
+              class="ultra-compact-close-btn"
+              title="Hide details"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Badge/Status Display -->
+        <div v-else-if="shouldRenderAsBadge || hasConditionalStyling" class="ultra-compact-badge">
           <span
-            v-for="(value, key) in getModelSearchData()"
-            :key="key"
             class="badge-micro inline-flex items-center"
-            :class="getModelSearchBadgeColor(key)"
-            :title="`${formatModelSearchKey(key)}: ${value}`"
+            :class="getConditionalClasses()"
+            :title="formatValue()"
           >
             <component
-              v-if="getModelSearchIcon(key)"
-              :is="getModelSearchIcon(key)"
+              v-if="getStatusIcon()"
+              :is="getStatusIcon()"
               class="w-2.5 h-2.5 mr-0.5 opacity-80"
             />
-            {{ truncateText(`${formatModelSearchKey(key).charAt(0)}:${truncateText(String(value), 5)}`, 8) }}
+            {{ formatValue() }}
           </span>
         </div>
 
-        <span
-          v-else-if="shouldRenderAsBadge || hasConditionalStyling"
-          class="badge-micro inline-flex items-center"
-          :class="getConditionalClasses()"
-          :title="formatValue()"
-        >
-          <component
-            v-if="getStatusIcon()"
-            :is="getStatusIcon()"
-            class="w-2.5 h-2.5 mr-0.5 opacity-80"
-          />
-          {{ truncateText(formatValue(), 4) }}
-        </span>
+        <!-- Boolean Display -->
+        <div v-else-if="type === 'boolean'" class="ultra-compact-boolean">
+          <span
+            class="boolean-indicator"
+            :class="booleanValue ? 'boolean-true' : 'boolean-false'"
+            :title="booleanValue ? 'Yes' : 'No'"
+          ></span>
+        </div>
 
-        <span
-          v-else-if="type === 'boolean'"
-          class="boolean-indicator"
-          :class="booleanValue ? 'boolean-true' : 'boolean-false'"
-          :title="booleanValue ? 'Yes' : 'No'"
-        ></span>
+        <!-- Date Display -->
+        <div v-else-if="type === 'date' || type === 'timestamp'" class="ultra-compact-date">
+          <span class="text-nano tabular-nums text-base-content" :title="formatDate(false)">
+            {{ formatDateHumanDiff() }}
+          </span>
+        </div>
 
-        <span
-          v-else-if="type === 'date' || type === 'timestamp'"
-          class="date-compact tabular-nums"
-          :title="formatDate(false)"
-        >
-          {{ formatDateHumanDiff() }}
-        </span>
-
-        <span v-else-if="type === 'email'" class="text-nano" :title="value">
+        <!-- Email Display -->
+        <div v-else-if="type === 'email'" class="ultra-compact-email">
           <a
             v-if="!computedLinkUrl"
             :href="`mailto:${value}`"
-            class="link text-primary hover:text-primary-focus"
+            class="text-nano link text-primary hover:text-primary-focus break-all"
+            :title="value"
             @click.stop
           >
-            {{ truncateText(value.split('@')[0], 4) }}
+            {{ value }}
           </a>
-          <span v-else>{{ truncateText(value.split('@')[0], 4) }}</span>
-        </span>
+          <span v-else class="text-nano break-all" :title="value">
+            {{ value }}
+          </span>
+        </div>
 
-        <span v-else-if="type === 'url'" class="text-nano" :title="value">
+        <!-- URL Display -->
+        <div v-else-if="type === 'url'" class="ultra-compact-url">
           <a
             v-if="!computedLinkUrl"
             :href="value"
             target="_blank"
-            class="link text-primary hover:text-primary-focus"
+            class="text-nano link text-primary hover:text-primary-focus break-all"
+            :title="value"
             @click.stop
           >
-            {{ truncateText(getDomainFromUrl(value), 6) }}
+            {{ getDomainFromUrl(value) }}
           </a>
-          <span v-else>{{ truncateText(getDomainFromUrl(value), 6) }}</span>
-        </span>
+          <span v-else class="text-nano break-all" :title="value">
+            {{ getDomainFromUrl(value) }}
+          </span>
+        </div>
 
-        <img
-          v-if="type === 'media' && value"
-          :src="value"
-          class="avatar-micro object-cover"
-          :alt="''"
-          loading="lazy"
-        />
-        <span v-else-if="type === 'media'" class="text-nano opacity-50">-</span>
+        <!-- Media Display -->
+        <div v-else-if="type === 'media'" class="ultra-compact-media">
+          <img
+            v-if="value"
+            :src="value"
+            class="avatar-micro object-cover"
+            :alt="''"
+            loading="lazy"
+          />
+          <span v-else class="text-nano opacity-50">-</span>
+        </div>
 
-        <span v-else-if="type === 'rating'" class="text-nano tabular-nums" :title="`${value}/5 stars`">
-          {{ value }}/5
-        </span>
+        <!-- Rating Display -->
+        <div v-else-if="type === 'rating'" class="ultra-compact-rating">
+          <span class="text-nano tabular-nums font-medium" :title="`${value}/5 stars`">
+            ★{{ value }}
+          </span>
+        </div>
 
-        <span v-else-if="type === 'price'" class="text-nano tabular-nums font-medium" :title="formatPrice()">
-          {{ formatPriceCompact() }}
-        </span>
+        <!-- Price Display -->
+        <div v-else-if="type === 'price'" class="ultra-compact-price">
+          <span class="text-nano tabular-nums font-medium text-green-600" :title="formatPrice()">
+            {{ formatPriceCompact() }}
+          </span>
+        </div>
 
-        <div v-else-if="type === 'progress' || type === 'percentage'" class="w-full">
+        <!-- Progress Display -->
+        <div v-else-if="type === 'progress' || type === 'percentage'" class="ultra-compact-progress">
           <div class="progress-micro">
             <div
               class="progress-bar"
@@ -110,22 +146,84 @@
               :title="`${formatValue()}% - ${getProgressLabel()}`"
             ></div>
           </div>
+          <span class="text-nano ml-1">{{ Math.round(numericValue || 0) }}%</span>
         </div>
 
-        <span
-          v-else-if="type === 'chips' || type === 'tags'"
-          class="text-nano"
-          :title="getChipArray().join(', ')"
-        >
-          {{ getChipArray().length }}
-        </span>
+        <!-- Chips/Tags Display -->
+        <div v-else-if="type === 'chips' || type === 'tags'" class="ultra-compact-chips">
+          <div v-if="!showFullText" class="ultra-compact-inline">
+            <span class="text-nano text-primary font-medium" :title="getChipArray().join(', ')">
+              {{ getChipArray().length }} tags
+            </span>
+            <button
+              v-if="getChipArray().length > 0"
+              @click.stop="showFullText = true"
+              class="ultra-compact-btn ml-1"
+              title="Show tags"
+            >
+              ▼
+            </button>
+          </div>
+          <div v-else class="ultra-compact-expanded">
+            <div class="ultra-compact-content">
+              <div class="flex flex-wrap gap-1">
+                <span
+                  v-for="(chip, index) in getChipArray()"
+                  :key="index"
+                  class="badge badge-xs badge-outline"
+                >
+                  {{ chip }}
+                </span>
+              </div>
+            </div>
+            <button
+              @click.stop="showFullText = false"
+              class="ultra-compact-close-btn"
+              title="Hide tags"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
 
-        <span v-else class="text-nano" :title="formatValue()">
-          <span v-if="hasValue">
-            {{ truncateText(formatValue(), 8) }}
+        <!-- Long Text Display -->
+        <div v-else-if="isUltraCompactLongText" class="ultra-compact-text">
+          <div v-if="!showFullText" class="ultra-compact-inline">
+            <span class="text-nano break-words" :title="formatValue()">
+              {{ formatValue() }}
+            </span>
+            <button
+              v-if="String(formatValue()).length > 50"
+              @click.stop="showFullText = true"
+              class="ultra-compact-btn ml-1"
+              title="Show in popup"
+            >
+              ↗
+            </button>
+          </div>
+          <div v-else class="ultra-compact-expanded">
+            <div class="ultra-compact-content">
+              <div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
+                {{ formatValue() }}
+              </div>
+            </div>
+            <button
+              @click.stop="showFullText = false"
+              class="ultra-compact-close-btn"
+              title="Hide popup"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Default Text Display -->
+        <div v-else class="ultra-compact-default">
+          <span v-if="hasValue" class="text-nano" :title="formatValue()">
+            {{ formatValue() }}
           </span>
-          <span v-else class="opacity-30">-</span>
-        </span>
+          <span v-else class="text-nano opacity-30">-</span>
+        </div>
       </template>
 
       <template v-else>
@@ -133,7 +231,7 @@
           <div
             v-for="(val, k) in getModelSearchData()"
             :key="k"
-            class="inline-flex items-center rounded-full font-medium transition-all duration-200 hover:scale-105"
+            class="inline-flex items-start rounded-full font-medium transition-all duration-200 hover:scale-105"
             :class="[
               getModelSearchBadgeColor(k),
               compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
@@ -143,10 +241,12 @@
             <component
               v-if="getModelSearchIcon(k)"
               :is="getModelSearchIcon(k)"
-              :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
+              :class="compact ? 'w-3 h-3 mr-1 mt-0.5 flex-shrink-0' : 'w-4 h-4 mr-2'"
             />
-            <span class="font-medium">{{ formatModelSearchKey(k) }}:</span>
-            <span class="ml-1">{{ compact ? truncateText(String(val), 15) : val }}</span>
+            <div class="min-w-0 flex-1">
+              <span class="font-medium">{{ formatModelSearchKey(k) }}:</span>
+              <span class="ml-1 break-words whitespace-normal">{{ val }}</span>
+            </div>
           </div>
         </div>
 
@@ -225,14 +325,14 @@
             :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
             class="text-primary/70"
           />
-          <span v-if="computedLinkUrl">{{ compact ? truncateText(value, 20) : value }}</span>
+          <span v-if="computedLinkUrl">{{ value }}</span>
           <a
             v-else
             :href="`mailto:${value}`"
-            class="link link-primary hover:link-secondary transition-colors duration-200"
+            class="link link-primary hover:link-secondary transition-colors duration-200 break-all"
             @click.stop
           >
-            {{ compact ? truncateText(value, 20) : value }}
+            {{ value }}
           </a>
         </div>
 
@@ -241,15 +341,15 @@
             :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
             class="text-primary/70"
           />
-          <span v-if="computedLinkUrl">{{ truncateUrl(value, true) }}</span>
+          <span v-if="computedLinkUrl">{{ compact ? value : value }}</span>
           <a
             v-else
             :href="value"
             target="_blank"
-            class="link link-primary hover:link-secondary transition-colors duration-200"
+            class="link link-primary hover:link-secondary transition-colors duration-200 break-all"
             @click.stop
           >
-            {{ truncateUrl(value, true) }}
+            {{ compact ? value : value }}
           </a>
         </div>
 
@@ -312,33 +412,34 @@
             class="badge badge-outline hover:badge-primary transition-colors duration-200"
             :class="compact ? 'badge-xs' : 'badge-sm'"
           >
-            {{ compact ? truncateText(chip, 10) : chip }}
+            {{ chip }}
           </div>
         </div>
 
         <div v-else-if="isLongText" class="group">
-          <div class="leading-relaxed" :class="compact ? 'text-xs' : 'text-sm'">
-            <span v-if="!showFullText">
-              {{ truncatedText }}
+          <div class="leading-relaxed break-words whitespace-pre-wrap" :class="compact ? 'text-xs' : 'text-sm'">
+            <div v-if="!showFullText && !compact" class="inline">
+              <span>{{ truncatedText }}</span>
               <button
                 v-if="needsTruncation"
                 @click.stop="showFullText = true"
-                class="link link-primary ml-1 hover:link-secondary"
+                class="link link-primary ml-1 hover:link-secondary inline-block"
                 :class="compact ? 'text-xs' : 'text-xs'"
               >
                 {{ compact ? '...' : 'Show more' }}
               </button>
-            </span>
-            <span v-else>
+            </div>
+            <div v-else class="whitespace-pre-wrap break-words">
               {{ value }}
               <button
+                v-if="!compact && showFullText"
                 @click.stop="showFullText = false"
-                class="link link-primary ml-1 hover:link-secondary"
+                class="link link-primary hover:link-secondary inline-block ml-2"
                 :class="compact ? 'text-xs' : 'text-xs'"
               >
-                {{ compact ? 'Less' : 'Show less' }}
+                Show less
               </button>
-            </span>
+            </div>
           </div>
         </div>
 
@@ -346,13 +447,13 @@
           <span v-if="hasValue">
             <span
               v-if="hasConditionalStyling"
-              class="inline-flex items-center rounded transition-all duration-200"
+              class="inline-flex items-center rounded transition-all duration-200 break-words"
               :class="[
                 getConditionalClasses() || 'text-base-content',
                 compact ? 'px-1 py-0.5 text-xs' : 'px-2 py-1 text-sm'
               ]"
             >
-              {{ compact ? truncateText(formatValue(), 25) : formatValue() }}
+              {{ formatValue() }}
             </span>
             <template v-else>
               <div
@@ -363,8 +464,8 @@
                 <span class="text-base-content">{{ compact ? 'Link' : 'Open Link' }}</span>
                 <ExternalLink :class="compact ? 'w-3 h-3 ml-0.5' : 'w-4 h-4 ml-1'" />
               </div>
-              <span v-else class="text-base-content">
-                {{ compact ? truncateText(formatValue(), 25) : formatValue() }}
+              <span v-else class="text-base-content break-words">
+                {{ formatValue() }}
               </span>
             </template>
           </span>
@@ -487,13 +588,21 @@ const shouldRenderAsBadge = computed<boolean>(() => {
 });
 
 const isLongText = computed<boolean>(() => {
-  const maxLength = props.compact ? 50 : (props.options.truncateLength || 100);
-  return props.type === 'text' && hasValue.value && String(props.value).length > maxLength;
+  const maxLength = props.options.truncateLength || 100;
+  return props.type === 'text' && hasValue.value && String(props.value).length > maxLength && !props.compact;
+});
+
+const isUltraCompactLongText = computed<boolean>(() => {
+  return props.ultraCompact && hasValue.value && String(props.value).length > 12;
 });
 
 const needsTruncation = computed<boolean>(() => {
-  const maxLength = props.compact ? 50 : (props.options.truncateLength || 100);
-  return hasValue.value && String(props.value).length > maxLength;
+  const maxLength = props.options.truncateLength || 100;
+  return hasValue.value && String(props.value).length > maxLength && !props.compact;
+});
+
+const needsUltraCompactTruncation = computed<boolean>(() => {
+  return props.ultraCompact && hasValue.value && String(props.value).length > 12;
 });
 
 const truncatedText = computed<string>(() => {
@@ -525,7 +634,7 @@ const hasNativeLinkBehavior = computed<boolean>(() => {
 
 // Classes for the main field container
 const containerClasses = computed<string>(() => {
-  const classes = [];
+  const classes: string[] = [];
   if (props.options.enhanced && !props.compact) classes.push('enhanced-field');
   return classes.join(' ');
 });
@@ -577,6 +686,13 @@ function getModelSearchData(): Record<string, any> {
   return Object.fromEntries(
     Object.entries(props.value).filter(([, value]) => value !== null && value !== undefined && value !== '')
   );
+}
+
+function getModelSearchSummary(): string {
+  const data = getModelSearchData();
+  const entries = Object.entries(data);
+  if (entries.length === 0) return 'No data';
+  return entries.map(([key, value]) => `${formatModelSearchKey(key)}: ${value}`).join(', ');
 }
 
 function formatModelSearchKey(key: string): string {
@@ -800,7 +916,8 @@ function getChipArray(): string[] {
   } else {
     chips = [String(props.value)];
   }
-  return props.compact ? chips.slice(0, 3) : chips;
+  // Return all chips for both compact and non-compact modes
+  return chips;
 }
 </script>
 
@@ -871,30 +988,98 @@ function getChipArray(): string[] {
   transition: all 0.3s ease;
 }
 
+/* Bootstrap-like text wrapping and overflow handling */
+.break-words {
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+
+/* Ensure proper text flow in table cells */
+.field-renderer {
+  max-width: 100%;
+  overflow: visible; /* Allow content to expand vertically */
+}
+
+/* Enhanced text container for better wrapping */
+.group .leading-relaxed {
+  width: 100%;
+  max-width: 100%;
+  overflow: visible; /* Allow multi-line content */
+}
+
+/* Compact mode specific enhancements */
+.field-renderer .break-words {
+  white-space: normal; /* Allow text to wrap naturally */
+  line-height: 1.3; /* Better line spacing for readability */
+}
+
+/* Model search badges in compact mode */
+.field-renderer .inline-flex .break-words {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Allow badges to expand vertically when needed */
+.badge, .badge-outline {
+  white-space: normal;
+  height: auto;
+  min-height: 1.5rem;
+  align-items: flex-start;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.badge-xs {
+  min-height: 1.25rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+}
+
+.badge-sm {
+  min-height: 1.5rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+/* Button positioning for better flow */
+.group .inline-block {
+  vertical-align: baseline;
+  margin-top: 0.25rem;
+}
+
 /* Tabular numbers for better alignment of figures */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
 /* ===========================================================================
-// ✨ ULTRA COMPACT MODE SPECIFIC STYLES
+// ✨ ULTRA COMPACT MODE SPECIFIC STYLES - REBUILT FOR BETTER UX
 // =========================================================================== */
 
 .badge-micro {
   font-size: 0.5rem; /* 8px */
   padding: 0.0625rem 0.25rem; /* Tighter padding */
-  height: 0.875rem; /* 14px */
-  min-height: 0.875rem;
-  line-height: 1;
+  height: auto; /* Allow height to grow with content */
+  min-height: 0.875rem; /* 14px minimum */
+  line-height: 1.2;
   border-radius: 0.125rem; /* 2px */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 4rem; /* Max width to prevent overflow in tight spaces */
+  white-space: normal; /* Allow text wrapping */
+  overflow: visible; /* Show all content */
+  text-overflow: clip; /* Don't use ellipsis */
+  max-width: none; /* Remove width restriction */
   font-weight: 500;
   display: inline-flex; /* Use flex for icon alignment */
   align-items: center;
   gap: 0.1rem; /* Small gap between icon and text */
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .progress-micro {
@@ -904,6 +1089,7 @@ function getChipArray(): string[] {
   overflow: hidden;
   margin: 0.125rem 0;
   width: 100%;
+  flex: 1;
 }
 
 .progress-micro .progress-bar {
@@ -933,42 +1119,194 @@ function getChipArray(): string[] {
   background-color: #ef4444; /* red-500 */
 }
 
-.date-compact {
-  font-variant-numeric: tabular-nums;
-  font-size: 0.625rem; /* 10px */
-  line-height: 1;
-  font-weight: 500;
-}
-
 .text-nano {
   font-size: 0.625rem; /* 10px */
-  line-height: 1.1;
+  line-height: 1.2;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
-/* Tooltip enhancement */
+/* Ultra compact layout containers */
+.ultra-compact-inline {
+  display: inline-flex;
+  align-items: flex-start; /* Align to top for better text flow */
+  gap: 0.125rem;
+  max-width: 100%;
+  flex-wrap: wrap; /* Allow wrapping if needed */
+}
+
+/* Better text wrapping for ultra compact elements */
+.ultra-compact-default,
+.ultra-compact-badge,
+.ultra-compact-email,
+.ultra-compact-url {
+  max-width: 100%;
+  overflow: visible;
+}
+
+.ultra-compact-text .ultra-compact-inline {
+  display: block; /* Use block layout for better text flow */
+}
+
+.ultra-compact-text .text-nano {
+  display: inline;
+  white-space: normal;
+}
+
+.ultra-compact-expanded {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  background: hsl(var(--b1));
+  border: 1px solid hsl(var(--b3));
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  max-width: 300px;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.ultra-compact-content {
+  margin-bottom: 0.5rem;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.ultra-compact-btn {
+  background: none;
+  border: none;
+  color: hsl(var(--p));
+  cursor: pointer;
+  font-size: 0.5rem;
+  padding: 0.125rem;
+  margin: 0;
+  line-height: 1;
+  border-radius: 0.125rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0.75rem;
+  height: 0.75rem;
+}
+
+.ultra-compact-btn:hover {
+  background: hsl(var(--p) / 0.1);
+  color: hsl(var(--pf));
+  transform: scale(1.1);
+}
+
+.ultra-compact-close-btn {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  background: hsl(var(--n));
+  color: hsl(var(--nc));
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.25rem;
+  line-height: 1;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ultra-compact-close-btn:hover {
+  background: hsl(var(--nf));
+  transform: scale(1.1);
+}
+
+/* Specific ultra compact component styles */
+.ultra-compact-model-search,
+.ultra-compact-chips,
+.ultra-compact-text {
+  position: relative;
+}
+
+.ultra-compact-badge,
+.ultra-compact-boolean,
+.ultra-compact-date,
+.ultra-compact-email,
+.ultra-compact-url,
+.ultra-compact-media,
+.ultra-compact-rating,
+.ultra-compact-price,
+.ultra-compact-default {
+  display: inline-block;
+}
+
+.ultra-compact-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 3rem;
+}
+
+/* Enhanced tooltip for ultra compact elements */
 [title] {
   cursor: help;
 }
 
-/* Ultra compact link styling - ensure visibility and clickability */
 .text-nano .link {
-  color: hsl(var(--p)); /* Primary color for links */
-  text-decoration: none; /* No underline by default */
-  position: relative; /* Ensure it stacks correctly */
-  z-index: 10; /* Ensure links are above other elements in tight spaces */
+  color: hsl(var(--p));
+  text-decoration: none;
+  position: relative;
+  z-index: 10;
 }
 
 .text-nano .link:hover {
-  text-decoration: underline; /* Underline on hover for discoverability */
-  color: hsl(var(--pf)); /* Primary focus color */
+  text-decoration: underline;
+  color: hsl(var(--pf));
 }
 
-/* Ensure consistent spacing in ultra compact mode */
-.field-renderer.ultra-compact-container > * {
-  margin: 0;
+/* Mobile responsiveness for ultra compact */
+@media (max-width: 640px) {
+  .ultra-compact-expanded {
+    min-width: 180px;
+    max-width: 250px;
+    max-height: 150px;
+    font-size: 0.55rem;
+  }
+
+  .ultra-compact-content {
+    font-size: 0.55rem;
+  }
+
+  .badge-micro {
+    font-size: 0.45rem;
+    padding: 0.05rem 0.15rem;
+    max-width: 3rem;
+  }
+
+  .text-nano {
+    font-size: 0.55rem;
+  }
+
+  .boolean-indicator {
+    width: 0.625rem;
+    height: 0.625rem;
+  }
+
+  .avatar-micro {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
 }
 
 /* ===========================================================================
