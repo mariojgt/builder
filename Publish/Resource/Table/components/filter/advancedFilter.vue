@@ -1,5 +1,12 @@
 <template>
   <div class="w-full">
+    <!-- ✨ NEW: Dedicated Backend Advanced Filters Component -->
+    <BackendAdvancedFilters
+      :advancedFilters="advancedFilters"
+      @update:filters="handleBackendFilterChange"
+    />
+
+    <!-- Regular User Filters Section -->
     <div class="mb-6">
       <button
         @click="isFilterOpen = !isFilterOpen"
@@ -343,7 +350,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import {
   ChevronDown,
@@ -365,24 +372,34 @@ import {
   Info
 } from 'lucide-vue-next';
 
+// ✨ NEW: Import the dedicated Backend Advanced Filters component
+import BackendAdvancedFilters from './BackendAdvancedFilters.vue';
+
 const props = defineProps({
   columns: {
     type: Array,
     required: true
+  },
+  advancedFilters: {
+    type: Array,
+    default: () => []
   }
 });
 
 const emit = defineEmits(['onFilterChange']);
 
-// State management
-const isFilterOpen = ref(false); // Filter panel visibility
-const isLoadingOptions = ref({}); // Loading state for model search options
-const modelSearchQueries = ref({}); // Current input query for model search
-const modelSearchResults = ref({}); // Results from model search API
-const showModelSearchDropdown = ref({}); // Controls visibility of model search dropdown
-const selectedModelSearchItems = ref({}); // Stores the selected object from model search
-const searchTimeouts = ref({}); // For debouncing model search input
-const filterChangeTimeouts = ref({}); // For debouncing general filter changes
+// ✨ SIMPLIFIED: Remove advanced filter management (now handled by BackendAdvancedFilters)
+const currentAdvancedFilters = ref([]);
+
+// Existing state management
+const isFilterOpen = ref(false);
+const isLoadingOptions = ref({});
+const modelSearchQueries = ref({});
+const modelSearchResults = ref({});
+const showModelSearchDropdown = ref({});
+const selectedModelSearchItems = ref({});
+const searchTimeouts = ref({});
+const filterChangeTimeouts = ref({});
 
 const searchModes = ref([
   { label: 'Contains', value: 'contains' },
@@ -407,7 +424,7 @@ const filters = ref(
   }, {})
 );
 
-const searchModesState = ref({}); // Stores search mode per text filter
+const searchModesState = ref({});
 
 // Computed properties
 const filterableColumns = computed(() => {
@@ -421,7 +438,7 @@ const activeFilters = computed(() => {
         if (value.trim()) acc[key] = value;
       } else if (typeof value === 'number') {
         acc[key] = value;
-      } else if (typeof value === 'object' && !Array.isArray(value)) { // Ensure it's not an array
+      } else if (typeof value === 'object' && !Array.isArray(value)) {
         if (value.from || value.to) acc[key] = value;
       }
     }
@@ -432,6 +449,18 @@ const activeFilters = computed(() => {
 const hasActiveFilters = computed(() => {
   return Object.keys(activeFilters.value).length > 0;
 });
+
+// ✨ NEW: Handler for backend advanced filter changes
+const handleBackendFilterChange = (enabledFilters) => {
+  currentAdvancedFilters.value = enabledFilters;
+  console.log('Backend advanced filters changed:', enabledFilters);
+  emitFilterChange();
+};
+
+// ✨ UPDATED: Emit both user filters and backend advanced filters
+const emitFilterChange = () => {
+  emit('onFilterChange', activeFilters.value, currentAdvancedFilters.value);
+};
 
 // Helper functions
 const hasActiveFilter = (key) => {
@@ -446,7 +475,7 @@ const getFilterIcon = (type) => {
     text: Type,
     boolean: ToggleRight,
     select: List,
-    model_search: User, // Changed to User for model search
+    model_search: User,
     price: DollarSign,
     rating: Star,
     default: Filter
@@ -476,7 +505,7 @@ const getSearchMode = (key) => {
 
 const setSearchMode = (key, mode) => {
   searchModesState.value[key] = mode;
-  handleFilterChange(key, filters.value[key], false); // No debounce needed for mode change
+  handleFilterChange(key, filters.value[key], false);
 };
 
 // Model Search Functions
@@ -490,7 +519,6 @@ const handleModelSearch = async (column) => {
   if (!query || query.length < 2) {
     modelSearchResults.value[column.key] = [];
     showModelSearchDropdown.value[column.key] = false;
-    // Potentially clear selected model search if query is empty
     if(filters.value[column.key] !== '') {
         clearModelSearchSelection(column.key);
     }
@@ -531,7 +559,7 @@ const selectModelSearchOption = (columnKey, option) => {
   selectedModelSearchItems.value[columnKey] = option;
   modelSearchQueries.value[columnKey] = option[getColumnByKey(columnKey)?.displayKey || 'name'];
   showModelSearchDropdown.value[columnKey] = false;
-  handleFilterChange(columnKey, filters.value[columnKey], false); // No debounce for selection
+  handleFilterChange(columnKey, filters.value[columnKey], false);
 };
 
 const clearModelSearchSelection = (columnKey) => {
@@ -539,7 +567,7 @@ const clearModelSearchSelection = (columnKey) => {
   selectedModelSearchItems.value[columnKey] = null;
   modelSearchQueries.value[columnKey] = '';
   showModelSearchDropdown.value[columnKey] = false;
-  handleFilterChange(columnKey, filters.value[columnKey], false); // No debounce for clear
+  handleFilterChange(columnKey, filters.value[columnKey], false);
 };
 
 const getSelectedModelSearchItem = (columnKey) => {
@@ -614,7 +642,7 @@ const applyDatePreset = (columnKey, preset) => {
     from: fromDate.toISOString().split('T')[0],
     to: toDate.toISOString().split('T')[0]
   };
-  handleFilterChange(columnKey, filters.value[columnKey], false); // No debounce for date presets
+  handleFilterChange(columnKey, filters.value[columnKey], false);
 };
 
 const handleFilterChange = (key, value, isTextChange) => {
@@ -624,11 +652,10 @@ const handleFilterChange = (key, value, isTextChange) => {
 
   if (isTextChange) {
     filterChangeTimeouts.value[key] = setTimeout(() => {
-      emit('onFilterChange', activeFilters.value);
-    }, 300); // Debounce for 300ms
+      emitFilterChange(); // ✨ UPDATED: Use unified emit method
+    }, 300);
   } else {
-    // For select, boolean, date range changes, apply immediately
-    emit('onFilterChange', activeFilters.value);
+    emitFilterChange(); // ✨ UPDATED: Use unified emit method
   }
 };
 
@@ -651,21 +678,24 @@ const clearFilter = (key) => {
     clearTimeout(filterChangeTimeouts.value[key]);
     filterChangeTimeouts.value[key] = null;
   }
-  emit('onFilterChange', activeFilters.value); // Emit immediately on clear
+  emitFilterChange(); // ✨ UPDATED: Use unified emit method
 };
 
 const resetAllFilters = () => {
+  // Reset regular filters
   filters.value = props.columns.reduce((acc, column) => {
     acc[column.key] = ['date', 'timestamp'].includes(column.type) ? { from: '', to: '' } : '';
     return acc;
   }, {});
-  searchModesState.value = {};
 
+  // Clear all existing state
+  searchModesState.value = {};
   modelSearchQueries.value = {};
   modelSearchResults.value = {};
   selectedModelSearchItems.value = {};
   showModelSearchDropdown.value = {};
 
+  // Clear timeouts
   Object.values(searchTimeouts.value).forEach(timeout => {
     if (timeout) clearTimeout(timeout);
   });
@@ -676,17 +706,19 @@ const resetAllFilters = () => {
   });
   filterChangeTimeouts.value = {};
 
-  emit('onFilterChange', activeFilters.value); // Emit immediately on reset
+  // ✨ NOTE: Backend advanced filters are reset via the BackendAdvancedFilters component
+  emitFilterChange(); // ✨ UPDATED: Use unified emit method
 };
 
 const applyFilters = () => {
-  // This function is still present for the explicit "Apply" button.
-  // It will just re-emit the current state, potentially forcing any pending debounced changes.
-  emit('onFilterChange', activeFilters.value);
+  emitFilterChange(); // ✨ UPDATED: Use unified emit method
 };
+
+// ✨ SIMPLIFIED: Remove advanced filter prop watching (handled by BackendAdvancedFilters)
 
 // Lifecycle Hooks
 onMounted(() => {
+  // Initialize model search for filterable columns
   props.columns.forEach(column => {
     if (column.type === 'model_search' && column.filterable) {
       modelSearchQueries.value[column.key] = '';
@@ -696,28 +728,16 @@ onMounted(() => {
     }
   });
 
+  // ✨ REMOVED: Advanced filter initialization (handled by BackendAdvancedFilters)
+
   // Close dropdowns when clicking outside
   document.addEventListener('click', (event) => {
-    // Only close if the click is outside any model search dropdown or its input
     const target = event.target;
     let isClickInsideModelSearch = false;
     for (const key in showModelSearchDropdown.value) {
       if (showModelSearchDropdown.value[key]) {
-        // Find the specific input and its associated dropdown element
-        const inputElement = document.querySelector(`input[v-model="modelSearchQueries['${key}']"]`);
-        // We need a more reliable way to select the dropdown for that specific key
-        // Assign a ref or a unique data-attribute to the dropdown itself for robust selection
-        // For now, rely on parent-child relationship or a very specific class structure if available.
-        // Assuming the dropdown is always a direct sibling or child of a common ancestor that we can identify
-        // For now, let's just check if the target is within any 'form-control' that might contain a model_search dropdown
         const formControlParent = target.closest('.form-control');
         if (formControlParent && formControlParent.querySelector('.absolute.top-full.left-0.right-0')) {
-             // This is a rough check, ideally dropdowns would have unique refs or IDs
-             isClickInsideModelSearch = true;
-             break;
-        }
-
-        if (inputElement && inputElement.contains(target)) {
           isClickInsideModelSearch = true;
           break;
         }
@@ -744,6 +764,10 @@ onMounted(() => {
 }
 
 .input, .select {
+  transition: all 0.2s ease-in-out;
+}
+
+.toggle {
   transition: all 0.2s ease-in-out;
 }
 
@@ -775,9 +799,36 @@ onMounted(() => {
   animation: pulse-slow 3s infinite ease-in-out;
 }
 
-/* Model Search Dropdown Position (adjusting for simplified container) */
+/* Enhanced card hover effects */
+.card:hover {
+  transform: translateY(-2px);
+}
+
+/* Toggle styling enhancements */
+.toggle:checked {
+  --tw-bg-opacity: 1;
+  background-color: hsl(var(--su));
+}
+
+.toggle:checked:hover {
+  background-color: hsl(var(--su));
+}
+
+/* Status badges */
+.badge-success {
+  background-color: hsl(var(--su) / 0.2);
+  color: hsl(var(--su));
+  border-color: hsl(var(--su) / 0.3);
+}
+
+.badge-warning {
+  background-color: hsl(var(--wa) / 0.2);
+  color: hsl(var(--wa));
+  border-color: hsl(var(--wa) / 0.3);
+}
+
+/* Model Search Dropdown Position */
 .absolute.top-full {
-  /* This ensures the dropdown positions correctly relative to its parent .relative container */
   position: absolute;
   width: 100%;
 }
@@ -785,12 +836,12 @@ onMounted(() => {
 /* Ensure filter fields have relative positioning for dropdowns */
 .form-control {
   position: relative;
-  z-index: 1; /* Default stacking context */
+  z-index: 1;
 }
 
 /* Higher z-index for active dropdowns */
 .form-control .absolute {
-  z-index: 10; /* Make dropdown appear above other filter cards */
+  z-index: 10;
 }
 
 /* Specific button styling adjustments */
@@ -800,7 +851,7 @@ onMounted(() => {
 
 /* Text filter search mode buttons */
 .btn-primary {
-  color: hsl(var(--pc)); /* Primary content color */
+  color: hsl(var(--pc));
 }
 
 .btn-ghost.hover\:btn-primary:hover {
@@ -841,11 +892,8 @@ onMounted(() => {
   .grid.grid-cols-1.md\:grid-cols-2 {
     grid-template-columns: 1fr;
   }
-  .stats-horizontal {
-    display: none; /* Hide stats on small screens to simplify header */
-  }
   .absolute.top-full.left-0.right-0 {
-    left: -1rem; /* Adjust for full width */
+    left: -1rem;
     right: -1rem;
     max-width: calc(100% + 2rem);
   }

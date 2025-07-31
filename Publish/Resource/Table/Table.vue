@@ -28,11 +28,11 @@
                             Scoped ({{ props.modelScopes.length }})
                         </span>
 
-                        <!-- ✨ Advanced Filters Indicator -->
-                        <span v-if="props.advancedFilters && props.advancedFilters.length > 0"
+                        <!-- ✨ Enhanced: Advanced Filters Indicator -->
+                        <span v-if="hasActiveAdvancedFilters"
                               class="badge badge-info badge-xs"
-                              :title="`${props.advancedFilters.length} advanced filter(s) active`">
-                            Advanced ({{ props.advancedFilters.length }})
+                              :title="`${enabledAdvancedFiltersCount} of ${totalAdvancedFiltersCount} advanced filters active`">
+                            Advanced ({{ enabledAdvancedFiltersCount }}/{{ totalAdvancedFiltersCount }})
                         </span>
 
                         <!-- Active Filters Indicator -->
@@ -94,7 +94,14 @@
             <!-- Filters Section -->
             <table-filter @onPerPage="handlePerPageChange" @onOrderBy="handleOrderChange" @onSearch="handleSearch"
                 @onFilter="handleFilterChange" @onFilterReset="handleFilterReset" :columns="props.columns" />
-            <AdvancedFilter class="mt-3" :columns="props.columns" @onFilterChange="handleAdvancedFilterChange" />
+
+            <!-- ✨ UPDATED: Advanced Filter Component with Backend Filters Support -->
+            <AdvancedFilter
+                class="mt-3"
+                :columns="props.columns"
+                :advancedFilters="props.advancedFilters"
+                @onFilterChange="handleAdvancedFilterChange"
+            />
 
             <!-- Loading State -->
             <div v-if="isLoading"
@@ -318,7 +325,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import axios from 'axios';
 import { Link } from '@inertiajs/vue3';
@@ -365,7 +372,6 @@ const props = defineProps({
     disableDelete: { type: Boolean, default: false },
     defaultFilters: { type: Object, default: () => ({}) },
     advancedFilters: { type: Array, default: () => [] },
-    // ✨ NEW: Model scopes prop
     modelScopes: { type: Array, default: () => [] }
 });
 
@@ -385,6 +391,9 @@ const filterBy = ref(props.defaultIdKey);
 const orderBy = ref<string | null>('desc');
 const search = ref<string | null>(null);
 const viewMode = ref('table');
+
+// ✨ NEW: Advanced filter state
+const currentAdvancedFilters = ref([]);
 
 // ✨ Enhanced state for density and column management
 const hiddenColumns = ref(new Set<string>());
@@ -407,6 +416,19 @@ const hasModelScopes = computed(() => {
 const getScopesTitle = computed(() => {
     if (!props.modelScopes || props.modelScopes.length === 0) return '';
     return props.modelScopes.map(scope => scope.name).join(', ');
+});
+
+// ✨ NEW: Advanced filter computed properties
+const hasActiveAdvancedFilters = computed(() => {
+    return currentAdvancedFilters.value && currentAdvancedFilters.value.length > 0;
+});
+
+const enabledAdvancedFiltersCount = computed(() => {
+    return currentAdvancedFilters.value.filter(f => f.enabled !== false).length;
+});
+
+const totalAdvancedFiltersCount = computed(() => {
+    return props.advancedFilters ? props.advancedFilters.length : 0;
 });
 
 const hasActiveFilters = computed(() => {
@@ -467,6 +489,21 @@ const displayColumns = computed(() => {
 
     return orderedColumns.filter(column => !hiddenColumns.value.has(column.key));
 });
+
+// ✨ NEW: Advanced filter change handler
+const handleAdvancedFilterChange = (userFilters, modifiedAdvancedFilters) => {
+    console.log('User filters changed:', userFilters);
+    console.log('Advanced filters changed:', modifiedAdvancedFilters);
+
+    // Update the advanced filters state
+    currentAdvancedFilters.value = modifiedAdvancedFilters || [];
+
+    // Merge user filters with default filters
+    activeFilters.value = { ...props.defaultFilters, ...userFilters };
+
+    // Refresh the data
+    fetchData();
+};
 
 // ✨ Enhanced row interaction
 function handleRowClick(item: any, event?: Event) {
@@ -886,10 +923,10 @@ const fetchData = async (endpoint = props.endpoint) => {
             console.log('Sending model scopes:', props.modelScopes);
         }
 
-        // ✨ EXISTING: Add advanced filters if they exist
-        if (props.advancedFilters && props.advancedFilters.length > 0) {
-            requestPayload.advancedFilters = props.advancedFilters;
-            console.log('Sending advanced filters:', props.advancedFilters);
+        // ✨ ENHANCED: Use current advanced filters instead of props
+        if (currentAdvancedFilters.value && currentAdvancedFilters.value.length > 0) {
+            requestPayload.advancedFilters = currentAdvancedFilters.value;
+            console.log('Sending current advanced filters:', currentAdvancedFilters.value);
         }
 
         const response = await axios.post(endpoint, requestPayload);
@@ -936,6 +973,17 @@ const resetFilters = () => {
     search.value = null;
     // Reset to default filters instead of empty object
     activeFilters.value = { ...props.defaultFilters };
+
+    // ✨ NEW: Reset advanced filters to original state
+    if (props.advancedFilters && props.advancedFilters.length > 0) {
+        currentAdvancedFilters.value = props.advancedFilters.map(filter => ({
+            ...filter,
+            enabled: filter.enabled !== false
+        }));
+    } else {
+        currentAdvancedFilters.value = [];
+    }
+
     fetchData();
 };
 
@@ -944,12 +992,6 @@ const refreshData = () => fetchData();
 const handlePageChange = (link: string) => fetchData(link);
 const handlePerPageChange = (value: number) => {
     perPage.value = value;
-    fetchData();
-};
-
-// ✨ ENHANCED: Advanced filter handler merges with defaults
-const handleAdvancedFilterChange = (filters) => {
-    activeFilters.value = { ...props.defaultFilters, ...filters };
     fetchData();
 };
 
@@ -1006,12 +1048,32 @@ const updateColumnOrder = (newOrder: string[]) => {
     columnOrder.value = newOrder;
 };
 
+// ✨ NEW: Watch for changes in advancedFilters prop
+watch(() => props.advancedFilters, (newFilters) => {
+    if (newFilters && newFilters.length > 0) {
+        currentAdvancedFilters.value = newFilters.map(filter => ({
+            ...filter,
+            enabled: filter.enabled !== false
+        }));
+        console.log('Advanced filters prop changed:', newFilters);
+    }
+}, { immediate: true, deep: true });
+
 // ✨ ENHANCED: Initialize component with default filters, advanced filters, and model scopes
 onMounted(() => {
     // Merge default filters with any existing active filters
     if (props.defaultFilters && Object.keys(props.defaultFilters).length > 0) {
         activeFilters.value = { ...props.defaultFilters, ...activeFilters.value };
         console.log('Default filters loaded:', props.defaultFilters);
+    }
+
+    // ✨ NEW: Initialize advanced filters
+    if (props.advancedFilters && props.advancedFilters.length > 0) {
+        currentAdvancedFilters.value = props.advancedFilters.map(filter => ({
+            ...filter,
+            enabled: filter.enabled !== false
+        }));
+        console.log('Advanced filters initialized:', currentAdvancedFilters.value);
     }
 
     // ✨ NEW: Log model scopes for debugging
@@ -1021,11 +1083,6 @@ onMounted(() => {
             name: scope.name,
             parameters: scope.parameters || []
         })));
-    }
-
-    // Log advanced filters for debugging
-    if (props.advancedFilters && props.advancedFilters.length > 0) {
-        console.log('Advanced filters loaded:', props.advancedFilters);
     }
 
     fetchData();
