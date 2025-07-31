@@ -5,7 +5,7 @@
       v-for="(column, index) in displayColumns"
       :key="index"
       :id="`column-${column.key}`"
-      class="whitespace-nowrap transition-all duration-200 hover:bg-base-100/50 group"
+      class="whitespace-nowrap transition-all duration-200 hover:bg-base-100/50 group relative"
       :class="[
         getColumnAlignment(column.type),
         getCompactPadding(),
@@ -34,6 +34,17 @@
           :ultraCompact="superCompactMode"
           @click.stop="handleFieldClick($event, column, index)"
         />
+      </div>
+
+      <!-- Column Resize Handle -->
+      <div
+        v-if="index < displayColumns.length - 1"
+        class="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 transition-colors duration-200 group-hover:opacity-100 opacity-0"
+        :class="{ 'bg-primary/50': resizingColumn === index }"
+        @mousedown="handleResizeStart($event, index)"
+        @click.stop
+      >
+        <div class="absolute top-1/2 right-0 transform -translate-y-1/2 w-1 h-8 bg-primary/20 rounded-l"></div>
       </div>
     </td>
   </template>
@@ -328,10 +339,18 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Define emits
-const emit = defineEmits(['column-click', 'card-click']);
+const emit = defineEmits(['column-click', 'card-click', 'column-resize']);
 
 // State for show more/less functionality
 const showAll = ref(false);
+
+// Column resizing state
+const isResizing = ref(false);
+const resizingColumn = ref<number | null>(null);
+const startX = ref(0);
+const startWidth = ref(0);
+const columnWidths = ref<Record<number, number>>({});
+const justFinishedResizing = ref(false);
 
 // Computed property for ordered and filtered columns
 const displayColumns = computed(() => {
@@ -387,8 +406,22 @@ const hasMetadata = computed(() => {
 
 // ✨ NEW: Enhanced column interaction methods
 function handleColumnClick(event: Event, column: Column, index: number) {
+  // Don't trigger click events if we're currently resizing or just finished resizing
+  if (isResizing.value || justFinishedResizing.value) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   // Check if the click came from a link or interactive element
   const target = event.target as HTMLElement;
+
+  // Check if clicking on resize handle
+  if (target.classList.contains('cursor-col-resize') || target.closest('.cursor-col-resize')) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
 
   // If clicking on a link, button, or other interactive element, don't trigger row navigation
   if (target.tagName === 'A' ||
@@ -430,9 +463,72 @@ function handleCardClick() {
   emit('card-click', props.tableData);
 }
 
+// ✨ NEW: Column resizing functionality
+function handleResizeStart(event: MouseEvent, index: number) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  isResizing.value = true;
+  resizingColumn.value = index;
+  startX.value = event.clientX;
+
+  // Get current width of the column
+  const columnElement = document.getElementById(`column-${displayColumns.value[index].key}`);
+  if (columnElement) {
+    startWidth.value = columnElement.offsetWidth;
+  }
+
+  // Add global mouse event listeners
+  document.addEventListener('mousemove', handleResize);
+  document.addEventListener('mouseup', handleResizeEnd);
+  document.body.classList.add('col-resizing');
+}
+
+function handleResize(event: MouseEvent) {
+  if (!isResizing.value || resizingColumn.value === null) return;
+
+  const deltaX = event.clientX - startX.value;
+  const newWidth = Math.max(50, startWidth.value + deltaX); // Minimum width of 50px
+
+  // Update the column width
+  columnWidths.value[resizingColumn.value] = newWidth;
+
+  // Apply the new width to the column
+  const columnElement = document.getElementById(`column-${displayColumns.value[resizingColumn.value].key}`);
+  if (columnElement) {
+    columnElement.style.width = `${newWidth}px`;
+    columnElement.style.minWidth = `${newWidth}px`;
+    columnElement.style.maxWidth = `${newWidth}px`;
+  }
+}
+
+function handleResizeEnd() {
+  if (resizingColumn.value !== null) {
+    emit('column-resize', {
+      columnIndex: resizingColumn.value,
+      columnKey: displayColumns.value[resizingColumn.value].key,
+      newWidth: columnWidths.value[resizingColumn.value]
+    });
+  }
+
+  isResizing.value = false;
+  resizingColumn.value = null;
+
+  // Set flag to prevent accidental clicks immediately after resizing
+  justFinishedResizing.value = true;
+  setTimeout(() => {
+    justFinishedResizing.value = false;
+  }, 300); // 300ms delay to prevent accidental clicks on large records
+
+  // Remove global mouse event listeners
+  document.removeEventListener('mousemove', handleResize);
+  document.removeEventListener('mouseup', handleResizeEnd);
+  document.body.classList.remove('col-resizing');
+}
+
 // ✨ NEW: Enhanced column styling for better UX
 function getColumnClasses(column: Column, index: number): string {
-  const classes = [];
+  const classes: string[] = [];
 
   // First column (ID) gets special styling to indicate it's clickable
   if (index === 0) {
@@ -450,7 +546,14 @@ function getColumnClasses(column: Column, index: number): string {
 function getColumnStyle(column: Column, index: number): string {
   const styles: string[] = [];
 
-  // Set widths based on column type and position
+  // Check if this column has been manually resized
+  if (columnWidths.value[index] !== undefined) {
+    const width = columnWidths.value[index];
+    styles.push(`width: ${width}px; min-width: ${width}px; max-width: ${width}px;`);
+    return styles.join(' ');
+  }
+
+  // Set default widths based on column type and position
   if (index === 0) {
     // First column (ID) - fixed small width
     styles.push('width: 80px; min-width: 60px; max-width: 100px;');
@@ -903,6 +1006,36 @@ td {
   position: relative;
   overflow: visible; /* Allow content to expand */
   transition: all 0.2s ease-in-out;
+}
+
+/* Column resize handle styling */
+.cursor-col-resize {
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.cursor-col-resize:hover {
+  background-color: hsl(var(--primary) / 0.3) !important;
+}
+
+.cursor-col-resize:active {
+  background-color: hsl(var(--primary) / 0.5) !important;
+}
+
+/* Resize indicator */
+td:hover .cursor-col-resize {
+  opacity: 1 !important;
+}
+
+/* Global resize state */
+body.col-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 /* First column (ID) special styling */
