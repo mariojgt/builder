@@ -122,7 +122,6 @@ class VulnerabilityController extends Controller
         <Table
             :columns="page.props.columns"
             :model="page.props.model"
-            :modelScopes="page.props.modelScopes"
             :endpoint="page.props.endpoint"
             :endpoint-delete="page.props.endpointDelete"
             :endpoint-create="page.props.endpointCreate"
@@ -139,6 +138,8 @@ class VulnerabilityController extends Controller
             :default-filters="page.props.defaultFilters"
             :advanced-filters="page.props.advancedFilters"
             :disableDelete="page.props.disableDelete"
+            :modelScopes="page.props.modelScopes"
+            :customLinks="page.props.customLinks"
             @tableDataLoaded="handleTableData"
         />
     </AppLayout>

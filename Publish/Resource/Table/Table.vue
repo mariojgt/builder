@@ -246,6 +246,21 @@
                                                 </Link>
                                             </template>
 
+                                            <!-- Custom Links -->
+                                            <template v-if="props.customLinks && props.customLinks.length > 0">
+                                                <template v-for="(link, index) in props.customLinks" :key="`custom-link-${index}`">
+                                                    <a :href="link.url + item[link.field]"
+                                                        :target="link.newTab ? '_blank' : '_self'"
+                                                        :class="getEnhancedActionButtonClasses('custom')"
+                                                        :title="superCompactMode ? link.name : ''"
+                                                        @click.stop
+                                                    >
+                                                        <component :is="getCustomActionIcon()" :class="getActionIconSize()" />
+                                                        <span v-if="!superCompactMode" class="hidden sm:inline">{{ link.name }}</span>
+                                                    </a>
+                                                </template>
+                                            </template>
+
                                             <!-- Delete Action -->
                                             <delete
                                                 v-if="!props.disableDelete"
@@ -315,6 +330,21 @@
                                         <component :is="getCustomActionIcon()" :class="getActionIconSize()" />
                                         <span v-if="!superCompactMode" class="hidden sm:inline">{{ props.custom_action_name }}</span>
                                     </Link>
+                                </template>
+
+                                <!-- Custom Links -->
+                                <template v-if="props.customLinks && props.customLinks.length > 0">
+                                    <template v-for="(link, index) in props.customLinks" :key="`list-custom-link-${index}`">
+                                        <a :href="link.url + item[link.field]"
+                                            :target="link.newTab ? '_blank' : '_self'"
+                                            :class="getEnhancedActionButtonClasses('custom')"
+                                            :title="superCompactMode ? link.name : ''"
+                                            @click.stop
+                                        >
+                                            <component :is="getCustomActionIcon()" :class="getActionIconSize()" />
+                                            <span v-if="!superCompactMode" class="hidden sm:inline">{{ link.name }}</span>
+                                        </a>
+                                    </template>
                                 </template>
 
                                 <!-- Delete Action -->
@@ -391,7 +421,8 @@ const props = defineProps({
     disableDelete: { type: Boolean, default: false },
     defaultFilters: { type: Object, default: () => ({}) },
     advancedFilters: { type: Array, default: () => [] },
-    modelScopes: { type: Array, default: () => [] }
+    modelScopes: { type: Array, default: () => [] },
+    customLinks: { type: Array, default: () => [] }
 });
 
 // State

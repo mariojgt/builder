@@ -59,6 +59,12 @@ class FormHelper
     private array $modelScopes = [];
 
     /**
+     * Custom links configuration
+     * @var array<array>
+     */
+    private array $customLinks = [];
+
+    /**
      *
      * @param string $scopeName The name of the scope method (without 'scope' prefix)
      * @param array $parameters Parameters to pass to the scope
@@ -1328,6 +1334,41 @@ class FormHelper
     }
 
     /**
+     * Set custom links for table actions
+     *
+     * @param array $links Array of link configurations
+     * Each link should have: [url, name, newTab, field]
+     * @return self
+     */
+    public function setLinks(array $links): self
+    {
+        $this->customLinks = [];
+
+        foreach ($links as $link) {
+            if (is_array($link) && count($link) >= 4) {
+                $this->customLinks[] = [
+                    'url' => $link[0],
+                    'name' => $link[1],
+                    'newTab' => $link[2],
+                    'field' => $link[3],
+                ];
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get custom links configuration
+     *
+     * @return array<array>
+     */
+    public function getCustomLinks(): array
+    {
+        return $this->customLinks;
+    }
+
+    /**
      * Quick setup method for common configurations
      */
     public function quickSetup(
@@ -1365,6 +1406,7 @@ class FormHelper
             'defaultFilters' => $this->getDefaultFilters(),
             'advancedFilters' => $this->getAdvancedFilters(),
             'modelScopes' => $this->getModelScopes(),
+            'customLinks' => $this->getCustomLinks(),
         ]);
     }
 }
