@@ -324,7 +324,7 @@ const dragOverIndex = ref<number | null>(null);
 const showDropZone = ref(false);
 
 // Computed properties
-const totalColumns = computed(() => props.columns.length);
+const totalColumns = computed(() => props.columns.filter(col => !col.hidden).length);
 const visibleCount = computed(() => totalColumns.value - hiddenColumns.value.size);
 const storageKey = computed(() => props.storageKey || 'table-settings');
 
@@ -339,14 +339,16 @@ const orderedColumns = computed(() => {
     const orderedKeys = new Set(columnOrder.value);
     const newColumns = props.columns.filter(col => !orderedKeys.has(col.key));
 
-    return [...ordered, ...newColumns];
+    return [...ordered, ...newColumns].filter(col => !col.hidden); // Filter out columns marked as hidden in FormHelper
   }
 
-  return [...props.columns].sort((a, b) => {
-    const priorityA = a.priority ?? 999;
-    const priorityB = b.priority ?? 999;
-    return priorityA - priorityB;
-  });
+  return [...props.columns]
+    .filter(col => !col.hidden) // Filter out columns marked as hidden in FormHelper
+    .sort((a, b) => {
+      const priorityA = a.priority ?? 999;
+      const priorityB = b.priority ?? 999;
+      return priorityA - priorityB;
+    });
 });
 
 const hasCustomOrder = computed(() => {

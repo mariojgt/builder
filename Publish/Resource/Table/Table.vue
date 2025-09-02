@@ -224,7 +224,7 @@
                                                 />
                                             </template>
                                             <template v-else>
-                                                <Link :href="props.custom_edit_route + item[props.defaultIdKey]"
+                                                <Link :href="props.custom_edit_route + (props.custom_edit_route_field ? item[props.custom_edit_route_field] : item[props.defaultIdKey])"
                                                     :class="getEnhancedActionButtonClasses('edit')"
                                                     :title="superCompactMode ? 'Edit' : ''"
                                                     @click.stop
@@ -312,7 +312,7 @@
                                     />
                                 </template>
                                 <template v-else>
-                                    <Link :href="props.custom_edit_route + item[props.defaultIdKey]"
+                                    <Link :href="props.custom_edit_route + (props.custom_edit_route_field ? item[props.custom_edit_route_field] : item[props.defaultIdKey])"
                                         :class="getEnhancedActionButtonClasses('edit')"
                                         @click.stop
                                     >
@@ -413,6 +413,7 @@ const props = defineProps({
     endpointEdit: { type: String, required: true },
     permission: { type: String, default: null },
     custom_edit_route: { type: String, default: null },
+    custom_edit_route_field: { type: String, default: null },
     custom_create_route: { type: String, default: null },
     custom_point_route: { type: String, default: null },
     custom_action_name: { type: String, default: null },
@@ -538,7 +539,9 @@ const displayColumns = computed(() => {
         });
     }
 
-    return orderedColumns.filter(column => !hiddenColumns.value.has(column.key));
+    return orderedColumns
+        .filter(column => !hiddenColumns.value.has(column.key))
+        .filter(column => !column.hidden); // Filter out columns marked as hidden in FormHelper
 });
 
 // ✨ NEW: Advanced filter change handler
@@ -586,7 +589,7 @@ function handleRowClick(item: any, event?: Event) {
 
     // Navigate to edit/detail page when row is clicked
     const route = props.custom_edit_route ?
-        props.custom_edit_route + item[props.defaultIdKey] :
+        props.custom_edit_route + (props.custom_edit_route_field ? item[props.custom_edit_route_field] : item[props.defaultIdKey]) :
         props.custom_point_route ?
         props.custom_point_route + item[props.defaultIdKey] : null;
 

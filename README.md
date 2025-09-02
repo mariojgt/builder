@@ -131,6 +131,7 @@ class VulnerabilityController extends Controller
             :permission="page.props.permission"
             :defaultIdKey="page.props.defaultIdKey"
             :custom_edit_route="page.props.custom_edit_route"
+            :custom_edit_route_field="page.props.custom_edit_route_field"
             :custom_create_route="page.props.custom_create_route"
             :custom_point_route="page.props.custom_point_route"
             :custom_action_name="page.props.custom_action_name"

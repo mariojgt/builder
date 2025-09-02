@@ -1045,7 +1045,8 @@ class FormHelper
         bool $filterable = false,
         array $filterOptions = [],
         array $conditionalStyling = [],
-        string $defaultStyle = ''
+        string $defaultStyle = '',
+        bool $hidden = false
     ): self {
         if (empty($key)) {
             throw new \InvalidArgumentException('Field key cannot be empty');
@@ -1089,7 +1090,8 @@ class FormHelper
             'rules' => $processedRules,
             'messages' => $messages,
             'filterable' => $filterable,
-            'filter_options' => $filterOptions
+            'filter_options' => $filterOptions,
+            'hidden' => $hidden
         ];
 
         if (!empty($options)) {
@@ -1299,9 +1301,12 @@ class FormHelper
     /**
      * Set custom edit route
      */
-    public function setCustomEditRoute(string $route): self
+    public function setCustomEditRoute(string $route, ?string $fieldKey = null): self
     {
         $this->config['custom_edit_route'] = $route;
+        if ($fieldKey !== null) {
+            $this->config['custom_edit_route_field'] = $fieldKey;
+        }
         return $this;
     }
 
