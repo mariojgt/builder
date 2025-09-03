@@ -221,6 +221,10 @@
 
   interface Props {
     columns: Column[];
+    currentPerPage?: number;
+    currentFilterBy?: string;
+    currentOrderBy?: string;
+    currentSearch?: string;
   }
 
   const props = defineProps<Props>();
@@ -233,12 +237,12 @@
     'onFilterReset': [value: { perPage: number; filterBy: string; orderBy: string; search: null }];
   }>();
 
-  // State
+  // State - Initialize with props values
   const isFilterOpen = ref(false);
-  const perPage = ref<number>(10);
-  const filterBy = ref<string>('');
-  const orderBy = ref<string>('asc');
-  const search = ref<string>('');
+  const perPage = ref<number>(props.currentPerPage ?? 10);
+  const filterBy = ref<string>(props.currentFilterBy ?? '');
+  const orderBy = ref<string>(props.currentOrderBy ?? 'asc');
+  const search = ref<string>(props.currentSearch ?? '');
   const filterColumns = ref<{ label: string; value: string; }[]>([]);
 
   // Computed
@@ -299,12 +303,37 @@
     emit('onSearch', value);
   }, 300);
 
-  // Watchers
+  // Watchers for local state changes (emit to parent)
   watch(perPage, (value) => emit('onPerPage', value));
   watch(orderBy, (value) => emit('onOrderBy', value));
   watch(filterBy, (value) => emit('onFilter', value));
   watch(search, (value) => {
     if (value) debouncedSearch(value);
+  });
+
+  // Watchers for prop changes (update local state)
+  watch(() => props.currentPerPage, (newValue) => {
+    if (newValue !== undefined && newValue !== perPage.value) {
+      perPage.value = newValue;
+    }
+  });
+
+  watch(() => props.currentFilterBy, (newValue) => {
+    if (newValue !== undefined && newValue !== filterBy.value) {
+      filterBy.value = newValue;
+    }
+  });
+
+  watch(() => props.currentOrderBy, (newValue) => {
+    if (newValue !== undefined && newValue !== orderBy.value) {
+      orderBy.value = newValue;
+    }
+  });
+
+  watch(() => props.currentSearch, (newValue) => {
+    if (newValue !== search.value) {
+      search.value = newValue ?? '';
+    }
   });
 
   // Initialize

@@ -86,6 +86,22 @@
                         :filename="props.tableTitle.toLowerCase().replace(/\s+/g, '-')"
                         :total-records="paginationInfo.total"
                     />
+                    <!-- ✨ NEW: Reset Filters Button -->
+                    <div class="tooltip tooltip-bottom" data-tip="Reset all filters and settings">
+                        <button
+                            @click="resetAllFilters"
+                            :class="[
+                                'btn btn-sm gap-2 transition-all duration-200',
+                                hasActiveFilters ? 'btn-warning' : 'btn-ghost'
+                            ]"
+                            :disabled="!hasActiveFilters && !hasStoredFilters"
+                        >
+                            <RotateCcwIcon class="w-4 h-4" />
+                            <span v-if="!superCompactMode" class="hidden sm:inline">
+                                Reset
+                            </span>
+                        </button>
+                    </div>
                     <slot name="custom-actions"></slot>
                     <slot name="new">
                         <create
@@ -107,8 +123,18 @@
             </div>
 
             <!-- Filters Section -->
-            <table-filter @onPerPage="handlePerPageChange" @onOrderBy="handleOrderChange" @onSearch="handleSearch"
-                @onFilter="handleFilterChange" @onFilterReset="handleFilterReset" :columns="props.columns" />
+            <table-filter
+                @onPerPage="handlePerPageChange"
+                @onOrderBy="handleOrderChange"
+                @onSearch="handleSearch"
+                @onFilter="handleFilterChange"
+                @onFilterReset="handleFilterReset"
+                :columns="props.columns"
+                :currentPerPage="perPage"
+                :currentFilterBy="filterBy"
+                :currentOrderBy="orderBy"
+                :currentSearch="search"
+            />
 
             <AdvancedFilter
                 class="mt-3"
@@ -144,6 +170,10 @@
                         <button v-if="hasActiveFilters" @click="resetFilters" class="btn btn-ghost btn-sm gap-2 mt-4">
                             <RotateCcwIcon class="w-4 h-4" />
                             Reset Filters
+                        </button>
+                        <button v-if="hasStoredFilters" @click="clearAllStoredFilters" class="btn btn-outline btn-sm gap-2 mt-2">
+                            <DatabaseIcon class="w-4 h-4" />
+                            Clear Saved Settings
                         </button>
                     </div>
 
@@ -210,31 +240,29 @@
                                     <td :class="getActionsCellClasses()" class="text-right">
                                         <div :class="getActionsContainerClasses()" @click.stop>
                                             <!-- Enhanced Action Buttons - Always Visible -->
-                                            <!-- Edit Action -->
-                                            <template v-if="!props.custom_edit_route">
-                                                <edit
-                                                    :columns="displayColumns"
-                                                    :endpoint="props.endpointEdit"
-                                                    :model="props.model"
-                                                    :modelValue="item"
-                                                    :id="item[props.defaultIdKey]"
-                                                    :permission="props.permission"
-                                                    @onEdit="refreshData"
-                                                    :class="getEnhancedActionButtonClasses('edit')"
-                                                />
-                                            </template>
-                                            <template v-else>
-                                                <Link :href="props.custom_edit_route + (props.custom_edit_route_field ? item[props.custom_edit_route_field] : item[props.defaultIdKey])"
-                                                    :class="getEnhancedActionButtonClasses('edit')"
-                                                    :title="superCompactMode ? 'Edit' : ''"
-                                                    @click.stop
-                                                >
-                                                    <PencilIcon :class="getActionIconSize()" />
-                                                    <span v-if="!superCompactMode" class="hidden sm:inline">Edit</span>
-                                                </Link>
-                                            </template>
-
-                                            <!-- Custom Action -->
+                            <!-- Edit Action -->
+                            <template v-if="!props.custom_edit_route">
+                                <edit
+                                    :columns="displayColumns"
+                                    :endpoint="props.endpointEdit"
+                                    :model="props.model"
+                                    :modelValue="item"
+                                    :id="item[props.defaultIdKey]"
+                                    :permission="props.permission"
+                                    @onEdit="refreshData"
+                                    :class="getEnhancedActionButtonClasses('edit')"
+                                />
+                            </template>
+                            <template v-else>
+                                <Link :href="props.custom_edit_route + (props.custom_edit_route_field ? item[props.custom_edit_route_field] : item[props.defaultIdKey])"
+                                    :class="getEnhancedActionButtonClasses('edit')"
+                                    :title="superCompactMode ? 'Edit' : ''"
+                                    @click.stop
+                                >
+                                    <PencilIcon :class="getActionIconSize()" />
+                                    <span v-if="!superCompactMode" class="hidden sm:inline">Edit</span>
+                                </Link>
+                            </template>                                            <!-- Custom Action -->
                                             <template v-if="props.custom_point_route">
                                                 <Link :href="props.custom_point_route + item[props.defaultIdKey]"
                                                     :class="getEnhancedActionButtonClasses('custom')"
@@ -364,8 +392,13 @@
 
                 <!-- Pagination -->
                 <div :class="getPaginationMargin()">
-                    <table-pagination v-if="tableData.length" @onPagination="handlePageChange"
-                        :paginationInfo="paginationInfo" :endpoint="props.endpoint" />
+                    <table-pagination
+                        v-if="tableData.length"
+                        @onPagination="handlePageChange"
+                        @onPageSizeChange="handlePerPageChange"
+                        :paginationInfo="paginationInfo"
+                        :endpoint="props.endpoint"
+                    />
                 </div>
             </div>
         </div>
@@ -437,19 +470,37 @@ const paginationInfo = ref({
     links: []
 });
 
-const perPage = ref(10);
-const filterBy = ref(props.defaultIdKey);
-const orderBy = ref<string | null>('desc');
-const search = ref<string | null>(null);
-const viewMode = ref('table');
+// ✨ NEW: Storage key for persistent filters
+const filterStorageKey = computed(() => `table-filters-${props.tableTitle.toLowerCase().replace(/\s+/g, '-')}`);
 
-const currentAdvancedFilters = ref([]);
+// ✨ NEW: Check if filters exist in storage BEFORE initializing reactive refs
+const getStoredFilters = () => {
+    try {
+        const savedFilters = localStorage.getItem(filterStorageKey.value);
+        return savedFilters ? JSON.parse(savedFilters) : null;
+    } catch (error) {
+        console.warn('Failed to read stored filters:', error);
+        return null;
+    }
+};
 
-// ✨ Enhanced state for density and column management
-const hiddenColumns = ref(new Set<string>());
-const compactMode = ref(true);
-const superCompactMode = ref(false);
-const columnOrder = ref<string[]>([]);
+// ✨ ENHANCED: Initialize state with stored values first, then defaults
+const storedFilters = getStoredFilters();
+console.log('Checking for stored filters on init:', storedFilters);
+
+const perPage = ref(storedFilters?.perPage ?? 10);
+const filterBy = ref(storedFilters?.filterBy ?? props.defaultIdKey);
+const orderBy = ref(storedFilters?.orderBy ?? 'desc');
+const search = ref(storedFilters?.search ?? null);
+const viewMode = ref(storedFilters?.viewMode ?? 'table');
+
+const currentAdvancedFilters = ref(storedFilters?.currentAdvancedFilters ?? []);
+
+// ✨ Enhanced state for density and column management - Initialize with stored values
+const hiddenColumns = ref(new Set<string>(storedFilters?.hiddenColumns ?? []));
+const compactMode = ref(storedFilters?.compactMode ?? true);
+const superCompactMode = ref(storedFilters?.superCompactMode ?? false);
+const columnOrder = ref<string[]>(storedFilters?.columnOrder ?? []);
 
 // ✨ NEW: Row click navigation state
 const rowClickNavigationEnabled = ref((() => {
@@ -457,8 +508,99 @@ const rowClickNavigationEnabled = ref((() => {
     return stored ? JSON.parse(stored) : false; // Default is false
 })());
 
-// ✨ Filter state management
-const activeFilters = ref({});
+// ✨ Filter state management - Initialize with stored or default filters
+const activeFilters = ref({
+    ...props.defaultFilters,
+    ...(storedFilters?.activeFilters ?? {})
+});
+
+// ✨ NEW: Filter persistence methods
+const saveFiltersToStorage = () => {
+    const filtersToSave = {
+        perPage: perPage.value,
+        filterBy: filterBy.value,
+        orderBy: orderBy.value,
+        search: search.value,
+        viewMode: viewMode.value,
+        activeFilters: activeFilters.value,
+        currentAdvancedFilters: currentAdvancedFilters.value,
+        hiddenColumns: Array.from(hiddenColumns.value),
+        compactMode: compactMode.value,
+        superCompactMode: superCompactMode.value,
+        columnOrder: columnOrder.value
+    };
+
+    try {
+        localStorage.setItem(filterStorageKey.value, JSON.stringify(filtersToSave));
+        console.log('Filters saved to storage:', filtersToSave);
+    } catch (error) {
+        console.warn('Failed to save filters to localStorage:', error);
+    }
+};
+
+const loadFiltersFromStorage = () => {
+    try {
+        const savedFilters = localStorage.getItem(filterStorageKey.value);
+        if (savedFilters) {
+            const parsedFilters = JSON.parse(savedFilters);
+            console.log('Re-loading filters from storage during runtime:', parsedFilters);
+
+            // Apply saved values (this is now mainly for runtime updates)
+            perPage.value = parsedFilters.perPage !== undefined ? parsedFilters.perPage : perPage.value;
+            filterBy.value = parsedFilters.filterBy !== undefined ? parsedFilters.filterBy : filterBy.value;
+            orderBy.value = parsedFilters.orderBy !== undefined ? parsedFilters.orderBy : orderBy.value;
+            search.value = parsedFilters.search !== undefined ? parsedFilters.search : search.value;
+            viewMode.value = parsedFilters.viewMode !== undefined ? parsedFilters.viewMode : viewMode.value;
+
+            // Merge saved active filters with default filters
+            activeFilters.value = {
+                ...props.defaultFilters,
+                ...(parsedFilters.activeFilters || {})
+            };
+
+            // Restore advanced filters
+            if (parsedFilters.currentAdvancedFilters) {
+                currentAdvancedFilters.value = parsedFilters.currentAdvancedFilters;
+            }
+
+            // Restore column settings
+            if (parsedFilters.hiddenColumns) {
+                hiddenColumns.value = new Set(parsedFilters.hiddenColumns);
+            }
+            if (parsedFilters.compactMode !== undefined) {
+                compactMode.value = parsedFilters.compactMode;
+            }
+            if (parsedFilters.superCompactMode !== undefined) {
+                superCompactMode.value = parsedFilters.superCompactMode;
+            }
+            if (parsedFilters.columnOrder) {
+                columnOrder.value = parsedFilters.columnOrder;
+            }
+
+            console.log('Filters re-loaded successfully:', {
+                perPage: perPage.value,
+                filterBy: filterBy.value,
+                orderBy: orderBy.value,
+                search: search.value,
+                viewMode: viewMode.value
+            });
+
+            return true;
+        }
+    } catch (error) {
+        console.warn('Failed to load filters from localStorage:', error);
+    }
+    return false;
+};
+
+const clearStoredFilters = () => {
+    try {
+        localStorage.removeItem(filterStorageKey.value);
+        console.log('Stored filters cleared');
+    } catch (error) {
+        console.warn('Failed to clear stored filters:', error);
+    }
+};
 
 // Computed
 const totalItems = computed(() => paginationInfo.value.total);
@@ -516,6 +658,16 @@ const hasNonDefaultFilters = computed(() => {
     return false;
 });
 
+// ✨ NEW: Check if there are stored filters
+const hasStoredFilters = computed(() => {
+    try {
+        const savedFilters = localStorage.getItem(filterStorageKey.value);
+        return savedFilters !== null && savedFilters !== undefined;
+    } catch {
+        return false;
+    }
+});
+
 // Enhanced column management with ordering
 const displayColumns = computed(() => {
     const columnMap = new Map(props.columns.map(col => [col.key, col]));
@@ -554,6 +706,9 @@ const handleAdvancedFilterChange = (userFilters, modifiedAdvancedFilters) => {
 
     // Merge user filters with default filters
     activeFilters.value = { ...props.defaultFilters, ...userFilters };
+
+    // ✨ NEW: Save filters after advanced filter change
+    saveFiltersToStorage();
 
     // Refresh the data
     fetchData();
@@ -945,6 +1100,9 @@ function handleSort(columnKey: string) {
         filterBy.value = columnKey;
         orderBy.value = 'asc';
     }
+
+    // ✨ NEW: Save filters after sorting
+    saveFiltersToStorage();
     fetchData();
 }
 
@@ -1030,6 +1188,7 @@ const resetFilters = () => {
     filterBy.value = props.defaultIdKey;
     orderBy.value = 'desc';
     search.value = null;
+    viewMode.value = 'table';
     // Reset to default filters instead of empty object
     activeFilters.value = { ...props.defaultFilters };
 
@@ -1043,7 +1202,21 @@ const resetFilters = () => {
         currentAdvancedFilters.value = [];
     }
 
+    // ✨ NEW: Save the reset state
+    saveFiltersToStorage();
     fetchData();
+};
+
+// ✨ NEW: Reset all filters and clear storage
+const resetAllFilters = () => {
+    resetFilters();
+    clearStoredFilters();
+};
+
+// ✨ NEW: Clear all stored filters (for empty state button)
+const clearAllStoredFilters = () => {
+    clearStoredFilters();
+    resetFilters();
 };
 
 // Event Handlers
@@ -1051,25 +1224,35 @@ const refreshData = () => fetchData();
 const handlePageChange = (link: string) => fetchData(link);
 const handlePerPageChange = (value: number) => {
     perPage.value = value;
+    // ✨ NEW: Save filters after per page change
+    saveFiltersToStorage();
     fetchData();
 };
 
 const handleFilterChange = (value: string) => {
     filterBy.value = value;
+    // ✨ NEW: Save filters after filter change
+    saveFiltersToStorage();
     fetchData();
 };
 
 const handleOrderChange = (value: string) => {
     orderBy.value = value;
+    // ✨ NEW: Save filters after order change
+    saveFiltersToStorage();
     fetchData();
 };
 
 const handleSearch = (value: string) => {
     if (value && value.length > 2) {
         search.value = value;
+        // ✨ NEW: Save filters after search
+        saveFiltersToStorage();
         fetchData();
     } else if (!value) {
         search.value = null;
+        // ✨ NEW: Save filters after search clear
+        saveFiltersToStorage();
         fetchData();
     }
 };
@@ -1079,12 +1262,16 @@ const handleFilterReset = (data: any) => {
     filterBy.value = data.filterBy;
     orderBy.value = data.orderBy;
     search.value = data.search;
+    // ✨ NEW: Save filters after reset
+    saveFiltersToStorage();
     fetchData();
 };
 
 // Enhanced event handlers for density and column management
 const updateHiddenColumns = (newHiddenColumns: Set<string>) => {
     hiddenColumns.value = newHiddenColumns;
+    // ✨ NEW: Save filters after column visibility change
+    saveFiltersToStorage();
 };
 
 const updateCompactMode = (newCompactMode: boolean) => {
@@ -1093,6 +1280,8 @@ const updateCompactMode = (newCompactMode: boolean) => {
     if (!newCompactMode && superCompactMode.value) {
         superCompactMode.value = false;
     }
+    // ✨ NEW: Save filters after compact mode change
+    saveFiltersToStorage();
 };
 
 const updateSuperCompactMode = (newSuperCompactMode: boolean) => {
@@ -1101,10 +1290,14 @@ const updateSuperCompactMode = (newSuperCompactMode: boolean) => {
     if (newSuperCompactMode && !compactMode.value) {
         compactMode.value = true;
     }
+    // ✨ NEW: Save filters after super compact mode change
+    saveFiltersToStorage();
 };
 
 const updateColumnOrder = (newOrder: string[]) => {
     columnOrder.value = newOrder;
+    // ✨ NEW: Save filters after column order change
+    saveFiltersToStorage();
 };
 
 // ✨ NEW: Row click navigation toggle
@@ -1124,21 +1317,37 @@ watch(() => props.advancedFilters, (newFilters) => {
     }
 }, { immediate: true, deep: true });
 
-// ✨ ENHANCED: Initialize component with default filters, advanced filters, and model scopes
-onMounted(() => {
-    // Merge default filters with any existing active filters
-    if (props.defaultFilters && Object.keys(props.defaultFilters).length > 0) {
-        activeFilters.value = { ...props.defaultFilters, ...activeFilters.value };
-        console.log('Default filters loaded:', props.defaultFilters);
-    }
+// ✨ NEW: Watch for view mode changes and save to storage
+watch(viewMode, (newViewMode) => {
+    saveFiltersToStorage();
+    console.log('View mode changed and saved:', newViewMode);
+});
 
-    // ✨ NEW: Initialize advanced filters
-    if (props.advancedFilters && props.advancedFilters.length > 0) {
+// ✨ ENHANCED: Initialize component - filters are already loaded during ref initialization
+onMounted(() => {
+    console.log('Component mounting...');
+
+    // Log what we started with (already loaded from storage or defaults)
+    console.log('Initial state (from storage or defaults):', {
+        perPage: perPage.value,
+        filterBy: filterBy.value,
+        orderBy: orderBy.value,
+        search: search.value,
+        viewMode: viewMode.value,
+        activeFilters: activeFilters.value,
+        hasStoredFilters: hasStoredFilters.value
+    });
+
+    // ✨ NEW: Handle advanced filters initialization
+    if (!storedFilters && props.advancedFilters && props.advancedFilters.length > 0) {
+        // Only set default advanced filters if no stored filters exist
         currentAdvancedFilters.value = props.advancedFilters.map(filter => ({
             ...filter,
             enabled: filter.enabled !== false
         }));
-        console.log('Advanced filters initialized:', currentAdvancedFilters.value);
+        console.log('Advanced filters initialized with defaults:', currentAdvancedFilters.value);
+    } else if (storedFilters) {
+        console.log('Advanced filters loaded from storage:', currentAdvancedFilters.value);
     }
 
     // ✨ NEW: Log model scopes for debugging
@@ -1150,6 +1359,25 @@ onMounted(() => {
         })));
     }
 
+    // Always ensure we have default filters merged
+    if (props.defaultFilters && Object.keys(props.defaultFilters).length > 0) {
+        activeFilters.value = {
+            ...props.defaultFilters,
+            ...activeFilters.value
+        };
+        console.log('Final active filters with defaults merged:', activeFilters.value);
+    }
+
+    console.log('Ready to fetch data with state:', {
+        perPage: perPage.value,
+        filterBy: filterBy.value,
+        orderBy: orderBy.value,
+        search: search.value,
+        viewMode: viewMode.value,
+        activeFilters: activeFilters.value
+    });
+
+    // Fetch data with the properly initialized state
     fetchData();
 });
 </script>
