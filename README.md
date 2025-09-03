@@ -540,6 +540,50 @@ Apply dynamic styling based on field values for instant visual feedback.
     ['operator' => 'between', 'min' => 4.0, 'max' => 6.9, 'classes' => 'bg-orange-500 text-white'],
     ['operator' => 'less_than', 'value' => 4.0, 'classes' => 'bg-green-500 text-white']
 ])
+
+or
+
+->addField('CVSS Score', 'cvss_score', type: FieldTypes::NUMBER->value)
+->withAdvancedStyling([
+    [
+        'operator' => 'greater_than_equal',
+        'value' => 9.0,
+        'classes' => 'bg-red-600 text-white font-bold',
+        'icon' => 'skull',
+        'tooltip' => 'Critical Risk (9.0-10.0) - Exploit likely causes significant impact'
+    ],
+    [
+        'operator' => 'between',
+        'min' => 7.0,
+        'max' => 8.9,
+        'classes' => 'bg-red-500 text-white',
+        'icon' => 'flame',
+        'tooltip' => 'High Risk (7.0-8.9) - Exploitation more difficult but serious impact'
+    ],
+    [
+        'operator' => 'between',
+        'min' => 4.0,
+        'max' => 6.9,
+        'classes' => 'bg-yellow-500 text-white',
+        'icon' => 'alerttriangle',
+        'tooltip' => 'Medium Risk (4.0-6.9) - Moderate impact, monitor for patches'
+    ],
+    [
+        'operator' => 'between',
+        'min' => 0.1,
+        'max' => 3.9,
+        'classes' => 'bg-blue-500 text-white',
+        'icon' => 'info',
+        'tooltip' => 'Low Risk (0.1-3.9) - Minor impact, low priority'
+    ],
+    [
+        'operator' => 'less_than_equal',
+        'value' => 0.0,
+        'classes' => 'bg-gray-500 text-white',
+        'icon' => 'ampersand',
+        'tooltip' => 'No Score (0.0) - Not yet assessed or informational only'
+    ],
+])
 ```
 
 ### Preset Styling Methods

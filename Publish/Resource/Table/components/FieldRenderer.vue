@@ -50,12 +50,13 @@
           <span
             class="badge-micro inline-flex items-center"
             :class="getConditionalClasses()"
-            :title="formatValue()"
+            :title="getConditionalTooltip() || formatValue()"
           >
             <component
-              v-if="getStatusIcon()"
-              :is="getStatusIcon()"
+              v-if="getConditionalIcon() || getStatusIcon()"
+              :is="getConditionalIcon() || getStatusIcon()"
               class="w-2.5 h-2.5 mr-0.5 opacity-80"
+              :title="getConditionalTooltip()"
             />
             {{ formatValue() }}
           </span>
@@ -257,11 +258,13 @@
             getConditionalClasses(),
             compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
           ]"
+          :title="getConditionalTooltip()"
         >
           <component
-            v-if="getStatusIcon()"
-            :is="getStatusIcon()"
+            v-if="getConditionalIcon() || getStatusIcon()"
+            :is="getConditionalIcon() || getStatusIcon()"
             :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
+            :title="getConditionalTooltip()"
           />
           {{ formatValue() }}
         </div>
@@ -273,7 +276,14 @@
             getConditionalClasses(),
             compact ? 'px-1 py-0.5 text-xs' : 'px-2 py-1 text-sm'
           ]"
+          :title="getConditionalTooltip()"
         >
+          <component
+            v-if="getConditionalIcon()"
+            :is="getConditionalIcon()"
+            :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
+            :title="getConditionalTooltip()"
+          />
           {{ formatValue() }}
         </div>
 
@@ -284,7 +294,14 @@
             getConditionalClasses(),
             compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
           ]"
+          :title="getConditionalTooltip()"
         >
+          <component
+            v-if="getConditionalIcon()"
+            :is="getConditionalIcon()"
+            :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
+            :title="getConditionalTooltip()"
+          />
           <span class="tabular-nums">{{ formatValue() }}</span>
           <span v-if="getScoreLabel() && !compact" class="ml-2 text-xs opacity-80">
             {{ getScoreLabel() }}
@@ -499,7 +516,25 @@ import {
   Hash,
   Tag,
   Globe,
-  Phone
+  Phone,
+  Ampersand,
+  Flame,
+  Gauge,
+  CircleCheck,
+  CircleX,
+  TriangleAlert,
+  Info,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
+  Heart,
+  Skull,
+  Bug,
+  Wrench,
+  Target,
+  Activity,
+  OctagonAlert
 } from 'lucide-vue-next';
 
 interface ConditionalRule {
@@ -508,6 +543,8 @@ interface ConditionalRule {
   min?: number;
   max?: number;
   classes: string;
+  icon?: string;
+  tooltip?: string;
 }
 
 interface Props {
@@ -770,6 +807,80 @@ function getConditionalClasses(): string {
     return conditions[normalizedValue] || defaultStyle || '';
   }
   return '';
+}
+
+function getConditionalIcon(): any {
+  if (!hasValue.value) return null;
+
+  // Check advanced styling for icons
+  if (props.options.advancedStyling) {
+    for (const condition of props.options.advancedStyling.conditions) {
+      if (evaluateCondition(condition) && condition.icon) {
+        // Map icon names to actual icon components (case-insensitive)
+        const iconName = condition.icon.toLowerCase().replace(/[-_\s]/g, '');
+        switch (iconName) {
+          // Basic icons
+          case 'ampersand': return Ampersand;
+          case 'checkcircle': return CheckCircle;
+          case 'xcircle': return XCircle;
+          case 'calendar': return Calendar;
+          case 'mail': return Mail;
+          case 'externallink': return ExternalLink;
+          case 'image': return ImageIcon;
+          case 'star': return Star;
+          case 'dollarsign': return DollarSign;
+          case 'shield': return Shield;
+          case 'alerttriangle': return AlertTriangle;
+          case 'checksquare': return CheckSquare;
+          case 'clock': return Clock;
+          case 'zap': return Zap;
+          case 'user': return User;
+          case 'hash': return Hash;
+          case 'tag': return Tag;
+          case 'globe': return Globe;
+          case 'phone': return Phone;
+          case 'octagonalert': return OctagonAlert;
+
+          // Extended icons for more use cases
+          case 'flame': case 'fire': return Flame;
+          case 'gauge': case 'speed': case 'meter': return Gauge;
+          case 'circlecheck': case 'checkmark': return CircleCheck;
+          case 'circlex': case 'cross': return CircleX;
+          case 'trianglealert': case 'warning': return TriangleAlert;
+          case 'info': case 'information': return Info;
+          case 'eye': case 'view': case 'visible': return Eye;
+          case 'eyeoff': case 'hidden': case 'invisible': return EyeOff;
+          case 'lock': case 'locked': case 'secure': return Lock;
+          case 'unlock': case 'unlocked': case 'insecure': return Unlock;
+          case 'heart': case 'favorite': case 'like': return Heart;
+          case 'skull': case 'death': case 'critical': return Skull;
+          case 'bug': case 'error': case 'issue': return Bug;
+          case 'wrench': case 'tool': case 'fix': case 'repair': return Wrench;
+          case 'target': case 'aim': case 'focus': return Target;
+          case 'activity': case 'pulse': case 'monitor': return Activity;
+
+          default: return null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function getConditionalTooltip(): string | null {
+  if (!hasValue.value) return null;
+
+  // Check advanced styling for tooltips
+  if (props.options.advancedStyling) {
+    for (const condition of props.options.advancedStyling.conditions) {
+      if (evaluateCondition(condition) && condition.tooltip) {
+        return condition.tooltip;
+      }
+    }
+  }
+
+  return null;
 }
 
 function getBooleanClasses(): string {
