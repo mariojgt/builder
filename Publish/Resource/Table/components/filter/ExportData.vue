@@ -1,101 +1,172 @@
 <template>
-  <div class="relative export-data-container" v-click-outside="closeDropdown">
-    <button
-      @click="toggleDropdown"
-      class="btn btn-secondary gap-2 group relative overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105"
-      :disabled="isExporting || totalRecords === 0"
-    >
-      <div class="absolute inset-0 bg-gradient-to-r from-secondary/50 to-accent/50 opacity-0 group-hover:opacity-30 transition-opacity duration-300"></div>
+  <!-- Export Modal -->
+  <div
+    v-if="props.isModalOpen"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+  >
+    <!-- Backdrop -->
+    <div
+      class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      @click="closeModal"
+    ></div>
 
-      <DownloadIcon class="w-4 h-4 relative z-10 transition-all duration-300" :class="[
-        isExporting ? 'animate-bounce text-secondary-content' : 'group-hover:text-secondary-content'
-      ]" />
+    <!-- Modal Content -->
+    <div class="relative bg-base-100 rounded-2xl shadow-2xl border border-base-200 w-full max-w-md mx-4 overflow-hidden">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-secondary/20 via-accent/20 to-secondary/20 px-6 py-4 border-b border-base-200">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center">
+              <DownloadIcon class="w-5 h-5 text-secondary" />
+            </div>
+            <div>
+              <h3 class="font-bold text-lg text-base-content">Export Data</h3>
+              <p class="text-sm text-base-content/60">Choose your preferred format</p>
+            </div>
+          </div>
+          <button
+            @click="closeModal"
+            class="btn btn-sm btn-ghost btn-circle group hover:bg-error/10 hover:border-error/20"
+            aria-label="Close export modal"
+          >
+            <XIcon class="w-4 h-4 group-hover:text-error transition-colors duration-200" />
+          </button>
+        </div>
 
-      <span class="relative z-10 font-medium transition-colors duration-300 group-hover:text-secondary-content">
-        {{ isExporting ? 'Exporting...' : 'Export Data' }}
-      </span>
-
-      <div v-if="totalRecords > 0" class="relative z-10">
-        <div class="badge badge-secondary-content badge-sm">
-          {{ formatNumber(totalRecords) }}
+        <!-- Stats -->
+        <div class="mt-4 p-3 bg-base-100/50 rounded-lg border border-base-200/50">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-base-content/70">Records to export:</span>
+            <span class="font-semibold text-primary">{{ formatNumber(props.data.length) }} items</span>
+          </div>
+          <div class="flex items-center justify-between text-sm mt-1">
+            <span class="text-base-content/70">Visible columns:</span>
+            <span class="font-semibold text-secondary">{{ getVisibleColumns().length }} columns</span>
+          </div>
         </div>
       </div>
 
-      <div v-if="isExporting" class="loading loading-spinner loading-sm relative z-10 ml-1"></div>
-
-      <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
-    </button>
-
-    <Transition
-      enter-active-class="transition-all duration-200 ease-out"
-      enter-from-class="opacity-0 scale-95 -translate-y-2"
-      enter-to-class="opacity-100 scale-100 translate-y-0"
-      leave-active-class="transition-all duration-150 ease-in"
-      leave-from-class="opacity-100 scale-100 translate-y-0"
-      leave-to-class="opacity-0 scale-95 -translate-y-2"
-    >
-      <div v-if="isOpen"
-        class="absolute right-0 top-full mt-2 bg-base-100 rounded-lg shadow-xl border border-base-200 p-2 min-w-[200px] z-50">
-        <div class="px-3 py-2 text-sm text-base-content/70 font-semibold border-b border-base-200 mb-1">
-            Export Options
+      <!-- Export Options -->
+      <div class="p-6 space-y-4">
+        <!-- CSV Export -->
+        <div class="group relative">
+          <button
+            @click="exportToCSV"
+            :disabled="isExporting"
+            class="w-full p-4 bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/20 rounded-xl border border-primary/20 hover:border-primary/40 transition-all duration-300 text-left group-hover:shadow-lg group-hover:scale-[1.02]"
+            :class="{ 'opacity-50 cursor-not-allowed': isExporting }"
+          >
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors duration-300">
+                <FileTextIcon class="w-6 h-6 text-primary" />
+              </div>
+              <div class="flex-1">
+                <h4 class="font-semibold text-base-content mb-1">Export as CSV</h4>
+                <p class="text-sm text-base-content/60">Comma-separated values, perfect for Excel</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="badge badge-primary badge-sm">Fast</span>
+                  <span class="badge badge-outline badge-sm">Excel Compatible</span>
+                </div>
+              </div>
+              <div class="text-primary/60 group-hover:text-primary transition-colors duration-300">
+                <ChevronRightIcon class="w-5 h-5" />
+              </div>
+            </div>
+          </button>
         </div>
 
-        <button
-          @click="exportToCSV"
-          :disabled="isExporting"
-          class="btn btn-ghost btn-sm w-full justify-start gap-3 rounded-md mb-1 text-base-content hover:bg-primary/10 hover:text-primary transition-colors duration-200"
-        >
-          <FileTextIcon class="w-4 h-4 text-primary" />
-          Export as CSV
-          <span class="badge badge-xs badge-outline badge-primary ml-auto">Fast</span>
-        </button>
+        <!-- JSON Export -->
+        <div class="group relative">
+          <button
+            @click="exportToJSON"
+            :disabled="isExporting"
+            class="w-full p-4 bg-gradient-to-r from-secondary/5 to-secondary/10 hover:from-secondary/10 hover:to-secondary/20 rounded-xl border border-secondary/20 hover:border-secondary/40 transition-all duration-300 text-left group-hover:shadow-lg group-hover:scale-[1.02]"
+            :class="{ 'opacity-50 cursor-not-allowed': isExporting }"
+          >
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center group-hover:bg-secondary/30 transition-colors duration-300">
+                <FileJsonIcon class="w-6 h-6 text-secondary" />
+              </div>
+              <div class="flex-1">
+                <h4 class="font-semibold text-base-content mb-1">Export as JSON</h4>
+                <p class="text-sm text-base-content/60">Structured data format for developers</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="badge badge-secondary badge-sm">Clean</span>
+                  <span class="badge badge-outline badge-sm">Developer Friendly</span>
+                </div>
+              </div>
+              <div class="text-secondary/60 group-hover:text-secondary transition-colors duration-300">
+                <ChevronRightIcon class="w-5 h-5" />
+              </div>
+            </div>
+          </button>
+        </div>
 
-        <button
-          @click="exportToJSON"
-          :disabled="isExporting"
-          class="btn btn-ghost btn-sm w-full justify-start gap-3 rounded-md text-base-content hover:bg-secondary/10 hover:text-secondary transition-colors duration-200"
-        >
-          <FileJsonIcon class="w-4 h-4 text-secondary" />
-          Export as JSON
-          <span class="badge badge-xs badge-outline badge-secondary ml-auto">Clean</span>
-        </button>
-
-        <button
-          disabled
-          class="btn btn-ghost btn-sm w-full justify-start gap-3 rounded-md mt-1 text-base-content/60"
-        >
-          <MoreHorizontalIcon class="w-4 h-4" />
-          More Formats (Coming Soon)
-        </button>
+        <!-- Coming Soon Option -->
+        <div class="relative">
+          <button
+            disabled
+            class="w-full p-4 bg-base-200/30 rounded-xl border border-base-200 text-left opacity-60 cursor-not-allowed"
+          >
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-base-300 flex items-center justify-center">
+                <MoreHorizontalIcon class="w-6 h-6 text-base-content/40" />
+              </div>
+              <div class="flex-1">
+                <h4 class="font-semibold text-base-content/60 mb-1">More Formats</h4>
+                <p class="text-sm text-base-content/40">PDF, Excel, XML and more formats</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="badge badge-ghost badge-sm">Coming Soon</span>
+                </div>
+              </div>
+            </div>
+          </button>
+          <!-- Coming Soon Overlay -->
+          <div class="absolute inset-0 flex items-center justify-center bg-base-100/80 backdrop-blur-sm rounded-xl">
+            <span class="text-sm font-medium text-base-content/60">Coming Soon</span>
+          </div>
+        </div>
       </div>
-    </Transition>
+
+      <!-- Loading Overlay -->
+      <div v-if="isExporting" class="absolute inset-0 bg-base-100/90 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="text-center">
+          <div class="loading loading-spinner loading-lg text-primary mb-4"></div>
+          <h4 class="font-semibold text-base-content mb-2">Preparing Export...</h4>
+          <p class="text-sm text-base-content/60">This will only take a moment</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { startWindToast } from "@mariojgt/wind-notify/packages/index.js"; // Assuming you want toasts
+import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import {
   Download as DownloadIcon,
   ChevronDown as ChevronDownIcon,
+  ChevronRight as ChevronRightIcon,
   FileText as FileTextIcon,
   FileJson as FileJsonIcon,
-  MoreHorizontal as MoreHorizontalIcon // New icon for "More Formats"
+  MoreHorizontal as MoreHorizontalIcon,
+  X as XIcon
 } from 'lucide-vue-next';
 
 interface Column {
   key: string;
   label: string;
   type?: string;
-  exportable?: boolean; // Added this for robustness, though not used in your current filter
+  exportable?: boolean;
 }
 
 interface Props {
-  data: Record<string, any>[]; // The actual data to be exported (current page or all data)
-  columns: Column[]; // All available columns definition
-  hiddenColumns: Set<string>; // Set of keys of currently hidden columns
-  filename?: string; // Base filename for export
-  totalRecords?: number; // Total number of records available (for disabling button if 0)
+  data: Record<string, any>[];
+  columns: Column[];
+  hiddenColumns: Set<string>;
+  filename?: string;
+  totalRecords?: number;
+  isModalOpen?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -103,16 +174,24 @@ const props = withDefaults(defineProps<Props>(), {
   columns: () => [],
   hiddenColumns: () => new Set(),
   filename: 'exported-data',
-  totalRecords: 0 // Default to 0, will be passed from parent (e.g., paginationInfo.total)
+  totalRecords: 0,
+  isModalOpen: false
 });
 
-// State management
-const isOpen = ref(false);
-const isExporting = ref(false); // To show loading state during export
+const emit = defineEmits<{
+  closeModal: [];
+}>();
 
-// Helper function to get visible columns (and exportable ones)
+// State management
+const isExporting = ref(false);
+
+// Modal controls
+const closeModal = () => {
+  emit('closeModal');
+};
+
+// Helper function to get visible columns
 const getVisibleColumns = () => {
-  // Filter by columns that are not hidden AND are marked as exportable (if the prop exists)
   return props.columns.filter(col => !props.hiddenColumns.has(col.key) && col.exportable !== false);
 };
 
@@ -120,7 +199,6 @@ const getVisibleColumns = () => {
 const filterDataByVisibleColumns = (item: Record<string, any>) => {
   const visibleColumns = getVisibleColumns();
   return visibleColumns.reduce((acc, col) => {
-    // Use column label as header, value from item's key
     acc[col.label] = item[col.key];
     return acc;
   }, {} as Record<string, any>);
@@ -130,9 +208,7 @@ const filterDataByVisibleColumns = (item: Record<string, any>) => {
 const escapeCSV = (value: any): string => {
   if (value === null || value === undefined) return '';
   const stringValue = String(value);
-  // Check if string contains comma, double quote, or newline
   if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-    // Enclose in double quotes and escape existing double quotes
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
   return stringValue;
@@ -142,16 +218,11 @@ const escapeCSV = (value: any): string => {
 const convertToCSV = (data: Record<string, any>[]): string => {
   if (data.length === 0) return '';
 
-  // Get headers from the keys of the first processed item
-  // We need to process one item first to get the headers based on visible columns
-  const firstProcessedItem = filterDataByVisibleColumns(data[0]); // Pass the actual data array
+  const firstProcessedItem = filterDataByVisibleColumns(data[0]);
   const headers = Object.keys(firstProcessedItem);
 
-  // Create CSV rows
   const csvRows = [
-    // Headers row
     headers.join(','),
-    // Data rows
     ...data.map(item => {
       const processedItem = filterDataByVisibleColumns(item);
       return headers.map(header => escapeCSV(processedItem[header])).join(',');
@@ -174,7 +245,7 @@ const downloadFile = (content: string, filename: string, type: string) => {
   window.URL.revokeObjectURL(url);
 };
 
-// Helper for number formatting (e.g., 10000 -> 10,000)
+// Helper for number formatting
 const formatNumber = (num: number): string => {
   if (num === null || num === undefined) return '0';
   return new Intl.NumberFormat().format(num);
@@ -187,9 +258,9 @@ const exportToCSV = async () => {
     return;
   }
   isExporting.value = true;
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate a small delay for UI feedback
+  await new Promise(resolve => setTimeout(resolve, 800));
   try {
-    const csv = convertToCSV(props.data); // Pass the raw data prop
+    const csv = convertToCSV(props.data);
     downloadFile(csv, `${props.filename}.csv`, 'text/csv');
     startWindToast('success', 'CSV export completed successfully!', 'success');
   } catch (error) {
@@ -197,7 +268,7 @@ const exportToCSV = async () => {
     startWindToast('error', 'Failed to export CSV. Please try again.', 'error');
   } finally {
     isExporting.value = false;
-    closeDropdown();
+    closeModal();
   }
 };
 
@@ -207,7 +278,7 @@ const exportToJSON = async () => {
     return;
   }
   isExporting.value = true;
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate a small delay for UI feedback
+  await new Promise(resolve => setTimeout(resolve, 800));
   try {
     const visibleData = props.data.map(filterDataByVisibleColumns);
     const json = JSON.stringify(visibleData, null, 2);
@@ -218,31 +289,7 @@ const exportToJSON = async () => {
     startWindToast('error', 'Failed to export JSON. Please try again.', 'error');
   } finally {
     isExporting.value = false;
-    closeDropdown();
-  }
-};
-
-// Dropdown controls
-const toggleDropdown = () => {
-  isOpen.value = !isOpen.value;
-};
-
-const closeDropdown = () => {
-  isOpen.value = false;
-};
-
-// Click outside directive (remains the same)
-const vClickOutside = {
-  mounted(el: HTMLElement, binding: any) {
-    el.clickOutsideEvent = (event: Event) => {
-      if (!(el === event.target || el.contains(event.target as Node))) {
-        binding.value();
-      }
-    };
-    document.addEventListener('click', el.clickOutsideEvent);
-  },
-  unmounted(el: HTMLElement) {
-    document.removeEventListener('click', el.clickOutsideEvent);
+    closeModal();
   }
 };
 </script>
@@ -290,7 +337,7 @@ const vClickOutside = {
 
 /* Responsive adjustments if needed */
 @media (max-width: 640px) {
-  .min-w-[200px] {
+  .export-card {
     min-width: 180px;
   }
 }

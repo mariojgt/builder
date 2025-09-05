@@ -1,199 +1,289 @@
 <template>
-    <div class="bg-base-100 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl">
-      <div class="p-4">
+    <div class="bg-base-100/95 backdrop-blur-sm border border-base-300 rounded-lg shadow-sm relative z-10">
+      <div class="p-2">
         <!-- Mobile Filter Toggle -->
-        <div class="md:hidden w-full mb-4">
+        <div class="lg:hidden w-full mb-2">
           <button
             @click="isFilterOpen = !isFilterOpen"
-            class="btn btn-ghost w-full justify-between group"
+            class="btn btn-ghost btn-xs w-full justify-between h-8"
           >
-            <span class="flex items-center gap-2">
-              <SlidersHorizontal class="w-4 h-4 text-primary" />
-              <span>{{ isFilterOpen ? 'Hide Filters' : 'Show Filters' }}</span>
+            <span class="flex items-center gap-1.5">
+              <SlidersHorizontal class="w-3 h-3 text-primary" />
+              <span class="font-medium text-xs">{{ isFilterOpen ? 'Hide Filters' : 'Show Filters' }}</span>
             </span>
             <ChevronDown
-              class="w-4 h-4 transition-transform duration-300"
+              class="w-3 h-3 transition-transform duration-200"
               :class="{ 'rotate-180': isFilterOpen }"
             />
           </button>
         </div>
 
-        <!-- Filter Content -->
-        <div
-          class="grid gap-4 transition-all duration-300"
-          :class="[
-            'md:grid-cols-[1fr_auto]',
-            isFilterOpen ? 'grid-cols-1' : 'hidden md:grid'
-          ]"
-        >
-          <!-- Left Side: Filters -->
-          <div class="grid gap-3 sm:grid-cols-3">
-            <!-- Per Page Dropdown -->
+        <!-- Desktop Main Controls Row -->
+        <div class="hidden lg:flex items-start justify-between gap-2">
+          <!-- Left Side: Search & Active Filters -->
+          <div class="flex-1 max-w-2xl">
+            <!-- Search Input -->
+            <div class="relative mb-2">
+              <input
+                v-model="search"
+                type="text"
+                placeholder="Search records..."
+                class="input input-bordered input-xs w-full pl-8 pr-8 h-8 text-xs focus:input-primary"
+                @keyup.enter="triggerSearch"
+              />
+              <SearchIcon class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-base-content/40" />
+              <button
+                v-if="search"
+                @click="clearSearch"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-error transition-colors p-0.5"
+              >
+                <X class="w-3 h-3" />
+              </button>
+            </div>
+
+            <!-- Active Filters Display (Inline) -->
+            <div v-if="hasActiveFilters" class="flex flex-wrap items-center gap-1.5">
+              <span class="text-xs font-medium text-base-content/70 mr-1">Active:</span>
+              <div v-if="search" class="badge badge-primary gap-1 px-2 py-1 text-xs">
+                <SearchIcon class="w-3 h-3" />
+                <span class="font-medium">Search:</span>
+                <span>{{ search.length > 15 ? search.substring(0, 15) + '...' : search }}</span>
+                <button @click="clearSearch" class="hover:text-primary-content/70 ml-0.5">
+                  <X class="w-2.5 h-2.5" />
+                </button>
+              </div>
+
+              <div v-if="filterBy && selectedFilterLabel" class="badge badge-secondary gap-1 px-2 py-1 text-xs">
+                <FilterIcon class="w-3 h-3" />
+                <span class="font-medium">Filter:</span>
+                <span>{{ selectedFilterLabel }}</span>
+                <button @click="filterBy = ''" class="hover:text-secondary-content/70 ml-0.5">
+                  <X class="w-2.5 h-2.5" />
+                </button>
+              </div>
+
+              <div v-if="perPage !== 10" class="badge badge-accent gap-1 px-2 py-1 text-xs">
+                <ListFilter class="w-3 h-3" />
+                <span class="font-medium">Show:</span>
+                <span>{{ perPage }}</span>
+                <button @click="perPage = 10" class="hover:text-accent-content/70 ml-0.5">
+                  <X class="w-2.5 h-2.5" />
+                </button>
+              </div>
+
+              <div v-if="orderBy !== 'asc'" class="badge badge-warning gap-1 px-2 py-1 text-xs">
+                <ArrowDownIcon class="w-3 h-3" />
+                <span class="font-medium">Sort:</span>
+                <span>Z-A</span>
+                <button @click="orderBy = 'asc'" class="hover:text-warning-content/70 ml-0.5">
+                  <X class="w-2.5 h-2.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Side: Filter Controls -->
+          <div class="flex items-center gap-1.5 mt-0">
+            <!-- Per Page -->
             <div class="dropdown dropdown-hover">
-              <label tabindex="0" class="btn btn-ghost w-full justify-between gap-2 normal-case">
-                <div class="flex items-center gap-2 text-base-content/70">
-                  <ListFilter class="w-4 h-4" />
-                  <span>{{ perPage }} per page</span>
-                </div>
-                <ChevronDown class="w-4 h-4" />
+              <label tabindex="0" class="btn btn-xs btn-outline gap-1.5 min-w-[4.5rem] h-8">
+                <ListFilter class="w-3 h-3 text-primary" />
+                <span class="font-medium text-xs">{{ perPage }}</span>
               </label>
-              <ul tabindex="0" class="dropdown-content z-10 menu p-2 shadow-lg bg-base-200 rounded-box w-52">
+              <ul tabindex="0" class="dropdown-content z-[9999] menu p-1.5 shadow-lg bg-base-100 rounded-box w-28">
                 <li v-for="count in [10, 25, 50, 100]" :key="count">
                   <button
                     @click="perPage = count"
                     :class="{ 'active': perPage === count }"
-                    class="flex items-center gap-2"
+                    class="flex items-center gap-1.5 py-1 px-2 text-xs"
                   >
-                    <Check v-if="perPage === count" class="w-4 h-4" />
-                    <span>{{ count }} items</span>
+                    <Check v-if="perPage === count" class="w-3 h-3 text-primary" />
+                    <span class="w-3" v-else></span>
+                    <span>{{ count }}</span>
                   </button>
                 </li>
               </ul>
             </div>
 
-            <!-- Filter By Dropdown -->
-            <div class="dropdown dropdown-hover">
-              <label tabindex="0" class="btn btn-ghost w-full justify-between gap-2 normal-case">
-                <div class="flex items-center gap-2 text-base-content/70">
-                  <FilterIcon class="w-4 h-4" />
-                  <span class="truncate">{{ selectedFilterLabel || 'Filter by' }}</span>
-                </div>
-                <ChevronDown class="w-4 h-4" />
+            <!-- Filter By -->
+            <div class="dropdown dropdown-hover" v-if="filterColumns.length > 0">
+              <label tabindex="0" class="btn btn-xs btn-outline gap-1.5 min-w-[6rem] h-8">
+                <FilterIcon class="w-3 h-3 text-secondary" />
+                <span class="font-medium truncate text-xs">{{ selectedFilterLabel || 'Filter' }}</span>
               </label>
-              <ul tabindex="0" class="dropdown-content z-10 menu p-2 shadow-lg bg-base-200 rounded-box w-52">
+              <ul tabindex="0" class="dropdown-content z-[9999] menu p-1.5 shadow-lg bg-base-100 rounded-box w-48">
                 <li v-for="column in filterColumns" :key="column.value">
                   <button
                     @click="filterBy = column.value"
                     :class="{ 'active': filterBy === column.value }"
-                    class="flex items-center gap-2"
+                    class="flex items-center gap-1.5 text-left py-1 px-2 text-xs"
                   >
-                    <Check v-if="filterBy === column.value" class="w-4 h-4" />
+                    <Check v-if="filterBy === column.value" class="w-3 h-3 text-secondary" />
+                    <span class="w-3" v-else></span>
                     <span>{{ column.label }}</span>
                   </button>
                 </li>
               </ul>
             </div>
 
-            <!-- Order By Dropdown -->
+            <!-- Sort Direction -->
             <div class="dropdown dropdown-hover">
-              <label tabindex="0" class="btn btn-ghost w-full justify-between gap-2 normal-case">
-                <div class="flex items-center gap-2 text-base-content/70">
-                  <component :is="orderBy === 'asc' ? ArrowUpIcon : ArrowDownIcon" class="w-4 h-4" />
-                  <span>{{ orderBy === 'asc' ? 'Ascending' : 'Descending' }}</span>
-                </div>
-                <ChevronDown class="w-4 h-4" />
+              <label tabindex="0" class="btn btn-xs btn-outline gap-1.5 min-w-[5rem] h-8">
+                <component :is="orderBy === 'asc' ? ArrowUpIcon : ArrowDownIcon" class="w-3 h-3 text-accent" />
+                <span class="font-medium text-xs">{{ orderBy === 'asc' ? 'A-Z' : 'Z-A' }}</span>
               </label>
-              <ul tabindex="0" class="dropdown-content z-10 menu p-2 shadow-lg bg-base-200 rounded-box w-52">
+              <ul tabindex="0" class="dropdown-content z-[9999] menu p-1.5 shadow-lg bg-base-100 rounded-box w-36">
                 <li>
                   <button
                     @click="orderBy = 'asc'"
                     :class="{ 'active': orderBy === 'asc' }"
-                    class="flex items-center gap-2"
+                    class="flex items-center gap-1.5 py-1 px-2 text-xs"
                   >
-                    <ArrowUpIcon class="w-4 h-4" />
-                    <span>Ascending</span>
+                    <ArrowUpIcon class="w-3 h-3 text-accent" />
+                    <span>A-Z</span>
                   </button>
                 </li>
                 <li>
                   <button
                     @click="orderBy = 'desc'"
                     :class="{ 'active': orderBy === 'desc' }"
-                    class="flex items-center gap-2"
+                    class="flex items-center gap-1.5 py-1 px-2 text-xs"
                   >
-                    <ArrowDownIcon class="w-4 h-4" />
-                    <span>Descending</span>
+                    <ArrowDownIcon class="w-3 h-3 text-accent" />
+                    <span>Z-A</span>
                   </button>
                 </li>
               </ul>
             </div>
-          </div>
 
-          <!-- Right Side: Search -->
-          <div class="join w-full sm:w-auto">
-            <div class="relative flex-1">
-              <input
-                v-model="search"
-                type="text"
-                placeholder="Search..."
-                class="input input-bordered join-item w-full pl-10"
-                :class="{ 'pr-9': search }"
-                @keyup.enter="triggerSearch"
-              />
-              <SearchIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-base-content/40" />
-              <button
-                v-if="search"
-                @click="clearSearch"
-                class="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content transition-colors"
-              >
-                <X class="w-4 h-4" />
-              </button>
-            </div>
-
+            <!-- Reset Button -->
             <button
-              class="btn btn-primary join-item"
-              @click="triggerSearch"
-            >
-              <SearchIcon class="w-4 h-4" />
-              <span class="hidden sm:inline">Search</span>
-            </button>
-
-            <button
-              class="btn btn-secondary join-item group"
+              class="btn btn-xs gap-1.5 min-w-[4rem] h-8"
+              :class="hasActiveFilters ? 'btn-warning' : 'btn-ghost'"
               @click="resetFilter"
               :disabled="!hasActiveFilters"
             >
-              <RotateCcwIcon class="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" />
-              <span class="hidden sm:inline">Reset</span>
+              <RotateCcwIcon class="w-3 h-3" />
+              <span class="font-medium text-xs">Reset</span>
             </button>
           </div>
         </div>
 
-        <!-- Active Filters Display -->
-        <TransitionGroup
-          enter-active-class="transition-all duration-300 ease-out"
-          enter-from-class="opacity-0 -translate-y-2"
-          enter-to-class="opacity-100 translate-y-0"
-          leave-active-class="transition-all duration-200 ease-in"
-          leave-from-class="opacity-100 translate-y-0"
-          leave-to-class="opacity-0 -translate-y-2"
-          class="flex flex-wrap gap-2 mt-4"
+        <!-- Mobile Expanded View -->
+        <div
+          class="lg:hidden transition-all duration-300"
+          :class="isFilterOpen ? 'block' : 'hidden'"
         >
-          <div
-            v-if="search"
-            :key="'search'"
-            class="badge badge-primary gap-2 p-3"
-          >
-            <span class="text-xs opacity-70">Search:</span>
-            <span>{{ search }}</span>
-            <button @click="clearSearch" class="hover:text-error">
-              <X class="w-3 h-3" />
-            </button>
+          <!-- Mobile Search -->
+          <div class="mb-3">
+            <label class="label py-1">
+              <span class="label-text font-medium text-xs">Search</span>
+            </label>
+            <div class="relative">
+              <input
+                v-model="search"
+                type="text"
+                placeholder="Search records..."
+                class="input input-bordered input-xs w-full pl-8 pr-8 h-8 focus:input-primary"
+                @keyup.enter="triggerSearch"
+              />
+              <SearchIcon class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-base-content/40" />
+              <button
+                v-if="search"
+                @click="clearSearch"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-error p-0.5"
+              >
+                <X class="w-3 h-3" />
+              </button>
+            </div>
           </div>
 
-          <div
-            v-if="filterBy"
-            :key="'filter'"
-            class="badge badge-secondary gap-2 p-3"
-          >
-            <span class="text-xs opacity-70">Filter:</span>
-            <span>{{ selectedFilterLabel }}</span>
-            <button @click="filterBy = ''" class="hover:text-error">
-              <X class="w-3 h-3" />
-            </button>
-          </div>
+          <!-- Mobile Controls -->
+          <div class="space-y-3">
+            <!-- Per Page -->
+            <div>
+              <label class="label py-1">
+                <span class="label-text font-medium text-xs">Items per page</span>
+              </label>
+              <div class="dropdown dropdown-hover w-full">
+                <label tabindex="0" class="btn btn-outline btn-xs w-full justify-between h-8">
+                  <span class="flex items-center gap-1.5">
+                    <ListFilter class="w-3 h-3 text-primary" />
+                    <span class="text-xs">{{ perPage }} items</span>
+                  </span>
+                  <ChevronDown class="w-3 h-3" />
+                </label>
+                <ul tabindex="0" class="dropdown-content z-[9999] menu p-1.5 shadow-lg bg-base-100 rounded-box w-full">
+                  <li v-for="count in [10, 25, 50, 100]" :key="count">
+                    <button @click="perPage = count" class="py-1 px-2 text-xs">{{ count }} items</button>
+                  </li>
+                </ul>
+              </div>
+            </div>
 
-          <div
-            v-if="perPage !== 10"
-            :key="'perPage'"
-            class="badge badge-accent gap-2 p-3"
-          >
-            <span class="text-xs opacity-70">Show:</span>
-            <span>{{ perPage }} items</span>
-            <button @click="perPage = 10" class="hover:text-error">
-              <X class="w-3 h-3" />
-            </button>
+            <!-- Filter By -->
+            <div v-if="filterColumns.length > 0">
+              <label class="label py-1">
+                <span class="label-text font-medium text-xs">Filter by column</span>
+              </label>
+              <div class="dropdown dropdown-hover w-full">
+                <label tabindex="0" class="btn btn-outline btn-xs w-full justify-between h-8">
+                  <span class="flex items-center gap-1.5">
+                    <FilterIcon class="w-3 h-3 text-secondary" />
+                    <span class="text-xs">{{ selectedFilterLabel || 'Choose column' }}</span>
+                  </span>
+                  <ChevronDown class="w-3 h-3" />
+                </label>
+                <ul tabindex="0" class="dropdown-content z-[9999] menu p-1.5 shadow-lg bg-base-100 rounded-box w-full">
+                  <li v-for="column in filterColumns" :key="column.value">
+                    <button @click="filterBy = column.value" class="py-1 px-2 text-xs">{{ column.label }}</button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Sort -->
+            <div>
+              <label class="label py-1">
+                <span class="label-text font-medium text-xs">Sort order</span>
+              </label>
+              <div class="dropdown dropdown-hover w-full">
+                <label tabindex="0" class="btn btn-outline btn-xs w-full justify-between h-8">
+                  <span class="flex items-center gap-1.5">
+                    <component :is="orderBy === 'asc' ? ArrowUpIcon : ArrowDownIcon" class="w-3 h-3 text-accent" />
+                    <span class="text-xs">{{ orderBy === 'asc' ? 'A-Z' : 'Z-A' }}</span>
+                  </span>
+                  <ChevronDown class="w-3 h-3" />
+                </label>
+                <ul tabindex="0" class="dropdown-content z-[9999] menu p-1.5 shadow-lg bg-base-100 rounded-box w-full">
+                  <li>
+                    <button @click="orderBy = 'asc'" class="flex items-center gap-1.5 py-1 px-2 text-xs">
+                      <ArrowUpIcon class="w-3 h-3" /> A-Z
+                    </button>
+                  </li>
+                  <li>
+                    <button @click="orderBy = 'desc'" class="flex items-center gap-1.5 py-1 px-2 text-xs">
+                      <ArrowDownIcon class="w-3 h-3" /> Z-A
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Mobile Reset -->
+            <div class="pt-1">
+              <button
+                class="btn btn-xs w-full gap-1.5 h-8"
+                :class="hasActiveFilters ? 'btn-warning' : 'btn-outline btn-disabled'"
+                @click="resetFilter"
+                :disabled="!hasActiveFilters"
+              >
+                <RotateCcwIcon class="w-3 h-3" />
+                <span class="text-xs">Reset All Filters</span>
+              </button>
+            </div>
           </div>
-        </TransitionGroup>
+        </div>
       </div>
     </div>
   </template>
@@ -341,15 +431,42 @@
   </script>
 
   <style scoped>
-  .dropdown-content {
-    transform-origin: top;
-    animation: dropdownEnter 0.2s ease-out;
+  /* DaisyUI compatible enhancements */
+  .btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  @keyframes dropdownEnter {
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn:active {
+    transform: translateY(0);
+  }
+
+  .input:focus {
+    transform: translateY(-1px);
+  }
+
+  /* Enhanced dropdown styling */
+  .dropdown-content {
+    position: absolute;
+    z-index: 9999 !important;
+    animation: slideDown 0.2s ease-out;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Ensure dropdown-end positioning works correctly */
+  .dropdown-end .dropdown-content {
+    right: 0;
+    left: auto;
+  }
+
+  @keyframes slideDown {
     from {
       opacity: 0;
-      transform: translateY(-10px);
+      transform: translateY(-8px);
     }
     to {
       opacity: 1;
@@ -357,31 +474,109 @@
     }
   }
 
-  .btn {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .btn:active:not(:disabled) {
-    transform: scale(0.95);
-  }
-
-  .input {
+  /* Badge enhancements */
+  .badge {
     transition: all 0.2s ease;
   }
 
-  .input:focus {
+  .badge:hover {
     transform: translateY(-1px);
   }
 
-  @media (max-width: 640px) {
-    .join {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 0.5rem;
+  /* Custom min-width utilities for better control layout */
+  .min-w-\[5rem\] {
+    min-width: 5rem;
+  }
+
+  .min-w-\[6rem\] {
+    min-width: 6rem;
+  }
+
+  .min-w-\[7rem\] {
+    min-width: 7rem;
+  }
+
+  .min-w-\[8rem\] {
+    min-width: 8rem;
+  }
+
+  /* Enhanced z-index for better layering */
+  .z-\[9999\] {
+    z-index: 9999;
+  }
+
+  .z-\[30\] {
+    z-index: 30;
+  }
+
+  /* Dropdown positioning improvements */
+  .dropdown {
+    position: relative;
+  }
+
+  .dropdown-content {
+    position: absolute;
+    z-index: 9999 !important;
+    animation: slideDown 0.2s ease-out;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Ensure dropdown-end positioning works correctly */
+  .dropdown-end .dropdown-content {
+    right: 0;
+    left: auto;
+  }
+
+  /* Space utilities */
+  .space-y-4 > * + * {
+    margin-top: 1rem;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 1024px) {
+    .btn-sm {
+      height: 2.75rem;
+      min-height: 2.75rem;
     }
 
-    .join > * {
-      width: 100%;
+    .input {
+      height: 2.75rem;
     }
+  }
+
+  /* Active state for menu items */
+  .menu li > .active {
+    background-color: hsl(var(--p) / 0.1);
+    color: hsl(var(--p));
+  }
+
+  /* Backdrop blur effect */
+  .backdrop-blur-sm {
+    backdrop-filter: blur(4px);
+  }
+
+  /* Enhanced focus states for accessibility */
+  .btn:focus-visible,
+  .input:focus-visible {
+    outline: 2px solid hsl(var(--p));
+    outline-offset: 2px;
+  }
+
+  /* Animation performance */
+  .btn,
+  .input,
+  .dropdown-content,
+  .badge {
+    will-change: transform;
+  }
+
+  /* Disabled button states */
+  .btn:disabled {
+    transform: none;
+  }
+
+  .btn:disabled:hover {
+    transform: none;
   }
   </style>

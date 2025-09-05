@@ -172,185 +172,71 @@
             </Transition>
           </div>
 
-          <div class="flex-1 overflow-hidden">
-            <div class="h-full flex">
-              <div class="flex-1 overflow-auto custom-scrollbar">
-                <div class="p-6">
-                  <div v-if="filterSections.sectionsWithFields.length > 0" class="space-y-6">
-                    <TransitionGroup
-                      enter-active-class="transition-all duration-500 ease-out"
-                      enter-from-class="opacity-0 translate-y-8"
-                      enter-to-class="opacity-100 translate-y-0"
-                      leave-active-class="transition-all duration-300 ease-in"
-                      leave-from-class="opacity-100 translate-y-0"
-                      leave-to-class="opacity-0 translate-y-8"
-                    >
-                      <div
-                        v-for="(section, index) in filterSections.sectionsWithFields"
-                        :key="section.section"
-                        class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300"
-                        :style="{ animationDelay: `${index * 100}ms` }"
-                      >
-                        <div class="card-body">
-                          <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
-                            <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                              <Folder class="w-4 h-4 text-primary" />
-                            </div>
-                            <div class="flex-1">
-                              <h3 class="text-lg font-semibold text-base-content">{{ section.section }}</h3>
-                              <p class="text-sm text-base-content/60">{{ section.fields.length }} fields</p>
-                            </div>
-                            <div v-if="getSectionChanges(section.section) > 0" class="badge badge-warning badge-sm">
-                              {{ getSectionChanges(section.section) }} changed
-                            </div>
-                          </div>
-
-                          <FormBuilder
-                            :columns="section.fields"
-                            :errors="formErrors"
-                            @onFormUpdate="onFormUpdate"
-                            editMode="true"
-                            :modelValue="props.modelValue"
-                          />
-                        </div>
+          <div class="flex-1 overflow-auto p-6">
+            <div v-if="filterSections.sectionsWithFields.length > 0" class="space-y-6">
+              <TransitionGroup
+                enter-active-class="transition-all duration-500 ease-out"
+                enter-from-class="opacity-0 translate-y-8"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition-all duration-300 ease-in"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 translate-y-8"
+              >
+                <div
+                  v-for="(section, index) in filterSections.sectionsWithFields"
+                  :key="section.section"
+                  class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300"
+                  :style="{ animationDelay: `${index * 100}ms` }"
+                >
+                  <div class="card-body">
+                    <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
+                      <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                        <Folder class="w-4 h-4 text-primary" />
                       </div>
-                    </TransitionGroup>
-                  </div>
-
-                  <div v-if="filterSections.fields.length > 0" class="space-y-6">
-                    <div class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300">
-                      <div class="card-body">
-                        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
-                          <div class="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center">
-                            <Settings class="w-4 h-4 text-secondary" />
-                          </div>
-                          <div class="flex-1">
-                            <h3 class="text-lg font-semibold text-base-content">General Information</h3>
-                            <p class="text-sm text-base-content/60">Basic details and settings</p>
-                          </div>
-                          <div v-if="getSectionChanges('general') > 0" class="badge badge-warning badge-sm">
-                            {{ getSectionChanges('general') }} changed
-                          </div>
-                        </div>
-
-                        <FormBuilder
-                          :columns="filterSections.fields"
-                          :errors="formErrors"
-                          @onFormUpdate="onFormUpdate"
-                          editMode="true"
-                          :modelValue="props.modelValue"
-                        />
+                      <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-base-content">{{ section.section }}</h3>
+                        <p class="text-sm text-base-content/60">{{ section.fields.length }} fields</p>
+                      </div>
+                      <div v-if="getSectionChanges(section.section) > 0" class="badge badge-warning badge-sm">
+                        {{ getSectionChanges(section.section) }} changed
                       </div>
                     </div>
+
+                    <FormBuilder
+                      :columns="section.fields"
+                      :errors="formErrors"
+                      @onFormUpdate="onFormUpdate"
+                      editMode="true"
+                      :modelValue="props.modelValue"
+                    />
                   </div>
                 </div>
-              </div>
+              </TransitionGroup>
+            </div>
 
-              <div class="w-80 bg-base-200/50 border-l border-base-200 p-6 overflow-auto custom-scrollbar">
-                <div class="card bg-base-100 shadow-md mb-6">
-                  <div class="card-body">
-                    <h3 class="card-title text-sm flex items-center gap-2">
-                      <InfoIcon class="w-4 h-4 text-primary" />
-                      Record Information
-                    </h3>
-                    <div class="space-y-3 mt-4">
-                      <div class="flex justify-between items-center text-sm">
-                        <span class="text-base-content/70">Record ID</span>
-                        <span class="font-mono font-semibold">{{ props.id }}</span>
-                      </div>
-                      <div class="flex justify-between items-center text-sm">
-                        <span class="text-base-content/70">Status</span>
-                        <div class="badge badge-success badge-sm">Active</div>
-                      </div>
-                      <div class="flex justify-between items-center text-sm">
-                        <span class="text-base-content/70">Changes</span>
-                        <span class="font-semibold" :class="hasChanges ? 'text-warning' : 'text-success'">
-                          {{ hasChanges ? changedFieldsCount : 'None' }}
-                        </span>
-                      </div>
-                      <div class="flex justify-between items-center text-sm">
-                        <span class="text-base-content/70">Errors</span>
-                        <span class="font-semibold text-error">{{ Object.keys(formErrors).length }}</span>
-                      </div>
+            <div v-if="filterSections.fields.length > 0" class="space-y-6">
+              <div class="card bg-base-100 shadow-lg border border-base-200 hover:shadow-xl hover:border-primary/30 transition-all duration-300">
+                <div class="card-body">
+                  <div class="flex items-center gap-3 mb-4 pb-3 border-b border-base-200">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center">
+                      <Settings class="w-4 h-4 text-secondary" />
+                    </div>
+                    <div class="flex-1">
+                      <h3 class="text-lg font-semibold text-base-content">General Information</h3>
+                      <p class="text-sm text-base-content/60">Basic details and settings</p>
+                    </div>
+                    <div v-if="getSectionChanges('general') > 0" class="badge badge-warning badge-sm">
+                      {{ getSectionChanges('general') }} changed
                     </div>
                   </div>
-                </div>
 
-                <div class="card bg-base-100 shadow-md mb-6">
-                  <div class="card-body">
-                    <h3 class="card-title text-sm flex items-center gap-2">
-                      <Zap class="w-4 h-4 text-primary" />
-                      Quick Actions
-                    </h3>
-                    <div class="space-y-2 mt-4">
-                      <button
-                        @click="resetChanges"
-                        :disabled="!hasChanges"
-                        class="btn btn-ghost btn-sm w-full justify-start gap-2"
-                        :class="{ 'btn-disabled': !hasChanges }"
-                      >
-                        <RotateCcw class="w-4 h-4" />
-                        Reset Changes
-                      </button>
-                      <button
-                        @click="saveChanges"
-                        :disabled="!hasChanges || isSubmitting"
-                        class="btn btn-primary btn-sm w-full justify-start gap-2"
-                        :class="{ 'btn-disabled': !hasChanges }"
-                      >
-                        <SaveIcon class="w-4 h-4" />
-                        Save Changes
-                      </button>
-                      <button
-                        @click="showChangeSummary = !showChangeSummary"
-                        :disabled="!hasChanges"
-                        class="btn btn-ghost btn-sm w-full justify-start gap-2"
-                        :class="{ 'btn-disabled': !hasChanges }"
-                      >
-                        <Eye class="w-4 h-4" />
-                        {{ showChangeSummary ? 'Hide' : 'Show' }} Changes
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="card bg-base-100 shadow-md">
-                  <div class="card-body">
-                    <h3 class="card-title text-sm flex items-center gap-2">
-                      <NavigationIcon class="w-4 h-4 text-primary" />
-                      Field Navigation
-                    </h3>
-                    <div class="space-y-2 mt-4">
-                      <button
-                        v-for="field in availableFields.slice(0, 10)"
-                        :key="field.key"
-                        @click="scrollToField(field.key)"
-                        class="w-full text-left px-3 py-2 text-xs rounded-lg transition-all duration-200 flex items-center gap-2"
-                        :class="[
-                          formErrors[field.key]
-                            ? 'bg-error/10 text-error hover:bg-error/20 border border-error/30'
-                            : isFieldChanged(field.key)
-                            ? 'bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30'
-                            : 'hover:bg-base-200 text-base-content/70 hover:text-base-content'
-                        ]"
-                      >
-                        <div
-                          :class="[
-                            'w-2 h-2 rounded-full',
-                            formErrors[field.key]
-                              ? 'bg-error animate-pulse'
-                              : isFieldChanged(field.key)
-                              ? 'bg-warning animate-pulse'
-                              : 'bg-base-300'
-                          ]"
-                        ></div>
-                        <span class="truncate">{{ field.label }}</span>
-                        <div v-if="isFieldChanged(field.key)" class="ml-auto">
-                          <Edit3 class="w-3 h-3 text-warning" />
-                        </div>
-                      </button>
-                    </div>
-                  </div>
+                  <FormBuilder
+                    :columns="filterSections.fields"
+                    :errors="formErrors"
+                    @onFormUpdate="onFormUpdate"
+                    editMode="true"
+                    :modelValue="props.modelValue"
+                  />
                 </div>
               </div>
             </div>
@@ -366,24 +252,20 @@ import { ref, computed } from 'vue';
 import axios from 'axios';
 import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import { formatDistanceToNow } from 'date-fns';
-import FormBuilder from '../formHelpers/formBuilder.vue';
+import FormBuilder from '../formHelpers/formbuilder.vue';
 import {
   X as XIcon,
   Pencil,
   Save as SaveIcon,
   AlertTriangle,
-  Info as InfoIcon,
   Calendar as CalendarIcon,
   Hash as HashIcon,
-  Navigation as NavigationIcon,
   Folder,
   Settings,
   Eye,
   RotateCcw,
-  Zap,
   User as UserIcon,
-  AlertCircle,
-  Edit3
+  AlertCircle
 } from 'lucide-vue-next';
 
 const isOpen = ref(false);
@@ -583,33 +465,6 @@ const saveChanges = async () => {
     }
   } finally {
     isSubmitting.value = false;
-  }
-};
-
-const scrollToField = (fieldKey: string) => {
-  const element = document.querySelector(`[data-field-key="${fieldKey}"]`);
-  if (element) {
-    const collapseContent = element.closest('.collapse-content');
-
-    if (collapseContent) {
-      const collapseInput = collapseContent.parentElement?.querySelector('input[type="checkbox"]');
-      if (collapseInput && !collapseInput.checked) {
-        collapseInput.checked = true;
-      }
-    }
-
-    setTimeout(() => {
-      element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'nearest'
-      });
-
-      element.classList.add('highlight-field');
-      setTimeout(() => {
-        element.classList.remove('highlight-field');
-      }, 2000);
-    }, 300);
   }
 };
 </script>

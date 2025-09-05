@@ -1,273 +1,220 @@
 <template>
-  <div class="relative" v-click-outside="closeManager">
-    <!-- Enhanced Trigger Button -->
-    <button
-      @click="toggleManager"
-      class="btn btn-ghost btn-sm gap-2 group relative overflow-hidden bg-base-200/50 border border-base-300/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-300"
-    >
-      <!-- Background Animation -->
-      <div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+  <!-- Modal -->
+  <div v-if="showModal" class="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+    <!-- Backdrop -->
+    <div
+      class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      @click="closeModal"
+    ></div>
 
-      <!-- Icon with Animation -->
-      <EyeIcon class="w-4 h-4 relative z-10 transition-all duration-300" :class="[
-        isOpen ? 'text-primary rotate-12' : 'text-base-content/70 group-hover:text-primary'
-      ]" />
-
-      <!-- Text with Counter -->
-      <span class="relative z-10 font-medium text-base-content/80 group-hover:text-base-content transition-colors duration-300">
-        Columns
-      </span>
-
-      <!-- Advanced Counter Badge -->
-      <div class="relative z-10 flex items-center gap-1">
-        <div class="badge badge-sm gap-1 transition-all duration-300" :class="[
-          getVisibilityBadgeColor()
-        ]">
-          <span class="font-bold">{{ visibleCount }}</span>
-          <span class="opacity-70">/</span>
-          <span class="text-xs">{{ totalColumns }}</span>
+    <!-- Modal Content -->
+    <div class="relative bg-base-100 rounded-lg shadow-xl border border-base-300 w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <!-- Minimal Header -->
+      <div class="flex items-center justify-between p-4 border-b border-base-300">
+        <div>
+          <h3 class="text-lg font-semibold text-base-content">Table Settings</h3>
+          <p class="text-sm text-base-content/60">{{ visibleCount }} of {{ totalColumns }} columns visible</p>
         </div>
-        <!-- Compact Mode Indicator -->
-        <div v-if="isCompactMode" class="badge badge-xs badge-secondary">C</div>
-        <!-- Super Compact Mode Indicator -->
-        <div v-if="isSuperCompactMode" class="badge badge-xs badge-accent">SC</div>
+        <button
+          @click="closeModal"
+          class="btn btn-sm btn-ghost btn-circle"
+          aria-label="Close"
+        >
+          <XIcon class="w-4 h-4" />
+        </button>
       </div>
 
-      <!-- Chevron with Smooth Rotation -->
-      <ChevronDownIcon
-        class="w-4 h-4 relative z-10 transition-all duration-300 ease-out"
-        :class="{ 'rotate-180': isOpen }"
-      />
+      <!-- Tabs -->
+      <div class="px-4 pt-4">
+        <div class="tabs tabs-boxed">
+          <button
+            @click="activeTab = 'columns'"
+            class="tab"
+            :class="{ 'tab-active': activeTab === 'columns' }"
+          >
+            Columns
+          </button>
+          <button
+            @click="activeTab = 'hidden'"
+            class="tab"
+            :class="{ 'tab-active': activeTab === 'hidden' }"
+          >
+            Hidden Fields
+            <span v-if="availableHiddenFields.length > 0" class="badge badge-sm ml-1">{{ enabledHiddenFields.size }}</span>
+          </button>
+          <button
+            @click="activeTab = 'display'"
+            class="tab"
+            :class="{ 'tab-active': activeTab === 'display' }"
+          >
+            Display
+          </button>
+        </div>
+      </div>
 
-      <!-- Shimmer Effect -->
-      <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
-    </button>
-
-    <!-- Enhanced Dropdown Panel -->
-    <Transition
-      enter-active-class="transition-all duration-300 ease-out"
-      enter-from-class="opacity-0 scale-95 -translate-y-2"
-      enter-to-class="opacity-100 scale-100 translate-y-0"
-      leave-active-class="transition-all duration-200 ease-in"
-      leave-from-class="opacity-100 scale-100 translate-y-0"
-      leave-to-class="opacity-0 scale-95 -translate-y-2"
-    >
-      <div
-        v-if="isOpen"
-        class="absolute right-0 top-full mt-3 bg-base-100 rounded-xl shadow-2xl border border-base-200 p-0 min-w-[360px] max-w-[420px] z-50 backdrop-blur-sm"
-        style="filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))"
-      >
-        <!-- Header Section -->
-        <div class="bg-gradient-to-r from-base-200 via-base-100 to-base-200 px-6 py-4 rounded-t-xl border-b border-base-200">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Columns class="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <h3 class="font-semibold text-base-content">Table Settings</h3>
-                <p class="text-xs text-base-content/60">Customize view, order & density</p>
-              </div>
-            </div>
-
-            <!-- Quick Stats -->
-            <div class="text-right">
-              <div class="text-sm font-bold text-primary">{{ visibleCount }}/{{ totalColumns }}</div>
-              <div class="text-xs text-base-content/60">visible</div>
+      <!-- Tab Content -->
+      <div class="flex-1 overflow-hidden">
+        <!-- Columns Tab -->
+        <div v-show="activeTab === 'columns'" class="h-full flex flex-col">
+          <!-- Actions -->
+          <div class="p-4 border-b border-base-300">
+            <div class="flex gap-2 flex-wrap">
+              <button @click="showAllColumns" class="btn btn-sm btn-success">Show All</button>
+              <button @click="hideAllColumns" class="btn btn-sm btn-warning">Hide All</button>
+              <button @click="resetToDefault" class="btn btn-sm btn-ghost">Reset</button>
+              <button @click="autoArrangeColumns" class="btn btn-sm btn-info">Auto Arrange</button>
             </div>
           </div>
-        </div>
 
-        <!-- Settings Toggles -->
-        <div class="px-6 py-3 bg-base-50/50 border-b border-base-200/50 space-y-3">
-          <!-- Compact Mode Toggle -->
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <Minimize2 class="w-4 h-4 text-base-content/60" />
-              <span class="font-medium text-sm">Compact Mode</span>
-            </div>
-            <button
-              @click="toggleCompactMode"
-              class="btn btn-xs btn-circle transition-all duration-200"
-              :class="isCompactMode ? 'btn-primary' : 'btn-ghost border border-base-300'"
-            >
-              <Check v-if="isCompactMode" class="w-3 h-3" />
-            </button>
-          </div>
-
-          <!-- Super Compact Mode Toggle -->
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <Zap class="w-4 h-4 text-base-content/60" />
-              <span class="font-medium text-sm">Super Compact</span>
-              <div class="tooltip tooltip-top" data-tip="Maximum data density - fits 2x more data">
-                <Info class="w-3 h-3 text-base-content/40" />
-              </div>
-            </div>
-            <button
-              @click="toggleSuperCompactMode"
-              class="btn btn-xs btn-circle transition-all duration-200"
-              :class="isSuperCompactMode ? 'btn-accent' : 'btn-ghost border border-base-300'"
-            >
-              <Check v-if="isSuperCompactMode" class="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-
-        <!-- Action Buttons Section -->
-        <div class="px-6 py-3 bg-base-50/50 border-b border-base-200/50">
-          <div class="flex items-center justify-between gap-3">
-            <button
-              @click="showAllColumns"
-              :disabled="visibleCount === totalColumns"
-              class="btn btn-sm btn-success gap-2 flex-1 group transition-all duration-200"
-              :class="{ 'btn-disabled': visibleCount === totalColumns }"
-            >
-              <EyeIcon class="w-3 h-3 group-hover:scale-110 transition-transform duration-200" />
-              <span class="font-medium">Show All</span>
-            </button>
-
-            <button
-              @click="hideAllColumns"
-              :disabled="visibleCount === 0"
-              class="btn btn-sm btn-warning gap-2 flex-1 group transition-all duration-200"
-              :class="{ 'btn-disabled': visibleCount === 0 }"
-            >
-              <EyeOffIcon class="w-3 h-3 group-hover:scale-110 transition-transform duration-200" />
-              <span class="font-medium">Hide All</span>
-            </button>
-
-            <button
-              @click="resetToDefault"
-              :disabled="!hasStoredPreferences"
-              class="btn btn-sm btn-ghost gap-2 group transition-all duration-200"
-              :class="{ 'btn-disabled': !hasStoredPreferences }"
-            >
-              <RotateCcwIcon class="w-3 h-3 group-hover:rotate-180 transition-transform duration-300" />
-              <span class="font-medium">Reset</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Reordering Instructions -->
-        <div class="px-6 py-2 bg-blue-50/50 border-b border-base-200/50">
-          <div class="flex items-center gap-2 text-xs text-blue-700">
-            <Move class="w-3 h-3" />
-            <span>Drag the grip handles to reorder columns</span>
-          </div>
-        </div>
-
-        <!-- Columns List Section with Enhanced Drag & Drop -->
-        <div class="px-4 py-2 max-h-80 overflow-auto custom-scrollbar">
-          <div class="space-y-1">
-            <div
-              v-for="(column, index) in orderedColumns"
-              :key="column.key"
-              class="group/item flex items-center justify-between p-3 rounded-lg transition-all duration-200 hover:bg-base-200/50 border border-transparent hover:border-base-300/30"
-              :class="[
-                isDragging && draggedIndex === index ? 'opacity-50 scale-95 shadow-lg' : '',
-                isDragging && dragOverIndex === index ? 'border-primary bg-primary/10' : '',
-                'cursor-move'
-              ]"
-              :draggable="true"
-              @dragstart="handleDragStart($event, index)"
-              @dragover.prevent="handleDragOver($event, index)"
-              @dragenter.prevent="handleDragEnter(index)"
-              @drop="handleDrop($event, index)"
-              @dragend="handleDragEnd"
-              @dragleave="handleDragLeave"
-            >
-              <!-- Enhanced Drag Handle & Column Info -->
-              <div class="flex items-center gap-3 flex-1 min-w-0">
-                <!-- Enhanced Drag Handle -->
-                <div class="drag-handle flex flex-col gap-0.5 text-base-content/30 group-hover/item:text-primary/60 transition-colors duration-200 cursor-grab active:cursor-grabbing">
-                  <div class="flex gap-0.5">
-                    <div class="w-0.5 h-0.5 bg-current rounded-full"></div>
-                    <div class="w-0.5 h-0.5 bg-current rounded-full"></div>
-                  </div>
-                  <div class="flex gap-0.5">
-                    <div class="w-0.5 h-0.5 bg-current rounded-full"></div>
-                    <div class="w-0.5 h-0.5 bg-current rounded-full"></div>
-                  </div>
-                  <div class="flex gap-0.5">
-                    <div class="w-0.5 h-0.5 bg-current rounded-full"></div>
-                    <div class="w-0.5 h-0.5 bg-current rounded-full"></div>
-                  </div>
+          <!-- Columns List -->
+          <div class="flex-1 overflow-y-auto p-4">
+            <div class="space-y-2">
+              <div
+                v-for="(column, index) in orderedColumns"
+                :key="column.key"
+                class="flex items-center gap-3 p-3 border border-base-300 rounded-lg hover:bg-base-50"
+                :class="{
+                  'opacity-50': isDragging && draggedIndex === index,
+                  'border-primary bg-primary/5': isDragging && dragOverIndex === index
+                }"
+                :draggable="true"
+                @dragstart="handleDragStart($event, index)"
+                @dragover.prevent="handleDragOver($event, index)"
+                @dragenter.prevent="handleDragEnter(index)"
+                @drop="handleDrop($event, index)"
+                @dragend="handleDragEnd"
+              >
+                <!-- Drag Handle -->
+                <div class="cursor-move text-base-content/40 hover:text-base-content">
+                  <Move class="w-4 h-4" />
                 </div>
 
-                <!-- Column Position Indicator -->
-                <div class="flex items-center justify-center w-6 h-6 rounded-full bg-base-200 text-xs font-bold text-base-content/60 group-hover/item:bg-primary/20 group-hover/item:text-primary transition-all duration-200">
+                <!-- Position -->
+                <div class="w-6 h-6 rounded-full bg-base-200 flex items-center justify-center text-xs font-medium">
                   {{ index + 1 }}
                 </div>
 
-                <!-- Column Type Icon -->
-                <div class="w-6 h-6 rounded bg-base-200 flex items-center justify-center flex-shrink-0 transition-colors duration-200 group-hover/item:bg-primary/20">
-                  <component :is="getColumnIcon(column)" class="w-3 h-3 text-base-content/60 group-hover/item:text-primary transition-colors duration-200" />
-                </div>
-
-                <!-- Column Details -->
+                <!-- Column Info -->
                 <div class="flex-1 min-w-0">
-                  <div class="font-medium text-sm text-base-content truncate">{{ column.label }}</div>
-                  <div class="text-xs text-base-content/50 truncate flex items-center gap-1">
-                    <span>{{ getColumnTypeLabel(column) }}</span>
-                    <!-- Priority indicator -->
-                    <span v-if="column.priority" class="badge badge-xs badge-ghost">P{{ column.priority }}</span>
-                  </div>
+                  <div class="font-medium text-sm">{{ column.label }}</div>
+                  <div class="text-xs text-base-content/60">{{ getColumnTypeLabel(column) }}</div>
                 </div>
+
+                <!-- Toggle -->
+                <label class="cursor-pointer">
+                  <input
+                    type="checkbox"
+                    :checked="!hiddenColumns.has(column.key)"
+                    @change="toggleColumnVisibility(column.key)"
+                    class="toggle toggle-sm"
+                  >
+                </label>
               </div>
+            </div>
+          </div>
+        </div>
 
-              <!-- Toggle Button -->
-              <button
-                @click.stop="toggleColumnVisibility(column.key)"
-                class="btn btn-xs btn-circle relative overflow-hidden group/toggle transition-all duration-200 hover:scale-110"
-                :class="[
-                  !hiddenColumns.has(column.key)
-                    ? 'btn-success hover:btn-success'
-                    : 'btn-ghost hover:btn-error border border-base-300/30'
-                ]"
-                :aria-label="`${!hiddenColumns.has(column.key) ? 'Hide' : 'Show'} ${column.label} column`"
-              >
-                <!-- Background Animation -->
-                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/toggle:translate-x-full transition-transform duration-500"></div>
+        <!-- Hidden Fields Tab -->
+        <div v-show="activeTab === 'hidden'" class="h-full flex flex-col">
+          <!-- Info Header -->
+          <div class="p-4 border-b border-base-300">
+            <div class="mb-2">
+              <h4 class="font-medium text-base-content">Hidden Fields</h4>
+              <p class="text-sm text-base-content/60">
+                Toggle hidden fields marked in form configuration to display them temporarily.
+              </p>
+            </div>
 
-                <!-- Icon -->
-                <component
-                  :is="!hiddenColumns.has(column.key) ? EyeIcon : EyeOffIcon"
-                  class="w-3 h-3 relative z-10 transition-all duration-200"
-                  :class="[
-                    !hiddenColumns.has(column.key)
-                      ? 'text-success-content'
-                      : 'text-base-content/50 group-hover/toggle:text-error'
-                  ]"
-                />
+            <!-- Actions -->
+            <div class="flex gap-2 flex-wrap">
+              <button @click="showAllHiddenFields" class="btn btn-sm btn-success" :disabled="availableHiddenFields.length === 0">
+                Show All Hidden
               </button>
+              <button @click="hideAllHiddenFields" class="btn btn-sm btn-warning" :disabled="enabledHiddenFields.size === 0">
+                Hide All Hidden
+              </button>
+              <span class="text-xs text-base-content/50 flex items-center">
+                {{ enabledHiddenFields.size }} of {{ availableHiddenFields.length }} enabled
+              </span>
             </div>
           </div>
 
-          <!-- Drop zone indicator -->
-          <div
-            v-if="isDragging"
-            class="h-1 bg-primary rounded-full opacity-0 transition-opacity duration-200"
-            :class="{ 'opacity-100': showDropZone }"
-          ></div>
+          <!-- Hidden Fields List -->
+          <div class="flex-1 overflow-y-auto p-4">
+            <div v-if="availableHiddenFields.length === 0" class="text-center py-8">
+              <div class="text-base-content/40 mb-2">
+                <EyeOffIcon class="w-12 h-12 mx-auto mb-3" />
+              </div>
+              <p class="text-base-content/60">No hidden fields defined</p>
+              <p class="text-sm text-base-content/40">Hidden fields are marked with 'hidden: true' in the form configuration</p>
+            </div>
+
+            <div v-else class="space-y-2">
+              <div
+                v-for="column in availableHiddenFields"
+                :key="column.key"
+                class="flex items-center gap-3 p-3 border border-base-300 rounded-lg hover:bg-base-50"
+              >
+                <!-- Column Icon -->
+                <component
+                  :is="getColumnIcon(column)"
+                  class="w-5 h-5 text-base-content/60"
+                />
+
+                <!-- Column Info -->
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-sm">{{ column.label }}</div>
+                  <div class="text-xs text-base-content/60">{{ column.key }} • {{ getColumnTypeLabel(column) }}</div>
+                </div>
+
+                <!-- Toggle -->
+                <label class="cursor-pointer">
+                  <input
+                    type="checkbox"
+                    :checked="enabledHiddenFields.has(column.key)"
+                    @change="toggleHiddenFieldVisibility(column.key)"
+                    class="toggle toggle-sm"
+                  >
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Footer Section -->
-        <div class="px-6 py-3 bg-base-50/50 rounded-b-xl border-t border-base-200/50">
-          <div class="flex items-center justify-between text-xs text-base-content/60">
-            <div class="flex items-center gap-2">
-              <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
-              <span>{{ visibleCount }} columns visible</span>
-              <span v-if="hasCustomOrder" class="badge badge-xs badge-info">Custom Order</span>
+        <!-- Display Tab -->
+        <div v-show="activeTab === 'display'" class="h-full overflow-y-auto p-4">
+          <div class="space-y-4">
+            <!-- Compact Mode -->
+            <div class="flex items-center justify-between p-3 border border-base-300 rounded-lg">
+              <div>
+                <div class="font-medium">Compact Mode</div>
+                <div class="text-sm text-base-content/60">Reduce row spacing</div>
+              </div>
+              <input
+                type="checkbox"
+                :checked="isCompactMode"
+                @change="toggleCompactMode"
+                class="toggle"
+              >
             </div>
-            <div class="flex items-center gap-2">
-              <Save class="w-3 h-3" />
-              <span>Auto-saved</span>
+
+            <!-- Super Compact Mode -->
+            <div class="flex items-center justify-between p-3 border border-base-300 rounded-lg">
+              <div>
+                <div class="font-medium">Ultra Compact</div>
+                <div class="text-sm text-base-content/60">Maximum density</div>
+              </div>
+              <input
+                type="checkbox"
+                :checked="isSuperCompactMode"
+                @change="toggleSuperCompactMode"
+                class="toggle"
+              >
             </div>
           </div>
         </div>
       </div>
-    </Transition>
+    </div>
   </div>
 </template>
 
@@ -292,7 +239,10 @@ import {
   Minimize2,
   Check,
   Zap,
-  Move
+  Move,
+  X as XIcon,
+  Settings,
+  Shuffle
 } from 'lucide-vue-next';
 
 interface Column {
@@ -300,22 +250,25 @@ interface Column {
   label: string;
   type?: string;
   priority?: number;
+  hidden?: boolean;
 }
 
 const props = defineProps<{
   columns: Column[];
   storageKey?: string;
+  showModal?: boolean;
 }>();
 
-const emit = defineEmits(['update:hiddenColumns', 'update:compactMode', 'update:superCompactMode', 'update:columnOrder']);
+const emit = defineEmits(['update:hiddenColumns', 'update:compactMode', 'update:superCompactMode', 'update:columnOrder', 'update:enabledHiddenFields', 'close']);
 
 // Initialize state
-const isOpen = ref(false);
 const hiddenColumns = ref(new Set<string>());
+const enabledHiddenFields = ref(new Set<string>());
 const isCompactMode = ref(true); // Default to compact mode
 const isSuperCompactMode = ref(false);
 const columnOrder = ref<string[]>([]);
 const hasStoredPreferences = ref(false);
+const activeTab = ref('columns'); // Active tab state
 
 // Drag and drop state
 const isDragging = ref(false);
@@ -355,13 +308,14 @@ const hasCustomOrder = computed(() => {
   return columnOrder.value.length > 0;
 });
 
-// Methods for managing settings
-const toggleManager = () => {
-  isOpen.value = !isOpen.value;
-};
+// Hidden fields computed properties
+const availableHiddenFields = computed(() => {
+  return props.columns.filter(col => col.hidden === true);
+});
 
-const closeManager = () => {
-  isOpen.value = false;
+// Methods for managing settings
+const closeModal = () => {
+  emit('close');
 };
 
 const toggleCompactMode = () => {
@@ -407,9 +361,62 @@ const resetToDefault = () => {
   isSuperCompactMode.value = false;
   columnOrder.value = [];
   updateHiddenColumns(new Set());
+  updateEnabledHiddenFields(new Set());
   emit('update:compactMode', true);
   emit('update:superCompactMode', false);
   emit('update:columnOrder', []);
+};
+
+const autoArrangeColumns = () => {
+  // Auto arrange columns by priority and type
+  const sortedColumns = [...props.columns]
+    .filter(col => !col.hidden)
+    .sort((a, b) => {
+      // First by priority (lower numbers first)
+      const priorityA = a.priority ?? 999;
+      const priorityB = b.priority ?? 999;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+
+      // Then by type importance
+      const typeOrder = { text: 1, number: 2, date: 3, boolean: 4, media: 5 };
+      const typeA = typeOrder[a.type as keyof typeof typeOrder] ?? 10;
+      const typeB = typeOrder[b.type as keyof typeof typeOrder] ?? 10;
+      if (typeA !== typeB) return typeA - typeB;
+
+      // Finally alphabetically
+      return a.label.localeCompare(b.label);
+    });
+
+  const newOrder = sortedColumns.map(col => col.key);
+  columnOrder.value = newOrder;
+  emit('update:columnOrder', newOrder);
+  saveSettings();
+};
+
+// Hidden fields management methods
+const toggleHiddenFieldVisibility = (columnKey: string) => {
+  const newEnabledHiddenFields = new Set(enabledHiddenFields.value);
+  if (newEnabledHiddenFields.has(columnKey)) {
+    newEnabledHiddenFields.delete(columnKey);
+  } else {
+    newEnabledHiddenFields.add(columnKey);
+  }
+  updateEnabledHiddenFields(newEnabledHiddenFields);
+};
+
+const showAllHiddenFields = () => {
+  const allHiddenKeys = new Set(availableHiddenFields.value.map(col => col.key));
+  updateEnabledHiddenFields(allHiddenKeys);
+};
+
+const hideAllHiddenFields = () => {
+  updateEnabledHiddenFields(new Set());
+};
+
+const updateEnabledHiddenFields = (newEnabledHiddenFields: Set<string>) => {
+  enabledHiddenFields.value = newEnabledHiddenFields;
+  emit('update:enabledHiddenFields', newEnabledHiddenFields);
+  saveSettings();
 };
 
 // Enhanced drag and drop methods
@@ -494,12 +501,14 @@ const saveSettings = () => {
   try {
     const settings = {
       hiddenColumns: Array.from(hiddenColumns.value),
+      enabledHiddenFields: Array.from(enabledHiddenFields.value),
       compactMode: isCompactMode.value,
       superCompactMode: isSuperCompactMode.value,
       columnOrder: columnOrder.value
     };
     localStorage.setItem(storageKey.value, JSON.stringify(settings));
     hasStoredPreferences.value = settings.hiddenColumns.length > 0 ||
+                                 settings.enabledHiddenFields.length > 0 ||
                                  settings.columnOrder.length > 0 ||
                                  !settings.compactMode ||
                                  settings.superCompactMode;
@@ -520,6 +529,12 @@ const loadSettings = () => {
         emit('update:hiddenColumns', storedColumns);
       }
 
+      if (settings.enabledHiddenFields) {
+        const storedEnabledHiddenFields = new Set(settings.enabledHiddenFields);
+        enabledHiddenFields.value = storedEnabledHiddenFields;
+        emit('update:enabledHiddenFields', storedEnabledHiddenFields);
+      }
+
       if (settings.compactMode !== undefined) {
         isCompactMode.value = settings.compactMode;
         emit('update:compactMode', settings.compactMode);
@@ -536,6 +551,7 @@ const loadSettings = () => {
       }
 
       hasStoredPreferences.value = settings.hiddenColumns?.length > 0 ||
+                                   settings.enabledHiddenFields?.length > 0 ||
                                    settings.columnOrder?.length > 0 ||
                                    !settings.compactMode ||
                                    settings.superCompactMode;
@@ -656,133 +672,75 @@ watch(() => props.columns, () => {
   background: linear-gradient(45deg, hsl(var(--p) / 0.6), hsl(var(--s) / 0.6));
 }
 
-/* Enhanced Drag and Drop Styles */
+/* Modern Toggle Switch Styling */
+.peer:checked + div {
+  background: linear-gradient(45deg, hsl(var(--su)), hsl(var(--su) / 0.8));
+  box-shadow: 0 0 0 2px hsl(var(--su) / 0.2);
+}
+
+.peer:focus + div {
+  box-shadow: 0 0 0 4px hsl(var(--p) / 0.25);
+}
+
+.peer + div::after {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced Drag Handle */
 .drag-handle {
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-  transition: all 0.2s ease;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: manipulation;
 }
 
 .drag-handle:hover {
-  background-color: hsl(var(--b2));
-  transform: scale(1.1);
+  background-color: hsl(var(--p) / 0.1);
+  transform: scale(1.05);
 }
 
 .drag-handle:active {
-  cursor: grabbing;
+  cursor: grabbing !important;
   transform: scale(0.95);
 }
 
-/* Drag states */
+/* Enhanced Drag States */
 .group\/item.opacity-50 {
-  background-color: hsl(var(--b2) / 0.5);
-  transform: rotate(2deg);
+  background: linear-gradient(135deg, hsl(var(--p) / 0.1), hsl(var(--s) / 0.1));
+  transform: rotate(1deg) scale(0.98);
+  box-shadow: 0 4px 12px hsl(var(--p) / 0.2);
 }
 
 .group\/item.border-primary {
   border-color: hsl(var(--p));
-  box-shadow: 0 0 0 2px hsl(var(--p) / 0.2);
+  box-shadow: 0 0 0 3px hsl(var(--p) / 0.15);
+  background: linear-gradient(135deg, hsl(var(--p) / 0.05), hsl(var(--s) / 0.05));
 }
 
-/* Drop zone animation */
-.h-1.bg-primary {
-  animation: pulse 1s infinite;
+/* Drop Zone Animation */
+.h-1.bg-gradient-to-r {
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
+@keyframes shimmer {
   0%, 100% {
     opacity: 0.5;
-    transform: scaleY(1);
+    transform: scaleY(1) scaleX(0.8);
   }
   50% {
     opacity: 1;
-    transform: scaleY(1.5);
+    transform: scaleY(1.5) scaleX(1);
   }
-}
-
-/* Enhanced position indicator */
-.w-6.h-6.rounded-full {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.group\/item:hover .w-6.h-6.rounded-full {
-  transform: scale(1.2);
-  font-weight: 700;
 }
 
 /* Enhanced Button Animations */
 .btn {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px hsl(var(--b3) / 0.3);
-}
-
-.btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-}
-
-/* Enhanced Dropdown Animation */
-.backdrop-blur-sm {
-  backdrop-filter: blur(8px);
-}
-
-/* Badge animations */
-.badge-xs,
-.badge-sm {
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* Tooltip styling */
-.tooltip:before {
-  font-size: 0.75rem;
-  max-width: 200px;
-  white-space: normal;
-}
-
-/* Enhanced focus states */
-.btn:focus-visible,
-.drag-handle:focus-visible {
-  outline: 2px solid hsl(var(--p));
-  outline-offset: 2px;
-}
-
-/* Column item animations */
-.group\/item {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.group\/item:hover {
-  transform: translateX(2px);
-  box-shadow: 0 2px 8px hsl(var(--b3) / 0.2);
-}
-
-/* Priority badge styling */
-.badge-ghost {
-  background-color: hsl(var(--b2));
-  border: 1px solid hsl(var(--b3));
-}
-
-/* Super compact mode indicator */
-.badge-accent {
-  background-color: hsl(var(--a));
-  color: hsl(var(--ac));
-}
-
-/* Toggle button enhancements */
-.btn-circle {
   position: relative;
   overflow: hidden;
 }
 
-.btn-circle::before {
+.btn::before {
   content: '';
   position: absolute;
   top: 0;
@@ -791,44 +749,216 @@ watch(() => props.columns, () => {
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
   transition: left 0.5s ease;
+  z-index: 1;
 }
 
-.btn-circle:hover::before {
+.btn:hover::before {
   left: 100%;
 }
 
-/* Responsive Design */
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px hsl(var(--b3) / 0.3);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Enhanced Modal Animation */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.transform.transition-all {
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced Backdrop */
+.backdrop-blur-sm {
+  backdrop-filter: blur(12px) saturate(150%);
+}
+
+/* Progress Bar Animation */
+.bg-gradient-to-r.from-primary.to-secondary {
+  background-size: 200% 100%;
+  animation: progressGlow 2s ease-in-out infinite;
+}
+
+@keyframes progressGlow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Enhanced Badge Animations */
+.badge {
+  animation: fadeInUp 0.3s ease-out;
+  transition: all 0.2s ease;
+}
+
+.badge:hover {
+  transform: scale(1.05);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Enhanced Column Item Hover */
+.group\/item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.group\/item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 16px hsl(var(--b3) / 0.2);
+}
+
+/* Mobile Optimizations - Full Screen */
 @media (max-width: 640px) {
-  .min-w-\[360px\] {
-    min-width: 320px;
+  .fixed.inset-0 {
+    padding: 0;
   }
 
-  .max-w-\[420px\] {
-    max-width: 95vw;
+  .sm\:rounded-2xl {
+    border-radius: 0;
   }
 
-  .px-6 {
-    padding-left: 1rem;
-    padding-right: 1rem;
+  .sm\:w-\[90vw\] {
+    width: 100vw;
+  }
+
+  .sm\:h-\[85vh\] {
+    height: 100vh;
+  }
+
+  .px-4 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 
   .gap-3 {
     gap: 0.5rem;
   }
+
+  .text-lg {
+    font-size: 1rem;
+  }
+
+  .w-10.h-10 {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .w-5.h-5 {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* Improve touch targets */
+  .btn-sm {
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .drag-handle {
+    padding: 0.75rem;
+    min-width: 2rem;
+    min-height: 2rem;
+  }
+
+  /* Better grid on mobile */
+  .grid-cols-2 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  /* Single column layout for columns */
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  /* Improved toggle sizing */
+  .w-14.h-7 {
+    width: 3rem;
+    height: 1.5rem;
+  }
+
+  .after\:h-5.after\:w-5::after {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+
+  /* Tab adjustments */
+  .tabs {
+    flex-direction: column;
+  }
+
+  .tab {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .sm\:max-w-4xl {
+    max-width: 95vw;
+  }
+
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+}
+
+/* Desktop Optimizations */
+@media (min-width: 1025px) {
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* High Contrast Mode */
 @media (prefers-contrast: high) {
-  .border-base-200 {
+  .border-base-200,
+  .border-base-200\/50 {
     border-color: hsl(var(--bc));
+    border-width: 2px;
   }
 
-  .bg-base-200\/50 {
+  .bg-base-200\/50,
+  .bg-base-200\/30 {
     background-color: hsl(var(--b2));
   }
 
+  .text-base-content\/60 {
+    color: hsl(var(--bc));
+  }
+
   .drag-handle {
-    border: 1px solid hsl(var(--bc) / 0.3);
+    border: 2px solid hsl(var(--bc) / 0.3);
   }
 }
 
@@ -837,70 +967,133 @@ watch(() => props.columns, () => {
   .animate-pulse,
   .transition-all,
   .transition-transform,
-  .group\/item {
-    animation: none;
-    transition: none;
+  .transition-colors,
+  .group\/item,
+  .btn,
+  .drag-handle {
+    animation: none !important;
+    transition: none !important;
   }
 
-  .bg-gradient-to-r {
-    animation: none;
-  }
-
-  .btn:hover:not(:disabled) {
-    transform: none;
-  }
-
+  .btn:hover:not(:disabled),
   .group\/item:hover {
-    transform: none;
+    transform: none !important;
+  }
+
+  .bg-gradient-to-r.from-primary.to-secondary {
+    animation: none !important;
+  }
+
+  @keyframes modalSlideIn {
+    from, to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes shimmer {
+    from, to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes progressGlow {
+    from, to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes fadeInUp {
+    from, to {
+      opacity: 1;
+      transform: none;
+    }
   }
 }
 
-/* Print Styles */
-@media print {
-  .relative {
-    display: none !important;
+/* Dark Mode Enhancements */
+@media (prefers-color-scheme: dark) {
+  .shadow-2xl {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .backdrop-blur-sm {
+    backdrop-filter: blur(12px) saturate(120%) brightness(0.8);
   }
 }
 
-/* Enhanced Shadow Effects */
-.shadow-2xl {
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.25),
-    0 0 0 1px hsl(var(--b3) / 0.05);
+/* Focus Enhancements */
+.btn:focus-visible,
+.drag-handle:focus-visible,
+input:focus-visible + div {
+  outline: 3px solid hsl(var(--p));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px hsl(var(--p) / 0.2);
 }
 
-/* Drag feedback improvements */
-.cursor-move:hover {
-  cursor: grab;
+/* Enhanced Tooltip */
+.tooltip:before {
+  font-size: 0.75rem;
+  max-width: 240px;
+  white-space: normal;
+  line-height: 1.4;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.cursor-move:active {
-  cursor: grabbing;
+/* Enhanced Section Dividers */
+.w-1.h-5.bg-gradient-to-b {
+  box-shadow: 0 0 8px hsl(var(--p) / 0.3);
 }
 
-/* Settings section styling */
-.space-y-3 > * + * {
-  margin-top: 0.75rem;
+/* Touch-friendly improvements */
+@media (pointer: coarse) {
+  .btn,
+  .drag-handle {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .group\/item {
+    padding: 1rem;
+  }
+
+  .w-12.h-6 {
+    width: 3.5rem;
+    height: 2rem;
+  }
+
+  .after\:h-5.after\:w-5::after {
+    height: 1.5rem;
+    width: 1.5rem;
+  }
 }
 
-/* Enhanced instruction styling */
-.bg-blue-50\/50 {
-  background-color: rgb(239 246 255 / 0.5);
+/* Performance optimizations */
+.group\/item,
+.drag-handle,
+.btn,
+.badge {
+  will-change: transform;
 }
 
-.text-blue-700 {
-  color: rgb(29 78 216);
+/* Enhanced visual feedback for interactions */
+.group\/item:active {
+  transform: scale(0.98);
 }
 
-/* Custom order badge */
-.badge-info {
-  background-color: hsl(var(--in));
-  color: hsl(var(--inc));
+.btn:active {
+  transform: scale(0.95);
 }
 
-/* Auto-save indicator animation */
-.animate-pulse {
-  animation: gentlePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* Improved accessibility */
+@media (prefers-reduced-motion: no-preference) {
+  .animate-pulse {
+    animation: gentlePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }
 
 @keyframes gentlePulse {
@@ -909,62 +1102,120 @@ watch(() => props.columns, () => {
     transform: scale(1);
   }
   50% {
-    opacity: 0.7;
-    transform: scale(1.05);
+    opacity: 0.8;
+    transform: scale(1.02);
   }
 }
 
-/* Shimmer effect enhancement */
-.group:hover .group-hover\:translate-x-full {
-  transition-delay: 0.1s;
+/* Enhanced scroll behavior */
+.overflow-auto {
+  scroll-behavior: smooth;
 }
 
-/* Enhanced grid layout for smaller screens */
-@media (max-width: 480px) {
-  .flex.gap-3 {
-    flex-direction: column;
+/* Modern gradient effects */
+.bg-gradient-to-br.from-primary\/5 {
+  background-image: linear-gradient(to bottom right, hsl(var(--p) / 0.05), transparent, hsl(var(--s) / 0.05));
+}
+
+.bg-gradient-to-br.from-primary {
+  background-image: linear-gradient(to bottom right, hsl(var(--p)), hsl(var(--s)));
+}
+
+/* Enhanced border radius for modern look */
+.rounded-2xl {
+  border-radius: 1rem;
+}
+
+.rounded-xl {
+  border-radius: 0.75rem;
+}
+
+/* Grid improvements */
+.grid.gap-3 {
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .grid.gap-3 {
     gap: 0.5rem;
   }
+}
 
-  .flex-1 {
-    width: 100%;
+/* Enhanced shadow system */
+.shadow-sm {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.hover\:shadow-sm:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Print styles */
+@media print {
+  .fixed.inset-0 {
+    display: none !important;
   }
 }
 
-/* Accessibility improvements */
-[aria-label] {
-  position: relative;
+/* Enhanced modal sizing */
+.sm\:w-\[90vw\] {
+  width: 90vw;
 }
 
-.btn:focus-visible[aria-label]::after {
-  content: attr(aria-label);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: hsl(var(--b1));
-  border: 1px solid hsl(var(--b3));
-  border-radius: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  white-space: nowrap;
-  z-index: 100;
-  pointer-events: none;
+.sm\:h-\[85vh\] {
+  height: 85vh;
 }
 
-/* Performance optimizations */
-.group\/item,
-.drag-handle,
-.btn-circle {
-  will-change: transform;
+.sm\:max-w-4xl {
+  max-width: 72rem;
 }
 
-/* Enhanced visual feedback for dragging */
-.group\/item[draggable="true"]:hover {
-  box-shadow: 0 4px 12px hsl(var(--p) / 0.2);
+/* Tab system styling */
+.tabs-boxed {
+  background: hsl(var(--b2) / 0.5);
+  border-radius: 0.75rem;
+  padding: 0.25rem;
 }
 
-.group\/item[draggable="true"]:active {
-  box-shadow: 0 8px 25px hsl(var(--p) / 0.3);
+.tab {
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.tab-active {
+  background: hsl(var(--p));
+  color: hsl(var(--pc));
+  box-shadow: 0 2px 4px hsl(var(--p) / 0.2);
+}
+
+/* Enhanced column grid for large screens */
+.lg\:grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Fullscreen modal adjustments */
+.h-full.flex.flex-col {
+  min-height: 0;
+}
+
+.flex-1.overflow-hidden {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Improved drag and drop for wider layout */
+.group\/item {
+  min-height: 4rem;
+}
+
+.drag-handle {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
 }
 </style>

@@ -475,11 +475,10 @@
             <template v-else>
               <div
                 v-if="props.linkStyle === 'link-compact' && computedLinkUrl"
-                class="inline-flex items-center rounded transition-all duration-200"
-                :class="[computedLinkClasses, compact ? 'px-1 py-0.5 text-xs' : 'px-2 py-1 text-sm']"
+                class="inline-flex items-center gap-1 btn btn-outline btn-sm transition-all duration-200"
               >
-                <span class="text-base-content">{{ compact ? 'Link' : 'Open Link' }}</span>
-                <ExternalLink :class="compact ? 'w-3 h-3 ml-0.5' : 'w-4 h-4 ml-1'" />
+                <ExternalLink :class="compact ? 'w-3 h-3' : 'w-4 h-4'" />
+                <span>{{ compact ? 'Link' : 'Open Link' }}</span>
               </div>
               <span v-else class="text-base-content break-words">
                 {{ formatValue() }}

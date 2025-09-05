@@ -3,145 +3,275 @@
         <!-- Main Table Card -->
         <div
             class="relative flex flex-col bg-base-300 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl">
-            <!-- Table Header Section -->
-            <div class="flex flex-col sm:flex-row items-center justify-between p-6 border-b border-base-content/10">
-                <!-- Title and Count -->
-                <div class="mb-4 sm:mb-0">
-                    <h1 class="text-2xl md:text-3xl font-extrabold text-base-content flex items-center gap-3">
-                        <TableIcon class="w-8 h-8 text-primary" />
-                        {{ props.tableTitle }}
-                    </h1>
-                    <!-- subheader -->
-                    <p v-if="props.subheader" class="text-base-content/70 text-sm mt-1">
-                        {{ props.subheader}}
-                    </p>
-                    <p v-if="totalItems" class="text-base-content/70 text-sm mt-1 flex items-center gap-2">
-                        Showing {{ totalItems.toLocaleString() }} items
-                        <!-- Density Indicators -->
-                        <span v-if="superCompactMode" class="badge badge-accent badge-xs">Super Compact</span>
-                        <span v-else-if="compactMode" class="badge badge-secondary badge-xs">Compact</span>
-                        <span v-else class="badge badge-ghost badge-xs">Standard</span>
+            <!-- Enhanced Table Header Section -->
+            <div class="relative">
+                <!-- Primary Header Row -->
+                <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 lg:p-6 border-b border-base-content/10">
+                    <!-- Title Section -->
+                    <div class="flex-1 min-w-0 mb-2 lg:mb-0">
+                        <!-- Title Row with Status on Right -->
+                        <div class="flex items-center justify-between gap-4 mb-1">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <TableIcon class="w-4 h-4 lg:w-5 lg:h-5 text-primary flex-shrink-0" />
+                                <h1 class="text-base lg:text-lg xl:text-xl font-bold text-base-content truncate">
+                                    {{ props.tableTitle }}
+                                </h1>
+                            </div>
 
-                        <!-- ✨ NEW: Model Scopes Indicator -->
-                        <span v-if="hasModelScopes" class="badge badge-success badge-xs"
-                              :title="`${props.modelScopes.length} model scope(s) active: ${getScopesTitle}`">
-                            Scoped ({{ props.modelScopes.length }})
-                        </span>
+                            <!-- Compact/Advanced Indicators on Right -->
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <span v-if="totalItems" class="text-xs text-base-content/70 font-medium bg-base-100/50 px-2 py-0.5 rounded-full">
+                                    {{ totalItems.toLocaleString() }} items
+                                </span>
+                                <span v-if="superCompactMode" class="badge badge-accent badge-sm px-2 py-1 font-semibold shadow-sm">Ultra</span>
+                                <span v-else-if="compactMode" class="badge badge-secondary badge-sm px-2 py-1 font-semibold shadow-sm">Compact</span>
+                                <span v-else class="badge badge-primary badge-sm px-2 py-1 font-semibold shadow-sm">Standard</span>
+                                <span v-if="hasActiveAdvancedFilters"
+                                      class="badge badge-info badge-sm px-2 py-1 font-semibold shadow-sm"
+                                      :title="`${enabledAdvancedFiltersCount} of ${totalAdvancedFiltersCount} advanced filters active`">
+                                    Filters ({{ enabledAdvancedFiltersCount }}/{{ totalAdvancedFiltersCount }})
+                                </span>
+                            </div>
+                        </div>
 
-                        <!-- ✨ Enhanced: Advanced Filters Indicator -->
-                        <span v-if="hasActiveAdvancedFilters"
-                              class="badge badge-info badge-xs"
-                              :title="`${enabledAdvancedFiltersCount} of ${totalAdvancedFiltersCount} advanced filters active`">
-                            Advanced ({{ enabledAdvancedFiltersCount }}/{{ totalAdvancedFiltersCount }})
-                        </span>
+                        <!-- Subheader -->
+                        <p v-if="props.subheader" class="text-base-content/70 text-xs mb-1">
+                            {{ props.subheader }}
+                        </p>
 
-                        <!-- Active Filters Indicator -->
-                        <span v-if="hasNonDefaultFilters" class="badge badge-warning badge-xs" title="User filters active">
-                            Filtered
-                        </span>
-                    </p>
+                        <!-- Other Status Indicators Row -->
+                        <div class="flex flex-wrap items-center gap-2 text-xs text-base-content/70">
+                            <!-- Other indicators that don't go on title row -->
+                            <div class="flex flex-wrap gap-1">
+                                <span v-if="hasModelScopes" class="badge badge-success badge-sm px-2 py-1 font-medium shadow-sm"
+                                      :title="`${props.modelScopes.length} model scope(s) active: ${getScopesTitle}`">
+                                    <ScopeIcon class="w-3 h-3 mr-1" />
+                                    Scoped ({{ props.modelScopes.length }})
+                                </span>
+
+                                <span v-if="hasNonDefaultFilters" class="badge badge-warning badge-sm px-2 py-1 font-medium shadow-sm" title="User filters active">
+                                    <FilterIcon class="w-3 h-3 mr-1" />
+                                    Filtered
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Primary Actions Section -->
+                    <div class="flex items-center gap-2 w-full lg:w-auto">
+                        <!-- Mobile Menu Toggle -->
+                        <button
+                            @click="mobileMenuOpen = !mobileMenuOpen"
+                            class="btn btn-ghost btn-sm lg:hidden order-last"
+                            :class="{ 'btn-active': mobileMenuOpen }"
+                        >
+                            <MenuIcon v-if="!mobileMenuOpen" class="w-4 h-4" />
+                            <XIcon v-else class="w-4 h-4" />
+                        </button>
+
+                        <!-- Primary Create Button -->
+                        <slot name="new">
+                            <create
+                                v-if="!props.custom_create_route"
+                                :columns="props.columns"
+                                :endpoint="props.endpointCreate"
+                                :model="props.model"
+                                :permission="props.permission"
+                                @onCreate="refreshData"
+                                class="btn btn-primary btn-sm lg:btn-md gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                            />
+                            <Link v-else :href="props.custom_create_route"
+                                class="btn btn-primary btn-sm lg:btn-md gap-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                                <PlusIcon class="w-4 h-4" />
+                                <span class="hidden sm:inline">Create</span>
+                            </Link>
+                        </slot>                        <!-- Filters Toggle - Mobile/Tablet -->
+                        <button
+                            @click="showFilters = !showFilters"
+                            class="btn btn-ghost btn-sm lg:hidden gap-2"
+                            :class="{ 'btn-active': showFilters, 'btn-warning': hasActiveFilters }"
+                        >
+                            <FilterIcon class="w-4 h-4" />
+                            <span v-if="hasActiveFilters" class="badge badge-warning badge-xs">!</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="flex items-center gap-3">
-                    <div class="btn-group">
-                        <button @click="viewMode = 'table'"
-                            :class="['btn btn-sm', viewMode === 'table' ? 'btn-primary' : 'btn-ghost']">
-                            <TableIcon class="w-4 h-4" />
-                            <span class="hidden sm:inline ml-2">Table</span>
-                        </button>
-                        <button @click="viewMode = 'list'"
-                            :class="['btn btn-sm', viewMode === 'list' ? 'btn-primary' : 'btn-ghost']">
-                            <ListIcon class="w-4 h-4" />
-                            <span class="hidden sm:inline ml-2">Cards</span>
-                        </button>
-                    </div>
-                    <ColumnVisibilityManager
-                        :columns="props.columns"
-                        :storage-key="`${props.tableTitle}-table-settings`"
-                        @update:hiddenColumns="updateHiddenColumns"
-                        @update:compactMode="updateCompactMode"
-                        @update:superCompactMode="updateSuperCompactMode"
-                        @update:columnOrder="updateColumnOrder"
-                    />
-                    <!-- Row Click Navigation Toggle -->
-                    <div class="tooltip tooltip-bottom" data-tip="Toggle row click navigation">
-                        <button
-                            @click="toggleRowClickNavigation"
-                            :class="[
-                                'btn btn-sm gap-2 transition-all duration-200',
-                                rowClickNavigationEnabled ? 'btn-success' : 'btn-ghost'
-                            ]"
-                        >
-                            <User class="w-4 h-4" />
-                            <span v-if="!superCompactMode" class="hidden sm:inline">
-                                {{ rowClickNavigationEnabled ? 'Click To Edit On' : 'Click To Edit Off' }}
-                            </span>
-                        </button>
-                    </div>
-                    <ExportData
-                        :data="tableData"
-                        :columns="displayColumns"
-                        :hiddenColumns="hiddenColumns"
-                        :filename="props.tableTitle.toLowerCase().replace(/\s+/g, '-')"
-                        :total-records="paginationInfo.total"
-                    />
-                    <!-- ✨ NEW: Reset Filters Button -->
-                    <div class="tooltip tooltip-bottom" data-tip="Reset all filters and settings">
-                        <button
-                            @click="resetAllFilters"
-                            :class="[
-                                'btn btn-sm gap-2 transition-all duration-200',
-                                hasActiveFilters ? 'btn-warning' : 'btn-ghost'
-                            ]"
-                            :disabled="!hasActiveFilters && !hasStoredFilters"
-                        >
-                            <RotateCcwIcon class="w-4 h-4" />
-                            <span v-if="!superCompactMode" class="hidden sm:inline">
-                                Reset
-                            </span>
-                        </button>
-                    </div>
-                    <slot name="custom-actions"></slot>
-                    <slot name="new">
-                        <create
-                            v-if="!props.custom_create_route"
+                <!-- Mobile Filters Panel -->
+                <div v-show="showFilters" class="lg:hidden border-b border-base-content/10 bg-base-200/30">
+                    <div class="p-4">
+                        <!-- Basic Filters -->
+                        <table-filter
+                            @onPerPage="handlePerPageChange"
+                            @onOrderBy="handleOrderChange"
+                            @onSearch="handleSearch"
+                            @onFilter="handleFilterChange"
+                            @onFilterReset="handleFilterReset"
                             :columns="props.columns"
-                            :endpoint="props.endpointCreate"
-                            :model="props.model"
-                            :permission="props.permission"
-                            @onCreate="refreshData"
+                            :currentPerPage="perPage"
+                            :currentFilterBy="filterBy"
+                            :currentOrderBy="orderBy"
+                            :currentSearch="search"
                         />
-                        <Link v-else :href="props.custom_create_route"
-                            class="btn btn-primary gap-2 group relative overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                            :title="superCompactMode ? 'Create' : ''">
-                            <SettingsIcon class="w-4 h-4" />
-                            <span v-if="!superCompactMode" class="hidden sm:inline">Create</span>
-                        </Link>
-                    </slot>
+                    </div>
                 </div>
             </div>
 
-            <!-- Filters Section -->
-            <table-filter
-                @onPerPage="handlePerPageChange"
-                @onOrderBy="handleOrderChange"
-                @onSearch="handleSearch"
-                @onFilter="handleFilterChange"
-                @onFilterReset="handleFilterReset"
-                :columns="props.columns"
-                :currentPerPage="perPage"
-                :currentFilterBy="filterBy"
-                :currentOrderBy="orderBy"
-                :currentSearch="search"
-            />
+            <!-- Desktop Filters Section -->
+            <div class="hidden lg:block">
+                <table-filter
+                    @onPerPage="handlePerPageChange"
+                    @onOrderBy="handleOrderChange"
+                    @onSearch="handleSearch"
+                    @onFilter="handleFilterChange"
+                    @onFilterReset="handleFilterReset"
+                    :columns="props.columns"
+                    :currentPerPage="perPage"
+                    :currentFilterBy="filterBy"
+                    :currentOrderBy="orderBy"
+                    :currentSearch="search"
+                />
 
-            <AdvancedFilter
-                class="mt-3"
-                :columns="props.columns"
-                :advancedFilters="props.advancedFilters"
-                @onFilterChange="handleAdvancedFilterChange"
-            />
+                <!-- Table Headers - Positioned after filters -->
+                <div class="px-6 py-2 border-b border-base-content/5 bg-base-50">
+                    <TableHeaders
+                        :view-mode="viewMode"
+                        :show-advanced-controls="showAdvancedControls"
+                        :show-advanced-filters="showAdvancedFilters"
+                        :row-click-navigation-enabled="rowClickNavigationEnabled"
+                        :has-active-filters="hasActiveFilters"
+                        :has-stored-filters="hasStoredFilters"
+                        :has-advanced-filters-active="hasActiveAdvancedFilters"
+                        @update:view-mode="viewMode = $event"
+                        @update:show-advanced-controls="showColumnSettingsModal = true"
+                        @update:show-advanced-filters="showAdvancedFilters = $event"
+                        @toggle-row-click="toggleRowClickNavigation"
+                        @reset-filters="resetAllFilters"
+                        @open-column-settings="showColumnSettingsModal = true"
+                        @open-export-modal="showExportModal = true"
+                    />
+                </div>
+            </div>
+
+            <!-- Advanced Filters Panel -->
+            <div v-show="showAdvancedFilters" class="border-b border-base-content/5 bg-base-100/30">
+                <div class="p-4">
+                    <AdvancedFilter
+                        :columns="props.columns"
+                        :advanced-filters="props.advancedFilters"
+                        @advanced-filter-change="handleAdvancedFilterChange"
+                        @on-icon-size-change="handleIconSizeChange"
+                    />
+                </div>
+            </div>
+
+            <!-- Advanced Controls Panel (Desktop Only) -->
+            <!-- This panel is now replaced by direct modal opening -->
+            <div v-show="false" class="hidden lg:block border-b border-base-content/5 bg-base-100/50">
+                <div class="p-4">
+                    <div class="flex items-center justify-center">
+                        <button
+                            @click="showColumnSettingsModal = true; showAdvancedControls = false"
+                            class="btn btn-primary btn-sm gap-2"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+                            </svg>
+                            Open Column Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Advanced Menu Modal -->
+            <div v-show="mobileMenuOpen" class="lg:hidden fixed inset-0 z-50 bg-black/50" @click="mobileMenuOpen = false">
+                <div class="absolute right-0 top-0 h-full w-80 max-w-[90vw] bg-base-100 shadow-2xl" @click.stop>
+                    <div class="p-4 border-b border-base-content/10">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-lg">Table Options</h3>
+                            <button @click="mobileMenuOpen = false" class="btn btn-ghost btn-sm btn-circle">
+                                <XIcon class="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-4 space-y-4 overflow-y-auto">
+                        <!-- View Mode -->
+                        <div>
+                            <label class="text-sm font-medium text-base-content/70 block mb-2">View Mode</label>
+                            <div class="btn-group w-full">
+                                <button @click="viewMode = 'table'; mobileMenuOpen = false"
+                                    :class="['btn btn-sm flex-1', viewMode === 'table' ? 'btn-primary' : 'btn-ghost']">
+                                    <TableIcon class="w-4 h-4 mr-2" />
+                                    Table
+                                </button>
+                                <button @click="viewMode = 'list'; mobileMenuOpen = false"
+                                    :class="['btn btn-sm flex-1', viewMode === 'list' ? 'btn-primary' : 'btn-ghost']">
+                                    <ListIcon class="w-4 h-4 mr-2" />
+                                    Cards
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Row Click Navigation -->
+                        <div>
+                            <label class="text-sm font-medium text-base-content/70 block mb-2">Navigation</label>
+                            <button
+                                @click="toggleRowClickNavigation"
+                                :class="[
+                                    'btn btn-sm w-full gap-2',
+                                    rowClickNavigationEnabled ? 'btn-success' : 'btn-ghost'
+                                ]"
+                            >
+                                <User class="w-4 h-4" />
+                                {{ rowClickNavigationEnabled ? 'Click to Edit: ON' : 'Click to Edit: OFF' }}
+                            </button>
+                        </div>
+
+                        <!-- Column Visibility -->
+                        <div>
+                            <label class="text-sm font-medium text-base-content/70 block mb-2">Column Settings</label>
+                            <button
+                                @click="showColumnSettingsModal = true; mobileMenuOpen = false"
+                                class="btn btn-sm btn-outline w-full"
+                            >
+                                Open Column Settings
+                            </button>
+                        </div>
+
+                        <!-- Export Data -->
+                        <div>
+                            <label class="text-sm font-medium text-base-content/70 block mb-2">Data Export</label>
+                            <button
+                                @click="showExportModal = true"
+                                :disabled="!tableData.length"
+                                class="btn btn-sm w-full justify-start gap-2 bg-gradient-to-r from-primary/10 to-primary/20 border-primary/30 hover:from-primary/20 hover:to-primary/30 text-primary"
+                                :class="{ 'opacity-50 cursor-not-allowed': !tableData.length }"
+                            >
+                                <Download class="w-4 h-4" />
+                                Export Data
+                                <span class="badge badge-primary badge-sm ml-auto">{{ formatNumber(paginationInfo.total) }}</span>
+                            </button>
+                        </div>
+
+                        <!-- Reset -->
+                        <div>
+                            <label class="text-sm font-medium text-base-content/70 block mb-2">Reset Options</label>
+                            <button
+                                @click="resetAllFilters(); mobileMenuOpen = false"
+                                :class="[
+                                    'btn btn-warning btn-sm w-full gap-2',
+                                    { 'btn-disabled': !hasActiveFilters && !hasStoredFilters }
+                                ]"
+                                :disabled="!hasActiveFilters && !hasStoredFilters"
+                            >
+                                <RotateCcwIcon class="w-4 h-4" />
+                                Reset All Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Loading State -->
             <div v-if="isLoading"
@@ -228,6 +358,7 @@
                                         :tableData="item"
                                         :columns="displayColumns"
                                         :hiddenColumns="hiddenColumns"
+                                        :enabledHiddenFields="enabledHiddenFields"
                                         :viewType="'table'"
                                         :compactMode="compactMode"
                                         :superCompactMode="superCompactMode"
@@ -317,6 +448,7 @@
                                 :tableData="item"
                                 :columns="displayColumns"
                                 :hiddenColumns="hiddenColumns"
+                                :enabledHiddenFields="enabledHiddenFields"
                                 :viewType="'list'"
                                 :compactMode="compactMode"
                                 :superCompactMode="superCompactMode"
@@ -403,6 +535,31 @@
             </div>
         </div>
     </div>
+
+    <!-- Column Settings Modal -->
+    <ColumnVisibilityManager
+        :columns="props.columns"
+        :storage-key="`${props.tableTitle}-table-settings`"
+        :show-modal="showColumnSettingsModal"
+        @update:hiddenColumns="updateHiddenColumns"
+        @update:compactMode="updateCompactMode"
+        @update:superCompactMode="updateSuperCompactMode"
+        @update:columnOrder="updateColumnOrder"
+        @update:enabledHiddenFields="updateEnabledHiddenFields"
+        @close="showColumnSettingsModal = false"
+    />
+
+    <!-- Export Data Modal -->
+    <ExportData
+        v-if="showExportModal"
+        :data="tableData"
+        :columns="displayColumns"
+        :hiddenColumns="hiddenColumns"
+        :filename="props.tableTitle.toLowerCase().replace(/\s+/g, '-')"
+        :total-records="paginationInfo.total"
+        :is-modal-open="showExportModal"
+        @close-modal="showExportModal = false"
+    />
 </template>
 
 <script setup lang="ts">
@@ -420,7 +577,16 @@ import {
     Pencil as PencilIcon,
     List as ListIcon,
     Settings as SettingsIcon,
-    User
+    User,
+    Menu as MenuIcon,
+    X as XIcon,
+    Filter as FilterIcon,
+    Search as SearchIcon,
+    Plus as PlusIcon,
+    ChevronDown as ChevronDownIcon,
+    ChevronUp as ChevronUpIcon,
+    Download,
+    Target as ScopeIcon
 } from 'lucide-vue-next';
 
 // Components
@@ -430,9 +596,10 @@ import Edit from './components/crud/edit.vue';
 import TableFilter from './components/filter/filter.vue';
 import TablePagination from './components/filter/pagination.vue';
 import TableDisplayData from './components/tableDataDisplay.vue';
-import AdvancedFilter from './components/filter/advancedFilter.vue';
 import ColumnVisibilityManager from './components/filter/ColumnVisibilityManager.vue';
 import ExportData from './components/filter/ExportData.vue';
+import TableHeaders from './components/filter/TableHeaders.vue';
+import AdvancedFilter from './components/filter/advancedFilter.vue';
 
 // ✨ ENHANCED: Props with model scopes support
 const props = defineProps({
@@ -498,6 +665,7 @@ const currentAdvancedFilters = ref(storedFilters?.currentAdvancedFilters ?? []);
 
 // ✨ Enhanced state for density and column management - Initialize with stored values
 const hiddenColumns = ref(new Set<string>(storedFilters?.hiddenColumns ?? []));
+const enabledHiddenFields = ref(new Set<string>(storedFilters?.enabledHiddenFields ?? []));
 const compactMode = ref(storedFilters?.compactMode ?? true);
 const superCompactMode = ref(storedFilters?.superCompactMode ?? false);
 const columnOrder = ref<string[]>(storedFilters?.columnOrder ?? []);
@@ -507,6 +675,14 @@ const rowClickNavigationEnabled = ref((() => {
     const stored = localStorage.getItem('table-row-click-navigation');
     return stored ? JSON.parse(stored) : false; // Default is false
 })());
+
+// ✨ NEW: Header organization state
+const showAdvancedControls = ref(false);
+const showAdvancedFilters = ref(false);
+const showFilters = ref(false);
+const mobileMenuOpen = ref(false);
+const showColumnSettingsModal = ref(false);
+const showExportModal = ref(false);
 
 // ✨ Filter state management - Initialize with stored or default filters
 const activeFilters = ref({
@@ -602,6 +778,12 @@ const clearStoredFilters = () => {
     }
 };
 
+// Helper function for number formatting
+const formatNumber = (num: number): string => {
+    if (num === null || num === undefined) return '0';
+    return new Intl.NumberFormat().format(num);
+};
+
 // Computed
 const totalItems = computed(() => paginationInfo.value.total);
 
@@ -624,6 +806,11 @@ const enabledAdvancedFiltersCount = computed(() => {
 
 const totalAdvancedFiltersCount = computed(() => {
     return props.advancedFilters ? props.advancedFilters.length : 0;
+});
+
+// Export-related computed properties
+const exportColumns = computed(() => {
+    return props.columns || [];
 });
 
 const hasActiveFilters = computed(() => {
@@ -693,7 +880,7 @@ const displayColumns = computed(() => {
 
     return orderedColumns
         .filter(column => !hiddenColumns.value.has(column.key))
-        .filter(column => !column.hidden); // Filter out columns marked as hidden in FormHelper
+        .filter(column => !column.hidden || enabledHiddenFields.value.has(column.key)); // Include hidden fields if they're enabled
 });
 
 // ✨ NEW: Advanced filter change handler
@@ -1274,6 +1461,12 @@ const updateHiddenColumns = (newHiddenColumns: Set<string>) => {
     saveFiltersToStorage();
 };
 
+const updateEnabledHiddenFields = (newEnabledHiddenFields: Set<string>) => {
+    enabledHiddenFields.value = newEnabledHiddenFields;
+    // ✨ NEW: Save filters after enabled hidden fields change
+    saveFiltersToStorage();
+};
+
 const updateCompactMode = (newCompactMode: boolean) => {
     compactMode.value = newCompactMode;
     // If compact mode is disabled, also disable super compact
@@ -1306,6 +1499,22 @@ const toggleRowClickNavigation = () => {
     localStorage.setItem('table-row-click-navigation', JSON.stringify(rowClickNavigationEnabled.value));
 };
 
+// ✨ NEW: Handle export data callback
+const handleExportData = () => {
+    // This method will be called by TableHeaders component when export is triggered
+    // The actual export functionality is handled by the ExportData component
+    console.log('Export data triggered');
+};
+
+// Handle icon size changes from advanced filter
+const handleIconSizeChange = (size: number) => {
+    // Apply the icon size globally to the entire table
+    document.documentElement.style.setProperty('--table-icon-size', `${size}px`);
+
+    // Optional: Save to component storage or emit to parent if needed
+    console.log('Icon size changed to:', size);
+};
+
 // ✨ NEW: Watch for changes in advancedFilters prop
 watch(() => props.advancedFilters, (newFilters) => {
     if (newFilters && newFilters.length > 0) {
@@ -1322,6 +1531,25 @@ watch(viewMode, (newViewMode) => {
     saveFiltersToStorage();
     console.log('View mode changed and saved:', newViewMode);
 });
+
+// ✨ NEW: Close mobile menu when clicking outside or changing view
+watch(viewMode, () => {
+    mobileMenuOpen.value = false;
+});
+
+// ✨ NEW: Close mobile menu on window resize to desktop
+if (typeof window !== 'undefined') {
+    const handleResize = () => {
+        if (window.innerWidth >= 1024) {
+            mobileMenuOpen.value = false;
+            showFilters.value = false;
+        }
+    };
+
+    onMounted(() => {
+        window.addEventListener('resize', handleResize);
+    });
+}
 
 // ✨ ENHANCED: Initialize component - filters are already loaded during ref initialization
 onMounted(() => {
@@ -1383,52 +1611,397 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Enhanced table styling for better usability */
+/* ===================================================================
+   ENHANCED TABLE STYLING FOR BETTER VISIBILITY & USABILITY
+   =================================================================== */
+
+/* Base table improvements */
 .table-auto {
     table-layout: auto;
+    border-spacing: 0;
+    border-collapse: separate;
 }
 
-/* Row hover effects */
+/* Enhanced table container */
+.overflow-x-auto {
+    border-radius: 0.75rem;
+    background: hsl(var(--b1));
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+/* ===================================================================
+   IMPROVED ROW AND CELL STYLING
+   =================================================================== */
+
+/* Enhanced row hover effects with better contrast */
 .group:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: hsl(var(--b2)) !important;
+    transition: all 0.2s ease-in-out;
 }
+
+/* Base table cell improvements */
+th, td {
+    border-bottom: 1px solid hsl(var(--b3));
+    position: relative;
+    transition: all 0.15s ease-in-out;
+}
+
+/* Header improvements */
+th {
+    background: hsl(var(--b2));
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: hsl(var(--bc));
+    text-transform: none;
+    letter-spacing: 0.025em;
+    padding: 1rem;
+    border-bottom: 2px solid hsl(var(--primary) / 0.2);
+}
+
+/* Data cell improvements */
+td {
+    background: hsl(var(--b1));
+    padding: 0.875rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    vertical-align: middle;
+}
+
+/* ===================================================================
+   COMPACT MODE ENHANCEMENTS
+   =================================================================== */
+
+/* Standard compact mode - improved readability */
+.table-compact th {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background: hsl(var(--b2));
+    border-bottom: 2px solid hsl(var(--primary) / 0.3);
+}
+
+.table-compact td {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    min-height: 2.5rem;
+}
+
+/* Super compact mode - maximum data density while maintaining readability */
+.table-super-compact th {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: hsl(var(--b2));
+    border-bottom: 1px solid hsl(var(--primary) / 0.4);
+    line-height: 1.2;
+}
+
+.table-super-compact td {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    min-height: 2rem;
+    vertical-align: top;
+}
+
+/* ===================================================================
+   ENHANCED INTERACTIVE ELEMENTS
+   =================================================================== */
 
 /* Action button enhancements */
 .btn {
-    border: none;
+    border: 1px solid transparent;
     font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .btn:focus {
     outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
-}
-
-/* Column responsiveness */
-@media (min-width: 1024px) {
-    th, td {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-}
-
-/* Compact mode adjustments */
-.table-compact th,
-.table-compact td {
-    padding: 0.5rem;
-}
-
-.table-super-compact th,
-.table-super-compact td {
-    padding: 0.25rem;
-    font-size: 0.75rem;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
 }
 
 /* Enhanced cursor styling */
 .cursor-pointer {
     cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+.cursor-pointer:hover {
+    background: hsl(var(--b2)) !important;
+}
+
+/* ===================================================================
+   BADGE AND STATUS IMPROVEMENTS
+   =================================================================== */
+
+/* Enhanced badge visibility */
+.badge {
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    border: 1px solid currentColor;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    transition: all 0.2s ease-in-out;
+}
+
+.badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* ===================================================================
+   RESPONSIVE DESIGN IMPROVEMENTS
+   =================================================================== */
+
+/* Desktop enhancements */
+@media (min-width: 1024px) {
+    /* Standard mode desktop */
+    .table:not(.table-compact):not(.table-super-compact) th {
+        padding: 1.25rem 1.5rem;
+        font-size: 0.9375rem;
+    }
+
+    .table:not(.table-compact):not(.table-super-compact) td {
+        padding: 1.25rem 1.5rem;
+        font-size: 0.9375rem;
+    }
+
+    /* Improved text handling for desktop */
+    th, td {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+}
+
+/* Tablet improvements */
+@media (min-width: 768px) and (max-width: 1023px) {
+    th, td {
+        padding: 0.75rem;
+        font-size: 0.8125rem;
+    }
+}
+
+/* Mobile improvements */
+@media (max-width: 767px) {
+    .table-responsive {
+        font-size: 0.75rem;
+    }
+
+    th, td {
+        padding: 0.5rem;
+        min-width: 80px;
+    }
+
+    /* Force super compact on mobile for better fit */
+    .table th {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.6875rem;
+    }
+
+    .table td {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.6875rem;
+        line-height: 1.2;
+    }
+}
+
+/* ===================================================================
+   ACCESSIBILITY AND READABILITY IMPROVEMENTS
+   =================================================================== */
+
+/* Improved text contrast and readability */
+.text-base-content\/70 {
+  color: hsl(var(--bc) / 0.8) !important; /* Increased from 0.7 to 0.8 for better contrast */
+}
+
+.text-base-content\/60 {
+  color: hsl(var(--bc) / 0.75) !important; /* Increased from 0.6 to 0.75 for better contrast */
+}
+
+/* Enhanced form controls visibility */
+input, select, textarea {
+  border: 1px solid hsl(var(--b3)) !important;
+  background: hsl(var(--b1)) !important;
+  transition: all 0.2s ease-in-out;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
+  outline: none !important;
+}
+
+/* Enhanced mobile experience */
+@media (max-width: 768px) {
+  /* Ensure minimum touch targets on mobile */
+  .btn {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    font-size: 0.875rem;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    min-height: 1.5rem;
+  }
+
+  /* Improve card spacing on mobile */
+  .card {
+    margin-bottom: 1rem;
+  }
+
+  .card-body {
+    padding: 1rem !important;
+  }
+}
+
+/* Dark mode optimizations */
+@media (prefers-color-scheme: dark) {
+  .badge {
+    border-width: 1px;
+    border-style: solid;
+  }
+
+  .card {
+    border-color: hsl(var(--b3) / 0.8);
+  }
+
+  th {
+    background: hsl(var(--b2) / 0.8);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    th {
+        background: hsl(var(--b3));
+        border-bottom: 3px solid hsl(var(--bc));
+        color: hsl(var(--bc));
+    }
+
+    td {
+        border-bottom: 1px solid hsl(var(--bc) / 0.3);
+    }
+
+    .group:hover {
+        background: hsl(var(--b3)) !important;
+        outline: 2px solid hsl(var(--primary));
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .group:hover,
+    .btn:hover,
+    .badge:hover,
+    .cursor-pointer:hover {
+        transform: none;
+        transition: none;
+    }
+}
+
+/* Focus improvements for keyboard navigation */
+tr:focus-within {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: -2px;
+    background: hsl(var(--b2)) !important;
+}
+
+/* ===================================================================
+   ENHANCED VISUAL HIERARCHY
+   =================================================================== */
+
+/* First column (usually ID) styling */
+td:first-child {
+    font-weight: 600;
+    background: hsl(var(--b1));
+    border-right: 1px solid hsl(var(--b3) / 0.5);
+    position: sticky;
+    left: 0;
+    z-index: 10;
+}
+
+th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 11;
+    border-right: 1px solid hsl(var(--primary) / 0.3);
+}
+
+/* Enhanced alternating row colors for better scanning */
+tr:nth-child(even) td {
+    background: hsl(var(--b1) / 0.5);
+}
+
+tr:nth-child(odd) td {
+    background: hsl(var(--b1));
+}
+
+/* ===================================================================
+   LOADING AND EMPTY STATES
+   =================================================================== */
+
+/* Loading state styling */
+.loading-row {
+    background: linear-gradient(90deg,
+        hsl(var(--b2)) 25%,
+        hsl(var(--b3)) 50%,
+        hsl(var(--b2)) 75%
+    );
+    background-size: 200% 100%;
+    animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Empty state styling */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: hsl(var(--bc) / 0.6);
+}
+
+/* ===================================================================
+   PRINT STYLES
+   =================================================================== */
+
+@media print {
+    .table {
+        background: white !important;
+        box-shadow: none !important;
+    }
+
+    th, td {
+        background: white !important;
+        color: black !important;
+        border: 1px solid #ccc !important;
+        padding: 0.5rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    .btn, .badge {
+        display: none !important;
+    }
+
+    /* Hide interactive elements */
+    .cursor-pointer::after {
+        display: none !important;
+    }
 }
 
 .cursor-pointer:hover {
@@ -1510,5 +2083,128 @@ onMounted(() => {
 .table td:focus-within {
     outline: 2px solid hsl(var(--primary));
     outline-offset: -2px;
+}
+
+/* ✨ NEW: Enhanced Header Styles */
+.mobile-menu-overlay {
+    backdrop-filter: blur(4px);
+}
+
+.mobile-menu-panel {
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+}
+
+.mobile-menu-panel.open {
+    transform: translateX(0);
+}
+
+/* Enhanced search input styling */
+.input-group .input {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+}
+
+.input-group .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 1px solid hsl(var(--border-color, var(--fallback-b2)));
+}
+
+/* Status indicators responsive layout */
+.status-indicators {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+@media (max-width: 640px) {
+    .status-indicators {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+
+/* Advanced controls panel animation */
+.advanced-panel {
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+.advanced-panel.collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.advanced-panel.expanded {
+    max-height: 200px;
+}
+
+/* Mobile filter panel slide animation */
+.mobile-filters {
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+.mobile-filters.hidden {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.mobile-filters.visible {
+    max-height: 500px;
+}
+
+/* Enhanced button group styling */
+.btn-group .btn {
+    position: relative;
+    z-index: 1;
+}
+
+.btn-group .btn:hover {
+    z-index: 2;
+}
+
+/* Tooltip enhancements for mobile */
+@media (max-width: 1024px) {
+    .tooltip:before,
+    .tooltip:after {
+        display: none;
+    }
+}
+
+/* Header gradient backgrounds */
+.header-primary {
+    background: linear-gradient(135deg, hsl(var(--base-300)) 0%, hsl(var(--base-200)) 100%);
+}
+
+.header-secondary {
+    background: linear-gradient(135deg, hsl(var(--base-200)) 0%, hsl(var(--base-100)) 100%);
+}
+
+/* Enhanced mobile menu styling */
+.mobile-menu {
+    box-shadow: -10px 0 25px -5px rgba(0, 0, 0, 0.1), -4px 0 10px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Better scrollbar styling for mobile menu */
+.mobile-menu::-webkit-scrollbar {
+    width: 4px;
+}
+
+.mobile-menu::-webkit-scrollbar-track {
+    background: hsl(var(--base-200));
+}
+
+.mobile-menu::-webkit-scrollbar-thumb {
+    background: hsl(var(--base-content) / 0.2);
+    border-radius: 2px;
+}
+
+.mobile-menu::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--base-content) / 0.3);
 }
 </style>

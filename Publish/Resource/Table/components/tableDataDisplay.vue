@@ -324,6 +324,7 @@ interface Props {
   superCompactMode?: boolean;
   columnOrder?: string[];
   isFirstColumn?: boolean;
+  enabledHiddenFields?: Set<string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -335,7 +336,8 @@ const props = withDefaults(defineProps<Props>(), {
   compactMode: false,
   superCompactMode: false,
   columnOrder: () => [],
-  isFirstColumn: false
+  isFirstColumn: false,
+  enabledHiddenFields: () => new Set()
 });
 
 // Define emits
@@ -375,7 +377,9 @@ const displayColumns = computed(() => {
     });
   }
 
-  return orderedColumns.filter(column => !props.hiddenColumns.has(column.key));
+  return orderedColumns
+    .filter(column => !props.hiddenColumns.has(column.key))
+    .filter(column => !column.hidden || props.enabledHiddenFields.has(column.key)); // Include hidden fields if they're enabled
 });
 
 const visibleListColumns = computed(() => {
@@ -749,34 +753,75 @@ function toggleShowAll() {
 
 function getFieldLink(fieldKey?: string): string | null {
   if (!fieldKey) return null;
+
+  // First check if the link data exists in the row data
   const linkKey = `${fieldKey}_link`;
   const linkData = props.tableData[linkKey];
-  if (!linkData) return null;
-  if (typeof linkData === 'object' && linkData.url) return linkData.url;
-  if (typeof linkData === 'string') return linkData;
+  if (linkData) {
+    if (typeof linkData === 'object' && linkData.url) return linkData.url;
+    if (typeof linkData === 'string') return linkData;
+  }
+
+  // If not found in row data, check the column configuration
+  const column = props.columns.find(col => col.key === fieldKey);
+  if (column?.link) {
+    // If it's a field reference, get the value from the row data
+    if (column.link.url_field && props.tableData[column.link.url_field]) {
+      return props.tableData[column.link.url_field];
+    }
+    // If it's a direct URL
+    if (column.link.url) {
+      return column.link.url;
+    }
+  }
+
   return null;
 }
 
 function getFieldLinkTarget(fieldKey?: string): string {
   if (!fieldKey) return '_self';
+
+  // First check if the target data exists in the row data
   const linkKey = `${fieldKey}_link`;
   const linkData = props.tableData[linkKey];
   if (linkData !== null && typeof linkData === 'object' && linkData.target) {
     return linkData.target;
   }
   const targetKey = `${fieldKey}_target`;
-  return props.tableData[targetKey] || '_self';
+  if (props.tableData[targetKey]) {
+    return props.tableData[targetKey];
+  }
+
+  // If not found in row data, check the column configuration
+  const column = props.columns.find(col => col.key === fieldKey);
+  if (column?.link?.target) {
+    return column.link.target;
+  }
+
+  return '_self';
 }
 
 function getFieldLinkStyle(fieldKey?: string): string {
   if (!fieldKey) return 'default';
+
+  // First check if the style data exists in the row data
   const linkKey = `${fieldKey}_link`;
   const linkData = props.tableData[linkKey];
   if (linkData !== null && typeof linkData === 'object' && linkData.style) {
     return linkData.style;
   }
   const styleKey = `${fieldKey}_style`;
-  return props.tableData[styleKey] || 'default';
+  if (props.tableData[styleKey]) {
+    return props.tableData[styleKey];
+  }
+
+  // If not found in row data, check the column configuration
+  const column = props.columns.find(col => col.key === fieldKey);
+  if (column?.link?.style) {
+    return column.link.style;
+  }
+
+  return 'default';
 }
 
 function getIdValue(): any {
@@ -946,11 +991,12 @@ function formatRelativeDate(date: string): string {
 </script>
 
 <style scoped>
-/* Enhanced field item animations */
+/* Enhanced field item animations with better performance */
 .field-item {
   opacity: 0;
   transform: translateY(20px);
   animation: slideInUp 0.3s ease-out forwards;
+  will-change: transform, opacity; /* Performance optimization */
 }
 
 .field-item:nth-child(1) { animation-delay: 0.05s; }
@@ -964,6 +1010,7 @@ function formatRelativeDate(date: string): string {
   opacity: 0;
   transform: translateY(10px);
   animation: slideInUp 0.2s ease-out forwards;
+  will-change: transform, opacity;
 }
 
 @keyframes slideInUp {
@@ -973,39 +1020,72 @@ function formatRelativeDate(date: string): string {
   }
 }
 
-/* Enhanced hover effects */
-.card:hover {
-  transform: translateY(-2px);
+/* Enhanced hover effects with better performance */
+.card {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid hsl(var(--b3));
+  background: hsl(var(--b1));
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 
-/* Super compact mode specific styles */
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+/* Enhanced compact mode card styling */
 .card-super-compact {
-  font-size: 0.75rem;
-  line-height: 1.2;
+  font-size: 0.8125rem; /* Increased from 0.75rem */
+  line-height: 1.3; /* Improved line height */
+  border-radius: 0.5rem; /* Increased border radius */
+  min-height: 8rem; /* Added minimum height */
 }
 
 .card-super-compact .card-body {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
+  padding: 1rem; /* Increased padding */
+  line-height: 1.3;
 }
 
 .card-super-compact .field-item {
   animation-delay: 0.01s;
+  margin-bottom: 0.375rem; /* Added margin for better spacing */
 }
 
-/* Compact mode specific styles */
+.card-compact {
+  border-radius: 0.75rem; /* Increased border radius */
+  min-height: 10rem; /* Added minimum height */
+}
+
 .card-compact .card-body {
   font-size: 0.875rem;
+  padding: 1.25rem; /* Increased padding */
+  line-height: 1.4;
 }
 
 .card-compact .field-item {
   animation-delay: 0.02s;
+  margin-bottom: 0.5rem; /* Added margin for better spacing */
 }
 
-/* Enhanced table cell styling */
+/* Enhanced table cell styling with better contrast */
 td {
   position: relative;
-  overflow: visible; /* Allow content to expand */
-  transition: all 0.2s ease-in-out;
+  overflow: visible;
+  transition: all 0.15s ease-in-out;
+  border-bottom: 1px solid hsl(var(--b3) / 0.5);
+}
+
+/* Enhanced header styling */
+th {
+  background: hsl(var(--b2));
+  color: hsl(var(--bc));
+  font-weight: 600;
+  border-bottom: 2px solid hsl(var(--primary) / 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 /* Column resize handle styling */
@@ -1060,32 +1140,182 @@ td:first-child:hover {
   line-height: 1.4;
 }
 
-/* Enhanced grid responsiveness for compact modes */
+/* Enhanced grid responsiveness for compact modes with better breakpoints */
 @media (max-width: 640px) {
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Single column on small screens */
+    gap: 0.75rem; /* Increased gap for better separation */
+  }
+
+  /* Force larger text on mobile for readability */
+  .card-super-compact {
+    font-size: 0.875rem !important;
+  }
+
+  .card-super-compact .card-body {
+    font-size: 0.875rem !important;
+    padding: 1.25rem !important;
+  }
+
+  .text-nano {
+    font-size: 0.75rem !important;
+  }
+
+  .badge-micro {
+    font-size: 0.75rem !important;
+    padding: 0.1875rem 0.5rem !important;
+    min-height: 1.25rem !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .grid {
+    gap: 1rem;
+  }
+
+  .xl\:grid-cols-4,
+  .xl\:grid-cols-5,
+  .xl\:grid-cols-6,
+  .xl\:grid-cols-7 {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns on tablets */
+  }
+}
+
+@media (min-width: 1024px) {
+  .xl\:grid-cols-4 {
+    grid-template-columns: repeat(3, 1fr); /* 3 columns on smaller desktops */
+  }
+
+  .xl\:grid-cols-5 {
+    grid-template-columns: repeat(4, 1fr); /* 4 columns on smaller desktops */
+  }
+
+  .xl\:grid-cols-6 {
+    grid-template-columns: repeat(5, 1fr); /* 5 columns on smaller desktops */
+  }
+
+  .xl\:grid-cols-7 {
+    grid-template-columns: repeat(6, 1fr); /* 6 columns on smaller desktops */
   }
 }
 
 @media (min-width: 1280px) {
   .xl\:grid-cols-4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr)); /* Full 4 columns on large screens */
   }
 
   .xl\:grid-cols-5 {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr)); /* Full 5 columns on large screens */
   }
 
   .xl\:grid-cols-6 {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr)); /* Full 6 columns on large screens */
   }
 
   .xl\:grid-cols-7 {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr)); /* Full 7 columns on large screens */
   }
 }
 
-/* Custom scrollbar for overflow content */
+/* Enhanced field content styling for better card readability */
+.field-item {
+  background: hsl(var(--b2) / 0.3);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid hsl(var(--b3) / 0.5);
+  transition: all 0.2s ease-in-out;
+}
+
+.field-item:hover {
+  background: hsl(var(--b2) / 0.5);
+  border-color: hsl(var(--primary) / 0.3);
+  transform: translateY(-1px);
+}
+
+/* Enhanced field labels */
+.field-item .text-xs {
+  font-weight: 600;
+  color: hsl(var(--bc) / 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.375rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Enhanced badge and status indicators in cards */
+.card .badge {
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  border: 1px solid currentColor;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: all 0.2s ease-in-out;
+}
+
+.card .badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Enhanced card header styling */
+.card .card-title {
+  font-weight: 700;
+  color: hsl(var(--bc));
+  border-bottom: 2px solid hsl(var(--primary) / 0.2);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Enhanced expandable content */
+.collapse {
+  border: 1px solid hsl(var(--b3));
+  border-radius: 0.5rem;
+  background: hsl(var(--b2) / 0.2);
+  margin-top: 0.75rem;
+}
+
+.collapse-title {
+  font-weight: 600;
+  color: hsl(var(--bc) / 0.9);
+  background: hsl(var(--b2) / 0.3);
+  border-radius: 0.5rem 0.5rem 0 0;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.collapse-title:hover {
+  background: hsl(var(--b2) / 0.5);
+}
+
+.collapse-content {
+  background: hsl(var(--b1));
+  border-radius: 0 0 0.5rem 0.5rem;
+  padding: 1rem;
+}
+
+/* Enhanced footer styling for cards */
+.card .border-t {
+  border-color: hsl(var(--b3)) !important;
+  background: hsl(var(--b2) / 0.2);
+  border-radius: 0 0 0.75rem 0.75rem;
+  margin: 0.75rem -1.5rem -1.5rem;
+  padding: 0.75rem 1.5rem;
+}
+
+/* Enhanced value display in cards */
+.card [class*="min-h-"] {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.25rem 0;
+}
+
+/* Custom scrollbar improvements */
 .overflow-auto::-webkit-scrollbar {
   width: 6px;
   height: 6px;

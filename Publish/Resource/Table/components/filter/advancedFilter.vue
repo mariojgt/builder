@@ -898,4 +898,35 @@ onMounted(() => {
     max-width: calc(100% + 2rem);
   }
 }
+
+/* Icon size customization */
+:root {
+  --table-icon-size: 16px;
+}
+
+/* Apply icon size to filter icons */
+.form-control .w-3\.5.h-3\.5 {
+  width: var(--table-icon-size) !important;
+  height: var(--table-icon-size) !important;
+}
+
+/* Apply to other icons in the component */
+.w-4\.h-4 {
+  width: calc(var(--table-icon-size) + 2px) !important;
+  height: calc(var(--table-icon-size) + 2px) !important;
+}
+
+/* Range slider styling */
+.range-xs {
+  height: 0.375rem;
+}
+
+.range-primary::-webkit-slider-thumb {
+  background-color: hsl(var(--p));
+}
+
+.range-primary::-moz-range-thumb {
+  background-color: hsl(var(--p));
+  border: none;
+}
 </style>
