@@ -501,6 +501,14 @@ watch(() => props.advancedFilters, (newFilters) => {
       ...filter,
       enabled: filter.enabled !== false
     }));
+
+        currentFilters.value = newFilters.map(filter => ({
+      ...filter,
+      enabled: filter.enabled !== false
+    }));
+
+    // Emit initial change when filters are loaded
+    emitChange();
   }
 }, { immediate: true, deep: true });
 </script>

@@ -452,8 +452,10 @@ const hasActiveFilters = computed(() => {
 
 // ✨ NEW: Handler for backend advanced filter changes
 const handleBackendFilterChange = (enabledFilters) => {
-  currentAdvancedFilters.value = enabledFilters;
-  console.log('Backend advanced filters changed:', enabledFilters);
+  // Force reactive update by creating new array reference
+  currentAdvancedFilters.value = [...enabledFilters];
+
+  // Emit the change immediately to trigger data refresh
   emitFilterChange();
 };
 

@@ -159,7 +159,7 @@
                     <AdvancedFilter
                         :columns="props.columns"
                         :advanced-filters="props.advancedFilters"
-                        @advanced-filter-change="handleAdvancedFilterChange"
+                        @onFilterChange="handleAdvancedFilterChange"
                         @on-icon-size-change="handleIconSizeChange"
                     />
                 </div>
@@ -885,9 +885,6 @@ const displayColumns = computed(() => {
 
 // ✨ NEW: Advanced filter change handler
 const handleAdvancedFilterChange = (userFilters, modifiedAdvancedFilters) => {
-    console.log('User filters changed:', userFilters);
-    console.log('Advanced filters changed:', modifiedAdvancedFilters);
-
     // Update the advanced filters state
     currentAdvancedFilters.value = modifiedAdvancedFilters || [];
 
