@@ -563,7 +563,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { startWindToast } from "@mariojgt/wind-notify/packages/index.js";
 import axios from 'axios';
 import { Link } from '@inertiajs/vue3';
@@ -628,6 +628,17 @@ const props = defineProps({
 
 // State
 const isLoading = ref(false);
+let currentRequestController: AbortController | null = null;
+let fetchSeq = 0; // monotonically increasing fetch id
+let fetchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleFetch(delay = 150) {
+    if (fetchTimeout) clearTimeout(fetchTimeout as any);
+    fetchTimeout = setTimeout(() => {
+        fetchTimeout = null;
+        fetchData();
+    }, delay);
+}
 const tableData = ref([]);
 const paginationInfo = ref({
     currentPage: 1,
@@ -895,7 +906,7 @@ const handleAdvancedFilterChange = (userFilters, modifiedAdvancedFilters) => {
     saveFiltersToStorage();
 
     // Refresh the data
-    fetchData();
+    scheduleFetch();
 };
 
 // ✨ Enhanced row interaction
@@ -1287,7 +1298,7 @@ function handleSort(columnKey: string) {
 
     // ✨ NEW: Save filters after sorting
     saveFiltersToStorage();
-    fetchData();
+    scheduleFetch();
 }
 
 function getColumnIcon(column: any) {
@@ -1303,7 +1314,16 @@ const emit = defineEmits(['tableDataLoaded']);
 
 // ✨ ENHANCED: Fetch data with model scopes and advanced filters support
 const fetchData = async (endpoint = props.endpoint) => {
+    let seq = 0;
     try {
+        // Cancel any in-flight request
+        try {
+            currentRequestController?.abort();
+        } catch {}
+
+        seq = ++fetchSeq;
+        const controller = new AbortController();
+        currentRequestController = controller;
         isLoading.value = true;
 
         // ✨ ENHANCED: Build request payload with model scopes support
@@ -1330,10 +1350,13 @@ const fetchData = async (endpoint = props.endpoint) => {
             console.log('Sending current advanced filters:', currentAdvancedFilters.value);
         }
 
-        const response = await axios.post(endpoint, requestPayload);
+    const response = await axios.post(endpoint, requestPayload, { signal: controller.signal });
 
-        tableData.value = response.data.data;
-        paginationInfo.value = {
+    // Ignore out-of-order responses
+    if (seq !== fetchSeq) return;
+
+    tableData.value = response.data.data;
+    paginationInfo.value = {
             currentPage: response.data.current_page,
             lastPage: response.data.last_page,
             perPage: response.data.per_page,
@@ -1345,6 +1368,11 @@ const fetchData = async (endpoint = props.endpoint) => {
         emit('tableDataLoaded', tableData.value);
     } catch (error: any) {
         console.error('Fetch data error:', error);
+
+        // Ignore cancellation errors
+        if (axios.isCancel?.(error) || error?.name === 'CanceledError' || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
+            return;
+        }
 
         if (error.response?.data?.errors) {
             Object.values(error.response.data.errors).forEach((errorMessages: any) => {
@@ -1362,7 +1390,12 @@ const fetchData = async (endpoint = props.endpoint) => {
             startWindToast('error', 'Failed to fetch data');
         }
     } finally {
-        isLoading.value = false;
+        // Clear loading only if this was the latest request
+        // We capture seq in closure; compare to global fetchSeq
+        // If newer request started, let it manage loading state
+        if (seq === fetchSeq) {
+            isLoading.value = false;
+        }
     }
 };
 
@@ -1388,7 +1421,7 @@ const resetFilters = () => {
 
     // ✨ NEW: Save the reset state
     saveFiltersToStorage();
-    fetchData();
+    scheduleFetch();
 };
 
 // ✨ NEW: Reset all filters and clear storage
@@ -1410,34 +1443,34 @@ const handlePerPageChange = (value: number) => {
     perPage.value = value;
     // ✨ NEW: Save filters after per page change
     saveFiltersToStorage();
-    fetchData();
+    scheduleFetch();
 };
 
 const handleFilterChange = (value: string) => {
     filterBy.value = value;
     // ✨ NEW: Save filters after filter change
     saveFiltersToStorage();
-    fetchData();
+    scheduleFetch();
 };
 
 const handleOrderChange = (value: string) => {
     orderBy.value = value;
     // ✨ NEW: Save filters after order change
     saveFiltersToStorage();
-    fetchData();
+    scheduleFetch();
 };
 
 const handleSearch = (value: string) => {
     if (value && value.length > 2) {
         search.value = value;
-        // ✨ NEW: Save filters after search
-        saveFiltersToStorage();
-        fetchData();
+    // ✨ NEW: Save filters after search
+    saveFiltersToStorage();
+    scheduleFetch();
     } else if (!value) {
         search.value = null;
         // ✨ NEW: Save filters after search clear
         saveFiltersToStorage();
-        fetchData();
+    scheduleFetch();
     }
 };
 
@@ -1448,7 +1481,7 @@ const handleFilterReset = (data: any) => {
     search.value = data.search;
     // ✨ NEW: Save filters after reset
     saveFiltersToStorage();
-    fetchData();
+    scheduleFetch();
 };
 
 // Enhanced event handlers for density and column management
@@ -1604,6 +1637,11 @@ onMounted(() => {
 
     // Fetch data with the properly initialized state
     fetchData();
+});
+
+onUnmounted(() => {
+    if (fetchTimeout) clearTimeout(fetchTimeout as any);
+    try { currentRequestController?.abort(); } catch {}
 });
 </script>
 

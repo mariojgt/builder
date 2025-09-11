@@ -71,8 +71,26 @@ class TableBuilderApiController extends Controller
         }
 
         // ✨ Apply advanced filters SECOND (these are part of the table configuration)
+        // BUT exclude orderByMultiple filters if user has specified manual sorting
         if ($request->has('advancedFilters') && !empty($request->advancedFilters)) {
-            $this->applyAdvancedFilters($query, $request->advancedFilters, $rawColumns, $customAttributes);
+            $advancedFiltersToApply = $request->advancedFilters;
+
+            // If user has specified manual sorting, remove orderByMultiple from advanced filters
+            if (!empty($request->sort)) {
+                \Log::info("User specified manual sort: {$request->sort} {$request->direction}. Filtering out orderByMultiple from advanced filters.");
+                $advancedFiltersToApply = [];
+                foreach ($request->advancedFilters as $filter) {
+                    $operator = $filter['operator'] ?? '';
+                    if ($operator === 'orderByMultiple') {
+                        \Log::info("Excluding orderByMultiple filter: " . json_encode($filter));
+                    } else {
+                        $advancedFiltersToApply[] = $filter;
+                    }
+                }
+                \Log::info("Advanced filters after filtering: " . json_encode($advancedFiltersToApply));
+            }
+
+            $this->applyAdvancedFilters($query, $advancedFiltersToApply, $rawColumns, $customAttributes);
         }
 
         // Handle regular filters (with relationship support, excluding custom attributes)
@@ -86,8 +104,20 @@ class TableBuilderApiController extends Controller
         }
 
         // Handle sorting with relationship support (excluding custom attributes)
+        // This comes AFTER advanced filters so user sorting takes precedence
         if (!empty($request->sort)) {
             $this->applySorting($query, $request->sort, $request->direction ?? 'asc', $rawColumns, $customAttributes);
+        } else {
+            // If no manual sort, apply orderByMultiple from advanced filters
+            if ($request->has('advancedFilters') && !empty($request->advancedFilters)) {
+                $orderByMultipleFilters = array_filter($request->advancedFilters, function($filter) {
+                    return ($filter['operator'] ?? '') === 'orderByMultiple';
+                });
+
+                if (!empty($orderByMultipleFilters)) {
+                    $this->applyAdvancedFilters($query, $orderByMultipleFilters, $rawColumns, $customAttributes);
+                }
+            }
         }
 
         // Execute query with smart column selection
@@ -864,6 +894,8 @@ class TableBuilderApiController extends Controller
      */
     private function applySorting($query, $sort, $direction, $rawColumns, $customAttributes = [])
     {
+        \Log::info("Attempting to apply sorting: {$sort} {$direction}");
+
         // 🚀 SKIP custom attributes - they can't be sorted in the database
         if (in_array($sort, $customAttributes)) {
             \Log::info("Skipping sort for custom attribute: {$sort}. Sorting by ID instead.");
@@ -873,11 +905,14 @@ class TableBuilderApiController extends Controller
 
         // Check if this is a relationship field
         if (strpos($sort, '.') !== false) {
+            \Log::info("Detected relationship field for sorting: {$sort}");
             $this->applyRelationshipSorting($query, $sort, $direction);
         } else {
             // Direct model field - normal sorting
+            \Log::info("Applying direct field sorting: {$sort} {$direction}");
             try {
                 $query->orderBy($sort, $direction);
+                \Log::info("Successfully applied sorting for: {$sort} {$direction}");
             } catch (\Exception $e) {
                 \Log::warning("Could not sort by column '{$sort}': " . $e->getMessage() . ". Sorting by ID instead.");
                 $query->orderBy('id', $direction);
@@ -931,7 +966,7 @@ class TableBuilderApiController extends Controller
     }
 
     /**
-     * 🚀 Apply sorting for relationship fields using subquery
+     * 🚀 Apply sorting for relationship fields using subquery approach
      */
     private function applyRelationshipSorting($query, $sort, $direction)
     {
@@ -942,32 +977,145 @@ class TableBuilderApiController extends Controller
         try {
             $model = $query->getModel();
 
-            // For simple one-level relationships, we can use a join
+            // For simple one-level relationships, we can use a subquery approach
             if (count($parts) === 1) {
                 $relationName = $parts[0];
 
                 if (method_exists($model, $relationName)) {
                     $relation = $model->$relationName();
+                    $relatedModel = $relation->getRelated();
+                    $relatedTable = $relatedModel->getTable();
+                    $mainTable = $model->getTable();
 
                     if ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
                         $foreignKey = $relation->getForeignKeyName();
                         $ownerKey = $relation->getOwnerKeyName();
-                        $relatedTable = $relation->getRelated()->getTable();
-                        $mainTable = $model->getTable();
 
-                        $query->leftJoin($relatedTable, "{$mainTable}.{$foreignKey}", '=', "{$relatedTable}.{$ownerKey}")
-                              ->orderBy("{$relatedTable}.{$attribute}", $direction)
-                              ->select("{$mainTable}.*");
+                        // Use subquery to avoid join issues and duplicate results
+                        $query->orderBy(
+                            $relatedModel->newQuery()
+                                ->select($attribute)
+                                ->whereColumn("{$relatedTable}.{$ownerKey}", "{$mainTable}.{$foreignKey}")
+                                ->limit(1),
+                            $direction
+                        );
 
+                        \Log::info("Applied relationship sorting for '{$sort}' using subquery approach");
+                        return;
+                    } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
+                        $foreignKey = $relation->getForeignKeyName();
+                        $localKey = $relation->getLocalKeyName();
+
+                        // Use subquery for HasOne relationship
+                        $query->orderBy(
+                            $relatedModel->newQuery()
+                                ->select($attribute)
+                                ->whereColumn("{$relatedTable}.{$foreignKey}", "{$mainTable}.{$localKey}")
+                                ->limit(1),
+                            $direction
+                        );
+
+                        \Log::info("Applied HasOne relationship sorting for '{$sort}' using subquery approach");
+                        return;
+                    } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
+                        $foreignKey = $relation->getForeignKeyName();
+                        $localKey = $relation->getLocalKeyName();
+
+                        // For HasMany, order by the first related record
+                        $query->orderBy(
+                            $relatedModel->newQuery()
+                                ->select($attribute)
+                                ->whereColumn("{$relatedTable}.{$foreignKey}", "{$mainTable}.{$localKey}")
+                                ->limit(1),
+                            $direction
+                        );
+
+                        \Log::info("Applied HasMany relationship sorting for '{$sort}' using subquery approach");
                         return;
                     }
                 }
+            } else {
+                // For nested relationships (e.g., user.profile.name), use a more complex subquery
+                $this->applyNestedRelationshipSorting($query, $parts, $attribute, $direction);
+                return;
             }
 
             // Fallback to ordering by ID
+            \Log::info("Falling back to ID sorting for relationship field: {$sort}");
             $query->orderBy('id', $direction);
         } catch (\Exception $e) {
             \Log::warning("Could not sort by relationship field '{$sort}': " . $e->getMessage());
+            $query->orderBy('id', $direction);
+        }
+    }
+
+    /**
+     * Apply sorting for nested relationship fields (e.g., user.profile.name)
+     */
+    private function applyNestedRelationshipSorting($query, $relationParts, $attribute, $direction)
+    {
+        try {
+            $model = $query->getModel();
+            $currentModel = $model;
+            $joins = [];
+            $tables = [$model->getTable()];
+
+            // Build the chain of relationships
+            foreach ($relationParts as $relationName) {
+                if (!method_exists($currentModel, $relationName)) {
+                    throw new \Exception("Relationship {$relationName} does not exist on " . get_class($currentModel));
+                }
+
+                $relation = $currentModel->$relationName();
+                $relatedModel = $relation->getRelated();
+                $relatedTable = $relatedModel->getTable();
+
+                if ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                    $foreignKey = $relation->getForeignKeyName();
+                    $ownerKey = $relation->getOwnerKeyName();
+                    $joins[] = [
+                        'table' => $relatedTable,
+                        'foreign' => end($tables) . '.' . $foreignKey,
+                        'owner' => $relatedTable . '.' . $ownerKey
+                    ];
+                } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasOne ||
+                         $relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
+                    $foreignKey = $relation->getForeignKeyName();
+                    $localKey = $relation->getLocalKeyName();
+                    $joins[] = [
+                        'table' => $relatedTable,
+                        'foreign' => $relatedTable . '.' . $foreignKey,
+                        'owner' => end($tables) . '.' . $localKey
+                    ];
+                } else {
+                    throw new \Exception("Unsupported relationship type for sorting: " . get_class($relation));
+                }
+
+                $tables[] = $relatedTable;
+                $currentModel = $relatedModel;
+            }
+
+            // Build subquery for nested relationships
+            $finalTable = end($tables);
+            $subquery = \DB::table($tables[1]); // Start from the first related table
+
+            // Add all the joins
+            for ($i = 1; $i < count($joins); $i++) {
+                $join = $joins[$i];
+                $subquery->leftJoin($join['table'], $join['foreign'], '=', $join['owner']);
+            }
+
+            // Add the where condition to link back to the main table
+            $firstJoin = $joins[0];
+            $subquery->select($finalTable . '.' . $attribute)
+                     ->whereColumn($firstJoin['foreign'], $firstJoin['owner'])
+                     ->limit(1);
+
+            $query->orderBy($subquery, $direction);
+
+            \Log::info("Applied nested relationship sorting for: " . implode('.', $relationParts) . '.' . $attribute);
+        } catch (\Exception $e) {
+            \Log::warning("Could not sort by nested relationship: " . $e->getMessage());
             $query->orderBy('id', $direction);
         }
     }

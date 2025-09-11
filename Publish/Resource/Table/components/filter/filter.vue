@@ -289,7 +289,7 @@
   </template>
 
   <script setup lang="ts">
-  import { ref, computed, watch, onMounted } from 'vue';
+  import { ref, computed, watch, onMounted, nextTick } from 'vue';
   import {
     Search as SearchIcon,
     Filter as FilterIcon,
@@ -334,6 +334,9 @@
   const orderBy = ref<string>(props.currentOrderBy ?? 'asc');
   const search = ref<string>(props.currentSearch ?? '');
   const filterColumns = ref<{ label: string; value: string; }[]>([]);
+
+  // Guard to avoid emitting when values are updated from parent props
+  const suppressEmits = ref(false);
 
   // Computed
   const selectedFilterLabel = computed(() => {
@@ -393,36 +396,58 @@
     emit('onSearch', value);
   }, 300);
 
-  // Watchers for local state changes (emit to parent)
-  watch(perPage, (value) => emit('onPerPage', value));
-  watch(orderBy, (value) => emit('onOrderBy', value));
-  watch(filterBy, (value) => emit('onFilter', value));
+  // Watchers for local state changes (emit to parent) - guarded against prop sync
+  watch(perPage, (value) => {
+    if (suppressEmits.value) return;
+    emit('onPerPage', value);
+  });
+  watch(orderBy, (value) => {
+    if (suppressEmits.value) return;
+    emit('onOrderBy', value);
+  });
+  watch(filterBy, (value) => {
+    if (suppressEmits.value) return;
+    emit('onFilter', value);
+  });
   watch(search, (value) => {
+    if (suppressEmits.value) return;
     if (value) debouncedSearch(value);
   });
 
   // Watchers for prop changes (update local state)
-  watch(() => props.currentPerPage, (newValue) => {
+  watch(() => props.currentPerPage, async (newValue) => {
     if (newValue !== undefined && newValue !== perPage.value) {
+      suppressEmits.value = true;
       perPage.value = newValue;
+      await nextTick();
+      suppressEmits.value = false;
     }
   });
 
-  watch(() => props.currentFilterBy, (newValue) => {
+  watch(() => props.currentFilterBy, async (newValue) => {
     if (newValue !== undefined && newValue !== filterBy.value) {
+      suppressEmits.value = true;
       filterBy.value = newValue;
+      await nextTick();
+      suppressEmits.value = false;
     }
   });
 
-  watch(() => props.currentOrderBy, (newValue) => {
+  watch(() => props.currentOrderBy, async (newValue) => {
     if (newValue !== undefined && newValue !== orderBy.value) {
+      suppressEmits.value = true;
       orderBy.value = newValue;
+      await nextTick();
+      suppressEmits.value = false;
     }
   });
 
-  watch(() => props.currentSearch, (newValue) => {
+  watch(() => props.currentSearch, async (newValue) => {
     if (newValue !== search.value) {
+      suppressEmits.value = true;
       search.value = newValue ?? '';
+      await nextTick();
+      suppressEmits.value = false;
     }
   });
 
