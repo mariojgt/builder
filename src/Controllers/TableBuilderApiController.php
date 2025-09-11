@@ -41,6 +41,10 @@ class TableBuilderApiController extends Controller
         // 🚀 AUTO-DETECT CUSTOM ATTRIBUTES (accessors) to exclude from queries
         $customAttributes = $this->autoDetectCustomAttributes($model, $rawColumns);
 
+        // 🚀 NEW: AUTO-DETECT ADDITIONAL RELATIONSHIPS from custom attributes
+        $additionalRelationships = $this->autoDetectCustomAttributeRelationships($model, $customAttributes);
+        $relationships = array_merge($relationships, $additionalRelationships);
+
         // Get base columns (no relationships, no custom attributes)
         $columns = $this->getBaseColumns($rawColumns, $customAttributes);
 
@@ -53,10 +57,12 @@ class TableBuilderApiController extends Controller
         // 🚀 SMART SELECT: Add foreign keys for relationships
         $selectColumns = $this->getSmartSelectColumns($rawColumns, $relationships, $customAttributes);
 
-        // Start query with AUTO-LOADED relationships
+        // 🚀 ENHANCED: Start query with OPTIMIZED relationship loading
         $query = $model->query();
         if (!empty($relationships)) {
-            $query->with($relationships);
+            // Remove duplicates and optimize relationship loading
+            $optimizedRelationships = $this->optimizeRelationshipLoading($relationships, $model);
+            $query->with($optimizedRelationships);
         }
 
         // ✨ NEW: Apply model scopes FIRST (these are part of the table configuration)
@@ -86,6 +92,9 @@ class TableBuilderApiController extends Controller
 
         // Execute query with smart column selection
         $modelPaginated = $query->select($selectColumns)->paginate($request->perPage ?? 10);
+
+        // 🚀 NEW: Apply post-query optimization for remaining N+1 issues
+        $this->applyPostQueryOptimization($modelPaginated, $customAttributes, $relationships);
 
         // Process data (with relationship values and custom attributes)
         $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
@@ -540,6 +549,149 @@ class TableBuilderApiController extends Controller
     }
 
     /**
+     * 🚀 NEW: Auto-detect relationships from custom attribute accessors
+     */
+    private function autoDetectCustomAttributeRelationships($model, $customAttributes)
+    {
+        $relationships = [];
+
+        foreach ($customAttributes as $attribute) {
+            $accessorMethod = 'get' . str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $attribute))) . 'Attribute';
+
+            if (method_exists($model, $accessorMethod)) {
+                try {
+                    $reflection = new \ReflectionMethod($model, $accessorMethod);
+                    $methodSource = $this->getMethodSource($reflection);
+
+                    // Look for relationship method calls in accessor
+                    if (preg_match_all('/\$this->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $methodSource, $matches)) {
+                        foreach ($matches[1] as $relationMethod) {
+                            if (method_exists($model, $relationMethod)) {
+                                $relationships[] = $relationMethod;
+                            }
+                        }
+                    }
+
+                    // Look for nested relationship calls like $this->report()->exists()
+                    if (preg_match_all('/\$this->([a-zA-Z_][a-zA-Z0-9_]*)\(\)->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $methodSource, $matches)) {
+                        foreach ($matches[1] as $relationMethod) {
+                            if (method_exists($model, $relationMethod)) {
+                                $relationships[] = $relationMethod;
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::info("Could not analyze custom attribute accessor: {$attribute}");
+                }
+            }
+        }
+
+        return array_unique($relationships);
+    }
+
+    /**
+     * 🚀 NEW: Optimize relationship loading to prevent N+1 queries
+     */
+    private function optimizeRelationshipLoading($relationships, $model)
+    {
+        $optimized = [];
+
+        // Remove duplicates and sort by length (shorter first)
+        $relationships = array_unique($relationships);
+        usort($relationships, function ($a, $b) {
+            return strlen($a) - strlen($b);
+        });
+
+        foreach ($relationships as $relationship) {
+            // Skip if this is a sub-relationship of an already included one
+            $isSubRelationship = false;
+            foreach ($optimized as $existing) {
+                if (strpos($relationship, $existing . '.') === 0) {
+                    $isSubRelationship = true;
+                    break;
+                }
+            }
+
+            if (!$isSubRelationship) {
+                // Verify the relationship exists on the model
+                if ($this->relationshipExists($model, $relationship)) {
+                    $optimized[] = $relationship;
+                }
+            }
+        }
+
+        // 🚀 NEW: Add count relationships for better performance
+        $countRelationships = $this->detectCountRelationships($optimized, $model);
+        $optimized = array_merge($optimized, $countRelationships);
+
+        return $optimized;
+    }
+
+    /**
+     * 🚀 NEW: Check if a relationship exists on the model
+     */
+    private function relationshipExists($model, $relationship)
+    {
+        $parts = explode('.', $relationship);
+        $currentModel = $model;
+
+        foreach ($parts as $part) {
+            if (!method_exists($currentModel, $part)) {
+                return false;
+            }
+
+            try {
+                $relation = $currentModel->$part();
+                if (!$relation instanceof \Illuminate\Database\Eloquent\Relations\Relation) {
+                    return false;
+                }
+
+                // For nested relationships, get the related model
+                if (count($parts) > 1) {
+                    $currentModel = $relation->getRelated();
+                }
+            } catch (\Exception $e) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 🚀 NEW: Detect relationships that should use withCount for performance
+     */
+    private function detectCountRelationships($relationships, $model)
+    {
+        $countRelationships = [];
+
+        // Look for relationships that might benefit from withCount
+        foreach ($relationships as $relationship) {
+            $parts = explode('.', $relationship);
+            $baseRelation = $parts[0];
+
+            // Check if this is a hasMany or belongsToMany relationship
+            if (method_exists($model, $baseRelation)) {
+                try {
+                    $relation = $model->$baseRelation();
+                    if ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany ||
+                        $relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany ||
+                        $relation instanceof \Illuminate\Database\Eloquent\Relations\HasManyThrough) {
+                        // Add withCount for performance if not already loading the full relationship
+                        if (!in_array($baseRelation, $relationships)) {
+                            $countRelationships[] = $baseRelation . '_count';
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Ignore invalid relationships
+                }
+            }
+        }
+
+        return $countRelationships;
+    }
+
+    /**
      * Get base columns (exclude relationship fields and custom attributes)
      */
     private function getBaseColumns($rawColumns, $customAttributes = [])
@@ -618,13 +770,27 @@ class TableBuilderApiController extends Controller
     private function applyFilters($query, $filters, $rawColumns, $customAttributes = [])
     {
         foreach ($filters as $key => $value) {
-            if (empty($value)) {
+            // Handle new filter structure with search modes
+            $filterValue = $value;
+            $isEmpty = false;
+
+            if (is_array($value) && isset($value['value'])) {
+                $filterValue = $value['value'];
+                $isEmpty = empty($filterValue);
+            } else {
+                $isEmpty = empty($value);
+            }
+
+            if ($isEmpty) {
                 continue;
             }
 
-            // 🚀 SKIP custom attributes - they can't be filtered in the database
+            // 🚀 HANDLE specific custom attributes that can be converted to database queries
             if (in_array($key, $customAttributes)) {
-                \Log::info("Skipping filter for custom attribute: {$key}");
+                if ($this->applyCustomAttributeFilter($query, $key, $value)) {
+                    continue; // Successfully handled as custom attribute
+                }
+                \Log::info("Skipping filter for unsupported custom attribute: {$key}");
                 continue;
             }
 
@@ -649,7 +815,7 @@ class TableBuilderApiController extends Controller
                     }
                 });
             } else {
-                $this->applyFilterToSingleKey($query, $key, $value, $column);
+                                $this->applyFilterToSingleKey($query, $key, $value, $column);
             }
         }
     }
@@ -800,7 +966,6 @@ class TableBuilderApiController extends Controller
 
             // Fallback to ordering by ID
             $query->orderBy('id', $direction);
-
         } catch (\Exception $e) {
             \Log::warning("Could not sort by relationship field '{$sort}': " . $e->getMessage());
             $query->orderBy('id', $direction);
@@ -816,31 +981,63 @@ class TableBuilderApiController extends Controller
         $methodDate = $useOr ? 'orWhereDate' : 'whereDate';
 
         try {
+            // Handle filters with search mode information
+            $filterValue = $value;
+            $searchMode = 'contains'; // default
+
+            if (is_array($value) && isset($value['value'])) {
+                $filterValue = $value['value'];
+                $searchMode = $value['searchMode'] ?? 'contains';
+            }
+
             switch ($column['type']) {
                 case 'model_search':
-                    $query->$method($key, $value);
+                    $query->$method($key, $filterValue);
                     break;
                 case 'boolean':
-                    $query->$method($key, $value === 'true');
+                    $boolValue = is_array($value) ? $filterValue === 'true' : $value === 'true';
+                    $query->$method($key, $boolValue);
                     break;
                 case 'date':
                 case 'timestamp':
-                    if (!empty($value['from'])) {
-                        $query->$methodDate($key, '>=', Carbon::parse($value['from']));
+                    if (!empty($filterValue['from'])) {
+                        $query->$methodDate($key, '>=', Carbon::parse($filterValue['from']));
                     }
-                    if (!empty($value['to'])) {
-                        $query->$methodDate($key, '<=', Carbon::parse($value['to']));
+                    if (!empty($filterValue['to'])) {
+                        $query->$methodDate($key, '<=', Carbon::parse($filterValue['to']));
                     }
                     break;
                 case 'select':
-                    $query->$method($key, $value);
+                    $query->$method($key, $filterValue);
                     break;
                 default:
-                    $query->$method($key, 'LIKE', "%{$value}%");
+                    // Apply search mode for text filters
+                    $this->applyTextFilterWithMode($query, $key, $filterValue, $searchMode, $useOr);
                     break;
             }
         } catch (\Exception $e) {
             \Log::warning("Filter failed for column '{$key}': " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Apply text filter with different search modes (contains, exact, starts)
+     */
+    private function applyTextFilterWithMode($query, $key, $value, $searchMode, $useOr = false)
+    {
+        $method = $useOr ? 'orWhere' : 'where';
+
+        switch ($searchMode) {
+            case 'exact':
+                $query->$method($key, '=', $value);
+                break;
+            case 'starts':
+                $query->$method($key, 'LIKE', $value . '%');
+                break;
+            case 'contains':
+            default:
+                $query->$method($key, 'LIKE', '%' . $value . '%');
+                break;
         }
     }
 
@@ -857,19 +1054,30 @@ class TableBuilderApiController extends Controller
 
         try {
             $query->$method($relationPath, function ($q) use ($attribute, $value, $column) {
+                // Handle filters with search mode information
+                $filterValue = $value;
+                $searchMode = 'contains'; // default
+
+                if (is_array($value) && isset($value['value'])) {
+                    $filterValue = $value['value'];
+                    $searchMode = $value['searchMode'] ?? 'contains';
+                }
+
                 switch ($column['type']) {
                     case 'boolean':
-                        $q->where($attribute, $value === 'true');
+                        $boolValue = is_array($value) ? $filterValue === 'true' : $value === 'true';
+                        $q->where($attribute, $boolValue);
                         break;
                     case 'date':
                     case 'timestamp':
-                        $this->applyDateFilter($q, $attribute, $value);
+                        $this->applyDateFilter($q, $attribute, $filterValue);
                         break;
                     case 'select':
-                        $q->where($attribute, $value);
+                        $q->where($attribute, $filterValue);
                         break;
                     default:
-                        $q->where($attribute, 'LIKE', "%{$value}%");
+                        // Apply search mode for text filters in relationships
+                        $this->applyTextFilterWithMode($q, $attribute, $filterValue, $searchMode, false);
                         break;
                 }
             });
@@ -990,7 +1198,6 @@ class TableBuilderApiController extends Controller
                     'created_at' => $model->created_at,
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
 
@@ -1086,7 +1293,6 @@ class TableBuilderApiController extends Controller
                     'updated_at' => $model->updated_at,
                 ]
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
 
@@ -1095,6 +1301,222 @@ class TableBuilderApiController extends Controller
                 'message' => 'An error occurred while updating the item: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * 🚀 DYNAMIC: Apply custom attribute filters that can be converted to database queries
+     * This method dynamically handles custom attributes by analyzing the accessor method
+     * and attempting to convert it to database-level filtering operations
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $key The custom attribute key
+     * @param mixed $value The filter value
+     * @return bool True if the filter was applied, false if not supported
+     */
+    private function applyCustomAttributeFilter($query, $key, $value)
+    {
+        // Get the model instance to check available relationships
+        $request = request();
+        $modelClass = decrypt($request->model);
+        $model = new $modelClass();
+
+        try {
+            // Extract actual filter value from new structure {value, searchMode}
+            $filterValue = $value;
+            if (is_array($value) && isset($value['value'])) {
+                $filterValue = $value['value'];
+            }
+
+            \Log::info("Applying custom attribute filter for {$key} with value: " . json_encode($filterValue));
+
+            // Get the accessor method name
+            $accessorMethod = 'get' . str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $key))) . 'Attribute';
+
+            \Log::info("Trying to find accessor method: {$accessorMethod} for key: {$key}");
+
+            if (!method_exists($model, $accessorMethod)) {
+                \Log::info("Accessor method {$accessorMethod} does not exist");
+                return false;
+            }
+
+            // Use reflection to analyze the accessor method
+            $reflection = new \ReflectionMethod($model, $accessorMethod);
+            $methodSource = $this->getMethodSource($reflection);
+
+            if (!$methodSource) {
+                \Log::info("Could not analyze accessor method for {$key}");
+                return false;
+            }
+
+            \Log::info("Method source for {$key}: " . trim($methodSource));
+
+            // Analyze the accessor method to determine how to filter it
+            $filterApplied = $this->analyzeAndApplyCustomAttributeFilter($query, $key, $filterValue, $methodSource, $model);
+
+            if ($filterApplied) {
+                \Log::info("Successfully applied dynamic filter for custom attribute: {$key}");
+                return true;
+            } else {
+                \Log::info("Could not apply dynamic filter for custom attribute: {$key}");
+            }
+        } catch (\Exception $e) {
+            \Log::warning("Failed to apply custom attribute filter for {$key}: " . $e->getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * 🚀 NEW: Get method source code for analysis
+     */
+    private function getMethodSource(\ReflectionMethod $method)
+    {
+        try {
+            $filename = $method->getFileName();
+            $startLine = $method->getStartLine() - 1;
+            $endLine = $method->getEndLine();
+            $length = $endLine - $startLine;
+
+            $source = file($filename);
+            return implode('', array_slice($source, $startLine, $length));
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * 🚀 DYNAMIC: Analyze accessor method and apply appropriate filter
+     */
+    private function analyzeAndApplyCustomAttributeFilter($query, $key, $value, $methodSource, $model)
+    {
+        // Convert value to boolean if needed - handle string "true"/"false" properly
+        $boolValue = null;
+        if ($value === 'true' || $value === true) {
+            $boolValue = true;
+        } elseif ($value === 'false' || $value === false) {
+            $boolValue = false;
+        } else {
+            $boolValue = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        \Log::info("Analyzing custom attribute {$key} with original value: " . json_encode($value) . ", converted to bool: " . json_encode($boolValue));
+
+        // Pattern 1: Check for relationship existence patterns like "->relationName()->exists()"
+        if (preg_match('/\$this->(\w+)\(\)->exists\(\)/', $methodSource, $matches)) {
+            $relationName = $matches[1];
+
+            \Log::info("Found relationship existence pattern for {$key}: relation = {$relationName}");
+
+            if (method_exists($model, $relationName)) {
+                if ($boolValue === true) {
+                    \Log::info("Applying whereHas for {$relationName} (true condition)");
+                    $query->whereHas($relationName);
+                } elseif ($boolValue === false) {
+                    \Log::info("Applying whereDoesntHave for {$relationName} (false condition)");
+                    $query->whereDoesntHave($relationName);
+                }
+                return true;
+            } else {
+                \Log::warning("Relationship method {$relationName} does not exist on model");
+            }
+        }
+
+        // Pattern 2: Check for database field comparisons like "->field > 0"
+        if (preg_match('/\$this->(\w+)\s*([><=!]+)\s*(\d+)/', $methodSource, $matches)) {
+            $fieldName = $matches[1];
+            $operator = $matches[2];
+            $compareValue = (int)$matches[3];
+
+            // Convert the comparison to appropriate database query
+            if ($boolValue === true) {
+                $query->where($fieldName, $operator, $compareValue);
+            } elseif ($boolValue === false) {
+                // Invert the operator for false condition
+                $invertedOperator = $this->invertOperator($operator);
+                $query->where($fieldName, $invertedOperator, $compareValue);
+            }
+            return true;
+        }
+
+        // Pattern 3: Check for relationship with field conditions like "->relationship ? ->relationship->field : false"
+        if (preg_match('/\$this->(\w+)\s*\?\s*\$this->\1->(\w+)\s*:\s*false/', $methodSource, $matches)) {
+            $relationName = $matches[1];
+            $fieldName = $matches[2];
+
+            if (method_exists($model, $relationName)) {
+                if ($boolValue === true) {
+                    $query->whereHas($relationName, function ($q) use ($fieldName) {
+                        $q->whereNotNull($fieldName);
+                    });
+                } elseif ($boolValue === false) {
+                    $query->whereDoesntHave($relationName)
+                          ->orWhereHas($relationName, function ($q) use ($fieldName) {
+                              $q->whereNull($fieldName);
+                          });
+                }
+                return true;
+            }
+        }
+
+        // Pattern 4: Check for simple relationship field access like "->relationship->field"
+        if (preg_match('/\$this->(\w+)->(\w+)/', $methodSource, $matches)) {
+            $relationName = $matches[1];
+            $fieldName = $matches[2];
+
+            if (method_exists($model, $relationName)) {
+                if ($boolValue !== null) {
+                    $query->whereHas($relationName, function ($q) use ($fieldName, $boolValue) {
+                        if (is_bool($boolValue)) {
+                            $q->where($fieldName, $boolValue);
+                        } else {
+                            $q->where($fieldName, 'like', "%{$value}%");
+                        }
+                    });
+                }
+                return true;
+            }
+        }
+
+        // Pattern 5: Check for direct field access patterns
+        if (preg_match('/\$this->(\w+)/', $methodSource, $matches)) {
+            $fieldName = $matches[1];
+
+            // Check if this field exists in the database
+            $tableName = $model->getTable();
+            $databaseColumns = \Schema::getColumnListing($tableName);
+
+            if (in_array($fieldName, $databaseColumns)) {
+                if ($boolValue !== null) {
+                    if (is_bool($boolValue)) {
+                        $query->where($fieldName, $boolValue);
+                    } else {
+                        $query->where($fieldName, 'like', "%{$value}%");
+                    }
+                }
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 🚀 Helper: Invert comparison operators
+     */
+    private function invertOperator($operator)
+    {
+        $inversions = [
+            '>' => '<=',
+            '>=' => '<',
+            '<' => '>=',
+            '<=' => '>',
+            '=' => '!=',
+            '!=' => '=',
+            '==' => '!=',
+            '!=' => '=='
+        ];
+
+        return $inversions[$operator] ?? $operator;
     }
 
     /**
@@ -1175,6 +1597,91 @@ class TableBuilderApiController extends Controller
 
         if (count($errorMessages) > 0) {
             throw ValidationException::withMessages($errorMessages);
+        }
+    }
+
+    /**
+     * 🚀 NEW: Apply post-query optimization for remaining N+1 issues
+     */
+    private function applyPostQueryOptimization($paginatedResults, $customAttributes, $relationships)
+    {
+        $items = $paginatedResults->getCollection();
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        // 🚀 Batch load missing relationships that weren't caught by eager loading
+        $this->batchLoadMissingRelationships($items, $customAttributes);
+
+        // 🚀 Optimize custom attribute calculations
+        $this->optimizeCustomAttributeCalculations($items, $customAttributes);
+    }
+
+    /**
+     * 🚀 NEW: Batch load relationships that might be called by custom attributes
+     */
+    private function batchLoadMissingRelationships($items, $customAttributes)
+    {
+        $model = $items->first();
+        if (!$model) {
+            return;
+        }
+
+        $toLoad = [];
+
+        // Analyze custom attributes for additional relationship loading needs
+        foreach ($customAttributes as $attribute) {
+            $accessorMethod = 'get' . str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $attribute))) . 'Attribute';
+
+            if (method_exists($model, $accessorMethod)) {
+                try {
+                    $reflection = new \ReflectionMethod($model, $accessorMethod);
+                    $methodSource = $this->getMethodSource($reflection);
+
+                    // Look for relationships that might not be loaded
+                    if (preg_match_all('/\$this->([a-zA-Z_][a-zA-Z0-9_]*)\(\)/', $methodSource, $matches)) {
+                        foreach ($matches[1] as $relationMethod) {
+                            if (method_exists($model, $relationMethod) && !$model->relationLoaded($relationMethod)) {
+                                $toLoad[] = $relationMethod;
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Continue silently if reflection fails
+                }
+            }
+        }
+
+        // Load missing relationships in batch
+        if (!empty($toLoad)) {
+            $items->load(array_unique($toLoad));
+        }
+    }
+
+    /**
+     * 🚀 NEW: Optimize custom attribute calculations to prevent repeated queries
+     */
+    private function optimizeCustomAttributeCalculations($items, $customAttributes)
+    {
+        // This method can be extended to cache expensive custom attribute calculations
+        // For now, the batch loading above should handle most N+1 issues
+
+        // Example: Pre-calculate expensive custom attributes and cache them
+        foreach ($customAttributes as $attribute) {
+            // Check if this attribute requires database queries
+            $sampleItem = $items->first();
+            if (!$sampleItem) {
+                continue;
+            }
+
+            try {
+                // Pre-trigger the custom attribute to ensure it's calculated
+                // This will use the batch-loaded relationships
+                $sampleItem->getAttribute($attribute);
+            } catch (\Exception $e) {
+                // Continue silently if attribute access fails
+            }
         }
     }
 }
