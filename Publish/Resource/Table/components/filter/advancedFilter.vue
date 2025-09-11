@@ -435,9 +435,17 @@ const activeFilters = computed(() => {
   return Object.entries(filters.value).reduce((acc, [key, value]) => {
     if (value !== null && value !== undefined) {
       if (typeof value === 'string') {
-        if (value.trim()) acc[key] = value;
+        if (value.trim()) {
+          acc[key] = {
+            value: value,
+            searchMode: getSearchMode(key)
+          };
+        }
       } else if (typeof value === 'number') {
-        acc[key] = value;
+        acc[key] = {
+          value: value,
+          searchMode: getSearchMode(key)
+        };
       } else if (typeof value === 'object' && !Array.isArray(value)) {
         if (value.from || value.to) acc[key] = value;
       }
@@ -600,27 +608,44 @@ const formatFilterValue = (key, value) => {
   const column = props.columns.find(col => col.key === key);
   if (!column) return value;
 
+  // Handle new filter structure with search modes
+  let displayValue = value;
+  let searchMode = null;
+
+  if (typeof value === 'object' && value.value !== undefined) {
+    displayValue = value.value;
+    searchMode = value.searchMode;
+  }
+
   switch (column.type) {
     case 'boolean':
-      return value === 'true' ? 'Yes' : 'No';
+      const boolVal = typeof value === 'object' ? displayValue : value;
+      return boolVal === 'true' ? 'Yes' : 'No';
     case 'timestamp':
     case 'date':
-      if (value.from && value.to) {
-        return `${value.from} to ${value.to}`;
-      } else if (value.from) {
-        return `From ${value.from}`;
-      } else if (value.to) {
-        return `Until ${value.to}`;
+      if (displayValue.from && displayValue.to) {
+        return `${displayValue.from} to ${displayValue.to}`;
+      } else if (displayValue.from) {
+        return `From ${displayValue.from}`;
+      } else if (displayValue.to) {
+        return `Until ${displayValue.to}`;
       }
       return 'Date range';
     case 'select':
-      const option = column.options?.select_options?.find(opt => opt.value === value);
-      return option ? option.label : value;
+      const option = column.options?.select_options?.find(opt => opt.value === displayValue);
+      return option ? option.label : displayValue;
     case 'model_search':
       const selectedItem = selectedModelSearchItems.value[key];
-      return selectedItem ? selectedItem[column.displayKey] : `ID: ${value}`;
+      return selectedItem ? selectedItem[column.displayKey] : `ID: ${displayValue}`;
     default:
-      return String(value).length > 20 ? String(value).substring(0, 20) + '...' : String(value);
+      // For text fields, show the search mode if it's not 'contains'
+      const valueStr = String(displayValue);
+      let result = valueStr.length > 20 ? valueStr.substring(0, 20) + '...' : valueStr;
+      if (searchMode && searchMode !== 'contains') {
+        const modeLabel = searchModes.value.find(mode => mode.value === searchMode)?.label;
+        result += ` (${modeLabel})`;
+      }
+      return result;
   }
 };
 
