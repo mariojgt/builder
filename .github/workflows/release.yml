@@ -186,13 +186,13 @@ jobs:
         if git rev-parse "$new_version" >/dev/null 2>&1; then
           local_tag_exists=true
         fi
-        
+
         # Check if tag exists on remote
         remote_tag_exists=false
         if git ls-remote --tags origin | grep -q "refs/tags/$new_version$"; then
           remote_tag_exists=true
         fi
-        
+
         if [ "$local_tag_exists" = true ] || [ "$remote_tag_exists" = true ]; then
           echo "tag_created=false" >> $GITHUB_OUTPUT
           echo "⚠️ Tag $new_version already exists (local: $local_tag_exists, remote: $remote_tag_exists)"
@@ -210,14 +210,14 @@ jobs:
         Version: $new_version
         Bump type: $bump_type
         Previous version: $latest_tag
-        
+
         This release was automatically generated based on commit analysis."
-        
+
         git tag -a "$new_version" -m "$tag_message"
 
         # Push tag
         git push origin "$new_version"
-        
+
         echo "tag_created=true" >> $GITHUB_OUTPUT
         echo "✅ Created and pushed tag: $new_version"
 
@@ -242,7 +242,7 @@ jobs:
           if grep -q '"version"' composer.json; then
             # Create a backup
             cp composer.json composer.json.bak
-            
+
             # Update version field
             sed -i.bak 's/"version": "[^"]*"/"version": "'$version_number'"/g' composer.json
             echo "📝 Updated version in composer.json to $version_number"
@@ -267,13 +267,13 @@ jobs:
         echo "🏷️ New tag created and pushed"
         echo "📋 GitHub release created"
         echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.new_version }}"
-        
+
     - name: Summary - No action needed
       if: steps.version.outputs.bump_type == 'none'
       run: |
         echo "ℹ️ No new commits since last tag (${{ steps.version.outputs.previous_version }})"
         echo "📝 No version bump needed"
-        
+
     - name: Summary - Tag already exists
       if: steps.version.outputs.bump_type != 'none' && steps.create_tag.outputs.tag_created == 'false'
       run: |

@@ -109,7 +109,7 @@ The workflow provides clear feedback:
 
 ### Rich Changelog Generation
 - **🚨 Breaking Changes** section
-- **✨ New Features** section  
+- **✨ New Features** section
 - **🐛 Bug Fixes** section
 - **📝 Other Changes** section
 - Installation instructions included
