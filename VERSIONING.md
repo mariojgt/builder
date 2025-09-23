@@ -1,19 +1,21 @@
 # Automatic Versioning and Tagging
 
-This repository now includes automatic versioning and tagging based on commit messages. When you merge to the `main` branch, the system will automatically:
+This repository includes a unified automatic versioning and tagging system. When you merge to the `main` branch, the system will automatically:
 
-1. **Analyze commit messages** to determine the type of version bump needed
-2. **Calculate the new version** based on semantic versioning
-3. **Create and push a new git tag**
-4. **Generate a GitHub release** with changelog
+1. **Get the last tag** from the repository
+2. **Analyze commit messages** since the last tag to determine the type of version bump needed
+3. **Calculate the new version** based on semantic versioning
+4. **Check if the tag already exists** (both locally and remotely)
+5. **Create and push a new git tag** (if it doesn't exist)
+6. **Generate a GitHub release** with categorized changelog
 
 ## How It Works
 
 ### Version Bump Detection
 
-The system analyzes commit messages since the last tag to determine the version bump type:
+The system analyzes commit messages since the last tag to determine the version bump type with priority order:
 
-#### Major Version Bump (x.0.0)
+#### Major Version Bump (x.0.0) - Highest Priority
 Triggered by commit messages containing:
 - `major`
 - `breaking`
@@ -21,7 +23,7 @@ Triggered by commit messages containing:
 - `feat!:` or `fix!:` (with exclamation mark)
 - `!:` in the commit message
 
-#### Minor Version Bump (x.y.0)
+#### Minor Version Bump (x.y.0) - Medium Priority
 Triggered by commit messages containing:
 - `minor`
 - `feat:`
@@ -29,7 +31,7 @@ Triggered by commit messages containing:
 - `add:`
 - `new:`
 
-#### Patch Version Bump (x.y.z)
+#### Patch Version Bump (x.y.z) - Default Priority
 Triggered by commit messages containing:
 - `patch`
 - `fix:`
@@ -40,6 +42,7 @@ Triggered by commit messages containing:
 - `refactor:`
 - `test:`
 - `chore:`
+- Any commit without specific keywords (defaults to patch)
 
 ### Example Commit Messages
 
@@ -47,6 +50,7 @@ Triggered by commit messages containing:
 # Patch bump (v1.0.0 → v1.0.1)
 git commit -m "fix: resolve issue with table rendering"
 git commit -m "hotfix: critical bug in form validation"
+git commit -m "docs: update README documentation"
 
 # Minor bump (v1.0.0 → v1.1.0)
 git commit -m "feat: add new export functionality"
@@ -58,32 +62,93 @@ git commit -m "major: breaking change in form builder"
 git commit -m "BREAKING CHANGE: remove deprecated methods"
 ```
 
-## Workflows Available
+## Unified Workflow
 
-### 1. auto-tag.yml
-- **Simple workflow** for basic automatic tagging
-- Runs on push to main or merged PRs
-- Creates tags and GitHub releases
-- Good for straightforward projects
-
-### 2. semantic-release.yml (Recommended)
-- **Advanced workflow** with better commit analysis
+### release.yml
+- **Comprehensive workflow** that combines the best of both previous workflows
+- Gets the last tag and analyzes all commits since then
 - Supports conventional commit formats
-- Generates categorized changelogs
+- Generates categorized changelogs with emojis
 - Handles breaking changes appropriately
+- Checks both local and remote for existing tags
 - Can optionally update composer.json version
+- Provides clear status messages for all scenarios
+
+## Workflow Process
+
+1. **Trigger**: Runs on push to main or merged PRs
+2. **Get Last Tag**: Finds the latest semantic version tag
+3. **Analyze Commits**: Reviews all commits since the last tag
+4. **Determine Bump**: Calculates version bump based on commit analysis
+5. **Check Existence**: Verifies tag doesn't already exist
+6. **Create Tag**: Creates annotated tag with detailed message
+7. **Push Tag**: Pushes tag to remote repository
+8. **Generate Release**: Creates GitHub release with changelog
+9. **Update Files**: Optionally updates composer.json version
+
+## Status Messages
+
+The workflow provides clear feedback:
+
+- **ℹ️ No new commits since last tag** → No action needed
+- **⚠️ Tag v1.4.1 already exists** → Skips creation
+- **✅ Created and pushed tag: v1.4.2** → Success
+- **🎉 Successfully created release** → Release created
+
+## Features
+
+### Smart Commit Analysis
+- Prioritizes breaking changes over features over fixes
+- Supports conventional commit format
+- Falls back to patch bump for any unspecified commits
+
+### Comprehensive Tag Checking
+- Checks both local and remote repositories
+- Prevents duplicate tag creation
+- Graceful handling of existing tags
+
+### Rich Changelog Generation
+- **🚨 Breaking Changes** section
+- **✨ New Features** section  
+- **🐛 Bug Fixes** section
+- **📝 Other Changes** section
+- Installation instructions included
+
+### Optional Composer Integration
+- Updates `version` field in composer.json if it exists
+- Commits the change back to the repository
+- Uses `[skip ci]` to prevent workflow loops
 
 ## Setup Instructions
 
-1. **Enable the workflows**: The workflows are already set up and will trigger automatically on merges to main.
+1. **The workflow is ready**: `release.yml` will trigger automatically on merges to main
+2. **Use descriptive commit messages**: Follow the commit message patterns above
+3. **GitHub Permissions**: Uses `GITHUB_TOKEN` with write permissions
 
-2. **Use conventional commit messages**: Follow the commit message patterns above for automatic version detection.
+## Best Practices
 
-3. **GitHub Permissions**: The workflows use `GITHUB_TOKEN` which should work automatically. If you encounter permission issues, ensure the repository has:
-   - Actions enabled
-   - Write permissions for Actions
+1. **Use conventional commit messages** for automatic detection
+2. **Group related changes** in single commits when possible
+3. **Test thoroughly** before merging to main
+4. **Review the generated changelog** in releases
 
-## Manual Tagging
+## Troubleshooting
+
+### No tag is created
+- Check commit messages match the patterns above
+- Ensure you're pushing to the `main` branch
+- Check the Actions tab for detailed logs
+
+### Wrong version bump
+- Review commit message keywords
+- Remember that major > minor > patch in priority
+- Manually create a tag if the automatic one is incorrect
+
+### Permission errors
+- Check repository settings → Actions → General
+- Ensure "Read and write permissions" are enabled
+
+## Manual Override
 
 If you need to create a tag manually:
 
@@ -92,28 +157,6 @@ If you need to create a tag manually:
 git tag -a v1.2.3 -m "Release v1.2.3"
 git push origin v1.2.3
 ```
-
-## Best Practices
-
-1. **Use descriptive commit messages** that clearly indicate the type of change
-2. **Group related changes** in a single commit when possible
-3. **Use PR titles** that follow the same convention for better tracking
-4. **Test before merging** to ensure the automatic versioning works as expected
-
-## Troubleshooting
-
-### No tag is created
-- Check if your commit messages match the patterns above
-- Ensure you're pushing to the `main` branch
-- Check the Actions tab for workflow execution details
-
-### Wrong version bump
-- Review your commit messages for unintended keywords
-- You can manually create a tag if the automatic one is incorrect
-
-### Permission errors
-- Check repository settings → Actions → General
-- Ensure "Read and write permissions" are enabled for GITHUB_TOKEN
 
 ## Composer Installation
 
