@@ -433,7 +433,7 @@
           </div>
         </div>
 
-        <div v-else-if="isLongText" class="group">
+        <div v-else-if="isLongText && props.linkStyle !== 'link-compact'" class="group">
           <div class="leading-relaxed break-words whitespace-pre-wrap" :class="compact ? 'text-xs' : 'text-sm'">
             <div v-if="!showFullText && !compact" class="inline">
               <span>{{ truncatedText }}</span>
