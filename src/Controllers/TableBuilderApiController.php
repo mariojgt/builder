@@ -66,14 +66,36 @@ class TableBuilderApiController extends Controller
             // Remove duplicates and optimize relationship loading
             $optimizedRelationships = $this->optimizeRelationshipLoading($relationships, $model);
 
+            // 🆕 Detect which relationships need withCount instead of eager loading
+            $withRelationships = [];
+            $withCountRelationships = [];
+
+            foreach ($optimizedRelationships as $rel) {
+                if (strpos($rel, ':count') !== false) {
+                    // Already marked for withCount
+                    $withCountRelationships[] = str_replace(':count', '', $rel);
+                } else {
+                    $withRelationships[] = $rel;
+                }
+            }
+
             // 🐛 DEBUG: Log what relationships are being eager loaded
             \Log::info("TableBuilder eager loading relationships", [
                 'model' => get_class($model),
                 'detected_relationships' => $relationships,
-                'optimized_relationships' => $optimizedRelationships
+                'with_relationships' => $withRelationships,
+                'with_count_relationships' => $withCountRelationships
             ]);
 
-            $query->with($optimizedRelationships);
+            // Apply eager loading
+            if (!empty($withRelationships)) {
+                $query->with($withRelationships);
+            }
+
+            // Apply withCount for performance
+            if (!empty($withCountRelationships)) {
+                $query->withCount($withCountRelationships);
+            }
         }
 
         // ✨ NEW: Apply model scopes FIRST (these are part of the table configuration)
@@ -491,6 +513,7 @@ class TableBuilderApiController extends Controller
     /**
      * 🚀 AUTO-DETECT custom attributes (accessors) to exclude from database queries
      * This prevents SQL errors when trying to filter/sort on computed attributes
+     * ENHANCED: Better detection of count accessors and nested relationship patterns
      */
     private function autoDetectCustomAttributes($model, $rawColumns)
     {
@@ -503,14 +526,28 @@ class TableBuilderApiController extends Controller
         foreach ($rawColumns as $column) {
             $key = $column['key'];
 
-            // Skip relationship fields (they contain dots)
-            if (strpos($key, '.') !== false) {
-                continue;
-            }
-
             // Skip fallback fields (they contain pipes)
             if (strpos($key, '|') !== false) {
                 continue;
+            }
+
+            // Check for nested count patterns (e.g., product.vulnerabilities_count)
+            if (strpos($key, '.') !== false) {
+                if (preg_match('/\.(\w+)_count$/', $key)) {
+                    $customAttributes[] = $key;
+                }
+                continue;
+            }
+
+            // Check for direct _count accessor patterns (e.g., vulnerabilities_count)
+            if (preg_match('/(\w+)_count$/', $key, $matches)) {
+                $relationshipName = $matches[1];
+                // Check if the relationship exists on the model
+                if (method_exists($model, $relationshipName)) {
+                    $customAttributes[] = $key;
+                    \Log::info("Detected count accessor: {$key} (relationship: {$relationshipName})");
+                    continue;
+                }
             }
 
             // Check if this is a custom attribute (not in database but accessible on model)
@@ -567,12 +604,39 @@ class TableBuilderApiController extends Controller
 
     /**
      * Extract relationships from a single key
+     * ENHANCED: Detect _count patterns and mark for withCount
      */
     private function extractRelationshipsFromKey($key, &$relationships)
     {
         // Check for dot notation (relationship.attribute)
         if (strpos($key, '.') !== false) {
             $parts = explode('.', $key);
+            $lastPart = end($parts);
+
+            // Check if the last part is a _count accessor (e.g., product.vulnerabilities_count)
+            if (preg_match('/(\w+)_count$/', $lastPart, $matches)) {
+                $relationshipName = $matches[1];
+                // Build the path without the _count part
+                $pathParts = array_slice($parts, 0, -1);
+                $pathParts[] = $relationshipName;
+
+                // Add the full path for withCount (e.g., "product.vulnerabilities")
+                $fullPath = implode('.', $pathParts);
+                $relationships[] = $fullPath . '__count'; // Mark as count relationship
+
+                // Also add intermediate paths (e.g., "product")
+                $currentPath = '';
+                foreach ($pathParts as $index => $part) {
+                    if ($index === count($pathParts) - 1) {
+                        break; // Skip the last part (the counted relationship)
+                    }
+                    $currentPath = $currentPath ? "$currentPath.$part" : $part;
+                    $relationships[] = $currentPath;
+                }
+                return;
+            }
+
+            // Normal relationship without _count
             array_pop($parts); // Remove attribute, keep relationship path
 
             if (!empty($parts)) {
@@ -659,16 +723,27 @@ class TableBuilderApiController extends Controller
 
     /**
      * 🚀 NEW: Optimize relationship loading to prevent N+1 queries
-     * ENHANCED: Keep nested relationships (e.g., product.platform) instead of filtering them out
+     * ENHANCED: Keep nested relationships (e.g., product.platform) and handle withCount properly
      */
     private function optimizeRelationshipLoading($relationships, $model)
     {
         $optimized = [];
+        $withCount = [];
 
         // Remove duplicates
         $relationships = array_unique($relationships);
 
         foreach ($relationships as $relationship) {
+            // Check if this is marked as a count relationship
+            if (strpos($relationship, '__count') !== false) {
+                $cleanRelationship = str_replace('__count', '', $relationship);
+                // Verify the relationship exists
+                if ($this->relationshipExists($model, $cleanRelationship)) {
+                    $withCount[] = $cleanRelationship;
+                }
+                continue;
+            }
+
             // Verify the relationship exists on the model before adding
             if ($this->relationshipExists($model, $relationship)) {
                 $optimized[] = $relationship;
@@ -676,10 +751,19 @@ class TableBuilderApiController extends Controller
         }
 
         // 🚀 NEW: Add count relationships for better performance
-        $countRelationships = $this->detectCountRelationships($optimized, $model);
-        $optimized = array_merge($optimized, $countRelationships);
+        $additionalCounts = $this->detectCountRelationships($optimized, $model);
+        $withCount = array_merge($withCount, $additionalCounts);
 
-        return array_unique($optimized);
+        // Merge optimized relationships with count relationships
+        $result = $optimized;
+        foreach (array_unique($withCount) as $countRel) {
+            // Don't add count if we're already loading the full relationship
+            if (!in_array($countRel, $optimized)) {
+                $result[] = $countRel . ':count';
+            }
+        }
+
+        return array_unique($result);
     }
 
     /**
@@ -715,6 +799,7 @@ class TableBuilderApiController extends Controller
 
     /**
      * 🚀 NEW: Detect relationships that should use withCount for performance
+     * Returns the relationship names that should be counted (without _count suffix)
      */
     private function detectCountRelationships($relationships, $model)
     {
@@ -734,7 +819,7 @@ class TableBuilderApiController extends Controller
                         $relation instanceof \Illuminate\Database\Eloquent\Relations\HasManyThrough) {
                         // Add withCount for performance if not already loading the full relationship
                         if (!in_array($baseRelation, $relationships)) {
-                            $countRelationships[] = $baseRelation . '_count';
+                            $countRelationships[] = $baseRelation; // Just the relationship name
                         }
                     }
                 } catch (\Exception $e) {
