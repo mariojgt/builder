@@ -45,6 +45,9 @@ class TableBuilderApiController extends Controller
         $additionalRelationships = $this->autoDetectCustomAttributeRelationships($model, $customAttributes);
         $relationships = array_merge($relationships, $additionalRelationships);
 
+        // 🚀 ENHANCED: Extract nested relationships (e.g., product.platform from product.platform.name)
+        $relationships = $this->extractNestedRelationships($relationships);
+
         // Get base columns (no relationships, no custom attributes)
         $columns = $this->getBaseColumns($rawColumns, $customAttributes);
 
@@ -62,6 +65,14 @@ class TableBuilderApiController extends Controller
         if (!empty($relationships)) {
             // Remove duplicates and optimize relationship loading
             $optimizedRelationships = $this->optimizeRelationshipLoading($relationships, $model);
+
+            // 🐛 DEBUG: Log what relationships are being eager loaded
+            \Log::info("TableBuilder eager loading relationships", [
+                'model' => get_class($model),
+                'detected_relationships' => $relationships,
+                'optimized_relationships' => $optimizedRelationships
+            ]);
+
             $query->with($optimizedRelationships);
         }
 
@@ -579,6 +590,33 @@ class TableBuilderApiController extends Controller
     }
 
     /**
+     * 🚀 NEW: Extract nested relationships to ensure proper eager loading
+     * Example: ['product.platform.name'] => ['product', 'product.platform']
+     */
+    private function extractNestedRelationships($relationships)
+    {
+        $expanded = [];
+
+        foreach ($relationships as $relationship) {
+            // Add the relationship itself
+            $expanded[] = $relationship;
+
+            // If it contains dots, also add all parent relationships
+            if (strpos($relationship, '.') !== false) {
+                $parts = explode('.', $relationship);
+                $currentPath = '';
+
+                foreach ($parts as $part) {
+                    $currentPath = $currentPath ? "$currentPath.$part" : $part;
+                    $expanded[] = $currentPath;
+                }
+            }
+        }
+
+        return array_unique($expanded);
+    }
+
+    /**
      * 🚀 NEW: Auto-detect relationships from custom attribute accessors
      */
     private function autoDetectCustomAttributeRelationships($model, $customAttributes)
@@ -621,32 +659,19 @@ class TableBuilderApiController extends Controller
 
     /**
      * 🚀 NEW: Optimize relationship loading to prevent N+1 queries
+     * ENHANCED: Keep nested relationships (e.g., product.platform) instead of filtering them out
      */
     private function optimizeRelationshipLoading($relationships, $model)
     {
         $optimized = [];
 
-        // Remove duplicates and sort by length (shorter first)
+        // Remove duplicates
         $relationships = array_unique($relationships);
-        usort($relationships, function ($a, $b) {
-            return strlen($a) - strlen($b);
-        });
 
         foreach ($relationships as $relationship) {
-            // Skip if this is a sub-relationship of an already included one
-            $isSubRelationship = false;
-            foreach ($optimized as $existing) {
-                if (strpos($relationship, $existing . '.') === 0) {
-                    $isSubRelationship = true;
-                    break;
-                }
-            }
-
-            if (!$isSubRelationship) {
-                // Verify the relationship exists on the model
-                if ($this->relationshipExists($model, $relationship)) {
-                    $optimized[] = $relationship;
-                }
+            // Verify the relationship exists on the model before adding
+            if ($this->relationshipExists($model, $relationship)) {
+                $optimized[] = $relationship;
             }
         }
 
@@ -654,7 +679,7 @@ class TableBuilderApiController extends Controller
         $countRelationships = $this->detectCountRelationships($optimized, $model);
         $optimized = array_merge($optimized, $countRelationships);
 
-        return $optimized;
+        return array_unique($optimized);
     }
 
     /**
