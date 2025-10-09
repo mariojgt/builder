@@ -273,17 +273,14 @@
                 </div>
             </div>
 
-            <!-- Loading State -->
-            <div v-if="isLoading"
-                class="absolute inset-0 bg-base-300/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl">
-                <div class="flex flex-col items-center gap-4">
-                    <div class="loading loading-spinner loading-lg text-primary"></div>
-                    <p class="text-base-content/70">Loading data...</p>
-                </div>
-            </div>
-
             <!-- Table Content -->
             <div :class="getContentPadding()">
+                <!-- Subtle Loading Indicator -->
+                <div v-if="isLoading" class="mb-3 flex items-center justify-center gap-3 p-3 bg-base-200/50 rounded-lg border border-primary/20">
+                    <div class="loading loading-spinner loading-sm text-primary"></div>
+                    <p class="text-sm text-base-content/70">Loading data...</p>
+                </div>
+
                 <div class="bg-base-100 rounded-xl overflow-hidden border border-base-content/10">
                     <!-- Empty State -->
                     <div v-if="!tableData.length && !isLoading"
