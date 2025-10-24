@@ -67,6 +67,19 @@
             </button>
         </div>
 
+        <!-- Cache Toggle -->
+        <div class="tooltip" :data-tip="cacheEnabled ? 'Cache enabled (instant loads)' : 'Cache disabled (always fresh)'">
+            <button
+                @click="handleCacheToggle"
+                :class="[
+                    'btn btn-ghost btn-xs w-6 h-6 p-0 min-h-0',
+                    cacheEnabled ? 'text-info' : 'text-base-content/30'
+                ]"
+            >
+                <DatabaseIcon class="w-3 h-3" />
+            </button>
+        </div>
+
         <!-- Column Settings -->
         <div class="tooltip" data-tip="Column settings">
             <button
@@ -158,7 +171,8 @@ import {
     RotateCcw as RotateCcwIcon,
     MousePointerClick as MousePointerClickIcon,
     Columns as ColumnsIcon,
-    Zap as BoltIcon
+    Zap as BoltIcon,
+    Database as DatabaseIcon
 } from 'lucide-vue-next';
 
 // Props
@@ -190,10 +204,42 @@ const emit = defineEmits<{
   'update:showAdvancedControls': [show: boolean];
   'update:showAdvancedFilters': [show: boolean];
   'toggle-row-click': [];
+  'toggle-cache': [enabled: boolean];
   'reset-filters': [];
   'open-column-settings': [];
   'open-export-modal': [];
 }>();
+
+// Cache management
+const cacheEnabled = ref(true); // Default enabled
+
+// Load cache preference from localStorage on mount
+const loadCachePreference = () => {
+  try {
+    const saved = localStorage.getItem('table-cache-enabled');
+    if (saved !== null) {
+      cacheEnabled.value = JSON.parse(saved);
+    }
+  } catch (error) {
+    console.warn('Failed to load cache preference from localStorage:', error);
+  }
+};
+
+// Save cache preference to localStorage
+const saveCachePreference = () => {
+  try {
+    localStorage.setItem('table-cache-enabled', JSON.stringify(cacheEnabled.value));
+  } catch (error) {
+    console.warn('Failed to save cache preference to localStorage:', error);
+  }
+};
+
+// Toggle cache and emit event
+const handleCacheToggle = () => {
+  cacheEnabled.value = !cacheEnabled.value;
+  saveCachePreference();
+  emit('toggle-cache', cacheEnabled.value);
+};
 
 // Icon size management for table headers only
 const iconSize = ref(16); // Default 16px
@@ -228,6 +274,7 @@ const updateIconSize = () => {
 
 // Initialize icon size on mount
 onMounted(() => {
+  loadCachePreference();
   loadIconSize();
   updateIconSize();
 });

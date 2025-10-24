@@ -32,6 +32,7 @@ class TableBuilderApiController extends Controller
         }
 
         $model = decrypt($request->model);
+        $modelClass = $model;
         $model = new $model();
         $rawColumns = collect($request->columns);
 
@@ -163,21 +164,34 @@ class TableBuilderApiController extends Controller
         $data = $builderHelper->columnReplacements($modelPaginated, $rawColumns);
 
         $data = $this->pruneUnrequestedColumns($data, $rawColumns);
-        return [
+
+        // Convert links to array to avoid any serialization issues
+        $links = $modelPaginated->linkCollection()->toArray();
+
+        // Get the latest updated_at timestamp from the model for client-side cache invalidation
+        $latestUpdate = $model->max('updated_at');
+        $cacheTimestamp = $latestUpdate ? strtotime($latestUpdate) : time();
+
+        $responseData = [
             'data' => $data,
             'current_page' => $modelPaginated->currentPage(),
             'first_page_url' => $modelPaginated->url(1),
             'from' => $modelPaginated->firstItem(),
             'last_page' => $modelPaginated->lastPage(),
             'last_page_url' => $modelPaginated->url($modelPaginated->lastPage()),
-            'links' => $modelPaginated->links(),
+            'links' => $links,
             'next_page_url' => $modelPaginated->nextPageUrl(),
             'path' => $modelPaginated->path(),
             'per_page' => $modelPaginated->perPage(),
             'prev_page_url' => $modelPaginated->previousPageUrl(),
             'to' => $modelPaginated->lastItem(),
             'total' => $modelPaginated->total(),
+            // Client-side cache metadata
+            'cache_key' => class_basename($modelClass),
+            'cache_timestamp' => $cacheTimestamp,
         ];
+
+        return $responseData;
     }
 
     /**

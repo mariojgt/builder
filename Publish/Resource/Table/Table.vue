@@ -146,6 +146,7 @@
                         @update:show-advanced-controls="showColumnSettingsModal = true"
                         @update:show-advanced-filters="showAdvancedFilters = $event"
                         @toggle-row-click="toggleRowClickNavigation"
+                        @toggle-cache="handleCacheToggle"
                         @reset-filters="resetAllFilters"
                         @open-column-settings="showColumnSettingsModal = true"
                         @open-export-modal="showExportModal = true"
@@ -597,6 +598,7 @@ import ColumnVisibilityManager from './components/filter/ColumnVisibilityManager
 import ExportData from './components/filter/ExportData.vue';
 import TableHeaders from './components/filter/TableHeaders.vue';
 import AdvancedFilter from './components/filter/advancedFilter.vue';
+import { useTableCache } from './composables/useTableCache';
 
 // ✨ ENHANCED: Props with model scopes support
 const props = defineProps({
@@ -683,6 +685,16 @@ const rowClickNavigationEnabled = ref((() => {
     const stored = localStorage.getItem('table-row-click-navigation');
     return stored ? JSON.parse(stored) : false; // Default is false
 })());
+
+// ✨ NEW: Initialize cache composable
+const {
+    cacheEnabled,
+    generateCacheKey,
+    getCachedData,
+    setCachedData,
+    clearCacheEntry,
+    toggleCache
+} = useTableCache({ enabled: true });
 
 // ✨ NEW: Header organization state
 const showAdvancedControls = ref(false);
@@ -1309,7 +1321,7 @@ function getCustomActionIcon() {
 
 const emit = defineEmits(['tableDataLoaded']);
 
-// ✨ ENHANCED: Fetch data with model scopes and advanced filters support
+// ✨ ENHANCED: Fetch data with CLIENT-SIDE caching
 const fetchData = async (endpoint = props.endpoint) => {
     let seq = 0;
     try {
@@ -1321,7 +1333,6 @@ const fetchData = async (endpoint = props.endpoint) => {
         seq = ++fetchSeq;
         const controller = new AbortController();
         currentRequestController = controller;
-        isLoading.value = true;
 
         // ✨ ENHANCED: Build request payload with model scopes support
         const requestPayload = {
@@ -1338,28 +1349,68 @@ const fetchData = async (endpoint = props.endpoint) => {
         // ✨ NEW: Add model scopes if they exist
         if (props.modelScopes && props.modelScopes.length > 0) {
             requestPayload.modelScopes = props.modelScopes;
-            console.log('Sending model scopes:', props.modelScopes);
         }
 
         // ✨ ENHANCED: Use current advanced filters instead of props
         if (currentAdvancedFilters.value && currentAdvancedFilters.value.length > 0) {
             requestPayload.advancedFilters = currentAdvancedFilters.value;
-            console.log('Sending current advanced filters:', currentAdvancedFilters.value);
         }
 
-    const response = await axios.post(endpoint, requestPayload, { signal: controller.signal });
+        // ✨ CLIENT-SIDE CACHE: Check if we have cached data FIRST
+        const clientCacheKey = generateCacheKey(requestPayload, props.tableTitle || 'default', endpoint);
+        const cached = clientCacheKey ? getCachedData(clientCacheKey) : null;
 
-    // Ignore out-of-order responses
-    if (seq !== fetchSeq) return;
+        // Load cached data immediately for instant display (with validation)
+        if (cached && cached.responseData && cached.responseData.data) {
+            console.log('⚡ Loading from cache instantly');
+            tableData.value = cached.responseData.data;
+            paginationInfo.value = {
+                currentPage: cached.responseData.current_page,
+                lastPage: cached.responseData.last_page,
+                perPage: cached.responseData.per_page,
+                total: cached.responseData.total,
+                links: cached.responseData.links
+            };
+            isLoading.value = false;
+            emit('tableDataLoaded', tableData.value);
+        } else {
+            // Clear invalid cache using composable
+            if (cached && clientCacheKey) {
+                console.log('🗑️ Clearing invalid cache');
+                clearCacheEntry(clientCacheKey);
+            }
+            isLoading.value = true;
+        }
 
-    tableData.value = response.data.data;
-    paginationInfo.value = {
+        // Always check server for updates (but UI already shows cached data)
+        const response = await axios.post(endpoint, requestPayload, { signal: controller.signal });
+
+        // Ignore out-of-order responses
+        if (seq !== fetchSeq) return;
+
+        // Check if cache is still valid
+        if (cached && cached.timestamp === response.data.cache_timestamp) {
+            console.log('✅ Cache is still valid, no update needed');
+            isLoading.value = false;
+            return; // Data hasn't changed, keep using cache
+        }
+
+        // Data changed or no cache - update with fresh data
+        console.log(cached ? '🔄 Cache outdated, updating with fresh data' : '💾 No cache, storing fresh data');
+
+        tableData.value = response.data.data;
+        paginationInfo.value = {
             currentPage: response.data.current_page,
             lastPage: response.data.last_page,
             perPage: response.data.per_page,
             total: response.data.total,
             links: response.data.links
         };
+
+        // ✨ CLIENT-SIDE CACHE: Store the complete response if cacheable
+        if (clientCacheKey && response.data.cache_timestamp) {
+            setCachedData(clientCacheKey, response.data, response.data.cache_timestamp);
+        }
 
         // Emit the table data to parent
         emit('tableDataLoaded', tableData.value);
@@ -1388,8 +1439,6 @@ const fetchData = async (endpoint = props.endpoint) => {
         }
     } finally {
         // Clear loading only if this was the latest request
-        // We capture seq in closure; compare to global fetchSeq
-        // If newer request started, let it manage loading state
         if (seq === fetchSeq) {
             isLoading.value = false;
         }
@@ -1524,6 +1573,14 @@ const updateColumnOrder = (newOrder: string[]) => {
 const toggleRowClickNavigation = () => {
     rowClickNavigationEnabled.value = !rowClickNavigationEnabled.value;
     localStorage.setItem('table-row-click-navigation', JSON.stringify(rowClickNavigationEnabled.value));
+};
+
+// ✨ NEW: Cache toggle handler - Uses composable
+const handleCacheToggle = (enabled: boolean) => {
+    toggleCache(enabled, () => {
+        // Refresh data after cache is toggled
+        fetchData();
+    });
 };
 
 // ✨ NEW: Handle export data callback
