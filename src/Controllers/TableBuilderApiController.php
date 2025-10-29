@@ -1280,7 +1280,17 @@ class TableBuilderApiController extends Controller
                     }
                     break;
                 case 'select':
-                    $query->$method($key, $filterValue);
+                    // When the mode is 'exact', we must use a strict comparison
+                    if ($searchMode === 'exact') {
+                        if (is_numeric($filterValue)) {
+                            $query->$method($key, '=', (int)$filterValue);
+                        } else {
+                            $query->$method($key, '=', $filterValue);
+                        }
+                    } else {
+                        // For other modes like 'contains', use the text filter logic
+                        $this->applyTextFilterWithMode($query, $key, $filterValue, $searchMode, $useOr);
+                    }
                     break;
                 default:
                     // Apply search mode for text filters
@@ -1294,10 +1304,18 @@ class TableBuilderApiController extends Controller
 
     /**
      * Apply text filter with different search modes (contains, exact, starts)
+     * Auto-detects numeric values and uses exact matching for better precision
      */
     private function applyTextFilterWithMode($query, $key, $value, $searchMode, $useOr = false)
     {
         $method = $useOr ? 'orWhere' : 'where';
+
+        // If value is numeric, always use exact matching to avoid LIKE matching issues
+        // (e.g., searching for "5" shouldn't match "15", "25", "50", etc.)
+        if (is_numeric($value)) {
+            $query->$method($key, '=', $value);
+            return;
+        }
 
         switch ($searchMode) {
             case 'exact':
@@ -1345,7 +1363,18 @@ class TableBuilderApiController extends Controller
                         $this->applyDateFilter($q, $attribute, $filterValue);
                         break;
                     case 'select':
-                        $q->where($attribute, $filterValue);
+                        // Check if search mode is set to 'contains' - allow partial matching
+                        if ($searchMode === 'contains') {
+                            $this->applyTextFilterWithMode($q, $attribute, $filterValue, $searchMode, false);
+                        } else {
+                            // Default to exact match for select fields
+                            // Ensure numeric values are cast correctly for comparison
+                            if (is_numeric($filterValue)) {
+                                $q->where($attribute, '=', (int)$filterValue);
+                            } else {
+                                $q->where($attribute, '=', $filterValue);
+                            }
+                        }
                         break;
                     default:
                         // Apply search mode for text filters in relationships
