@@ -142,6 +142,7 @@
                         :has-active-filters="hasActiveFilters"
                         :has-stored-filters="hasStoredFilters"
                         :has-advanced-filters-active="hasActiveAdvancedFilters"
+                        :filter-persistence-enabled="filterPersistenceEnabled"
                         @update:view-mode="viewMode = $event"
                         @update:show-advanced-controls="showColumnSettingsModal = true"
                         @update:show-advanced-filters="showAdvancedFilters = $event"
@@ -150,6 +151,7 @@
                         @reset-filters="resetAllFilters"
                         @open-column-settings="showColumnSettingsModal = true"
                         @open-export-modal="showExportModal = true"
+                        @toggle-persistence="toggleFilterPersistence"
                     />
                 </div>
             </div>
@@ -599,6 +601,7 @@ import ExportData from './components/filter/ExportData.vue';
 import TableHeaders from './components/filter/TableHeaders.vue';
 import AdvancedFilter from './components/filter/advancedFilter.vue';
 import { useTableCache } from './composables/useTableCache';
+import { useTableStorage } from './composables/useTableStorage';
 
 // ✨ ENHANCED: Props with model scopes support
 const props = defineProps({
@@ -647,22 +650,15 @@ const paginationInfo = ref({
     links: []
 });
 
-// ✨ NEW: Storage key for persistent filters
-const filterStorageKey = computed(() => `table-filters-${props.tableTitle.toLowerCase().replace(/\s+/g, '-')}`);
+// ✨ NEW: Initialize storage composable
+const tableStorage = useTableStorage({
+    tableTitle: props.tableTitle,
+    defaultIdKey: props.defaultIdKey,
+    defaultFilters: props.defaultFilters
+});
 
-// ✨ NEW: Check if filters exist in storage BEFORE initializing reactive refs
-const getStoredFilters = () => {
-    try {
-        const savedFilters = localStorage.getItem(filterStorageKey.value);
-        return savedFilters ? JSON.parse(savedFilters) : null;
-    } catch (error) {
-        console.warn('Failed to read stored filters:', error);
-        return null;
-    }
-};
-
-// ✨ ENHANCED: Initialize state with stored values first, then defaults
-const storedFilters = getStoredFilters();
+// ✨ NEW: Get stored filters using composable
+const storedFilters = tableStorage.getStoredFilters();
 console.log('Checking for stored filters on init:', storedFilters);
 
 const perPage = ref(storedFilters?.perPage ?? 10);
@@ -680,11 +676,12 @@ const compactMode = ref(storedFilters?.compactMode ?? true);
 const superCompactMode = ref(storedFilters?.superCompactMode ?? false);
 const columnOrder = ref<string[]>(storedFilters?.columnOrder ?? []);
 
-// ✨ NEW: Row click navigation state
-const rowClickNavigationEnabled = ref((() => {
-    const stored = localStorage.getItem('table-row-click-navigation');
-    return stored ? JSON.parse(stored) : false; // Default is false
-})());
+// ✨ NEW: Row click navigation state (using composable)
+const rowClickNavigationEnabled = ref(tableStorage.getRowClickNavigationEnabled());
+
+// ✨ NEW: Filter persistence toggle state (using composable)
+const filterPersistenceEnabled = ref(tableStorage.getPersistenceEnabled());
+
 
 // ✨ NEW: Initialize cache composable
 const {
@@ -698,7 +695,7 @@ const {
 
 // ✨ NEW: Header organization state
 const showAdvancedControls = ref(false);
-const showAdvancedFilters = ref(false);
+const showAdvancedFilters = ref(tableStorage.getShowAdvancedFilters());
 const showFilters = ref(false);
 const mobileMenuOpen = ref(false);
 const showColumnSettingsModal = ref(false);
@@ -710,92 +707,91 @@ const activeFilters = ref({
     ...(storedFilters?.activeFilters ?? {})
 });
 
-// ✨ NEW: Filter persistence methods
+// ✨ NEW: Filter persistence methods (using composable)
 const saveFiltersToStorage = () => {
-    const filtersToSave = {
-        perPage: perPage.value,
-        filterBy: filterBy.value,
-        orderBy: orderBy.value,
-        search: search.value,
-        viewMode: viewMode.value,
-        activeFilters: activeFilters.value,
-        currentAdvancedFilters: currentAdvancedFilters.value,
-        hiddenColumns: Array.from(hiddenColumns.value),
-        compactMode: compactMode.value,
-        superCompactMode: superCompactMode.value,
-        columnOrder: columnOrder.value
-    };
-
-    try {
-        localStorage.setItem(filterStorageKey.value, JSON.stringify(filtersToSave));
-        console.log('Filters saved to storage:', filtersToSave);
-    } catch (error) {
-        console.warn('Failed to save filters to localStorage:', error);
+    // Only save if persistence is enabled
+    if (!filterPersistenceEnabled.value) {
+        console.log('Filter persistence is disabled, skipping save');
+        return;
     }
+
+    tableStorage.saveFilters(
+        perPage.value,
+        filterBy.value,
+        orderBy.value,
+        search.value,
+        viewMode.value as 'table' | 'list',
+        activeFilters.value,
+        currentAdvancedFilters.value,
+        hiddenColumns.value,
+        enabledHiddenFields.value,
+        compactMode.value,
+        superCompactMode.value,
+        columnOrder.value
+    );
 };
 
 const loadFiltersFromStorage = () => {
-    try {
-        const savedFilters = localStorage.getItem(filterStorageKey.value);
-        if (savedFilters) {
-            const parsedFilters = JSON.parse(savedFilters);
-            console.log('Re-loading filters from storage during runtime:', parsedFilters);
+    const savedFilters = tableStorage.getStoredFilters();
+    if (savedFilters) {
+        console.log('Re-loading filters from storage during runtime:', savedFilters);
 
-            // Apply saved values (this is now mainly for runtime updates)
-            perPage.value = parsedFilters.perPage !== undefined ? parsedFilters.perPage : perPage.value;
-            filterBy.value = parsedFilters.filterBy !== undefined ? parsedFilters.filterBy : filterBy.value;
-            orderBy.value = parsedFilters.orderBy !== undefined ? parsedFilters.orderBy : orderBy.value;
-            search.value = parsedFilters.search !== undefined ? parsedFilters.search : search.value;
-            viewMode.value = parsedFilters.viewMode !== undefined ? parsedFilters.viewMode : viewMode.value;
+        // Apply saved values (this is now mainly for runtime updates)
+        perPage.value = savedFilters.perPage !== undefined ? savedFilters.perPage : perPage.value;
+        filterBy.value = savedFilters.filterBy !== undefined ? savedFilters.filterBy : filterBy.value;
+        orderBy.value = savedFilters.orderBy !== undefined ? savedFilters.orderBy : orderBy.value;
+        search.value = savedFilters.search !== undefined ? savedFilters.search : search.value;
+        viewMode.value = savedFilters.viewMode !== undefined ? savedFilters.viewMode : viewMode.value;
 
-            // Merge saved active filters with default filters
-            activeFilters.value = {
-                ...props.defaultFilters,
-                ...(parsedFilters.activeFilters || {})
-            };
+        // Merge saved active filters with default filters
+        activeFilters.value = {
+            ...props.defaultFilters,
+            ...(savedFilters.activeFilters || {})
+        };
 
-            // Restore advanced filters
-            if (parsedFilters.currentAdvancedFilters) {
-                currentAdvancedFilters.value = parsedFilters.currentAdvancedFilters;
-            }
-
-            // Restore column settings
-            if (parsedFilters.hiddenColumns) {
-                hiddenColumns.value = new Set(parsedFilters.hiddenColumns);
-            }
-            if (parsedFilters.compactMode !== undefined) {
-                compactMode.value = parsedFilters.compactMode;
-            }
-            if (parsedFilters.superCompactMode !== undefined) {
-                superCompactMode.value = parsedFilters.superCompactMode;
-            }
-            if (parsedFilters.columnOrder) {
-                columnOrder.value = parsedFilters.columnOrder;
-            }
-
-            console.log('Filters re-loaded successfully:', {
-                perPage: perPage.value,
-                filterBy: filterBy.value,
-                orderBy: orderBy.value,
-                search: search.value,
-                viewMode: viewMode.value
-            });
-
-            return true;
+        // Restore advanced filters
+        if (savedFilters.currentAdvancedFilters) {
+            currentAdvancedFilters.value = savedFilters.currentAdvancedFilters;
         }
-    } catch (error) {
-        console.warn('Failed to load filters from localStorage:', error);
+
+        // Restore column settings
+        if (savedFilters.hiddenColumns) {
+            hiddenColumns.value = new Set(savedFilters.hiddenColumns);
+        }
+        if (savedFilters.enabledHiddenFields) {
+            enabledHiddenFields.value = new Set(savedFilters.enabledHiddenFields);
+        }
+        if (savedFilters.compactMode !== undefined) {
+            compactMode.value = savedFilters.compactMode;
+        }
+        if (savedFilters.superCompactMode !== undefined) {
+            superCompactMode.value = savedFilters.superCompactMode;
+        }
+        if (savedFilters.columnOrder) {
+            columnOrder.value = savedFilters.columnOrder;
+        }
+
+        console.log('Filters re-loaded successfully:', {
+            perPage: perPage.value,
+            filterBy: filterBy.value,
+            orderBy: orderBy.value,
+            search: search.value,
+            viewMode: viewMode.value
+        });
+
+        return true;
     }
     return false;
 };
 
 const clearStoredFilters = () => {
-    try {
-        localStorage.removeItem(filterStorageKey.value);
-        console.log('Stored filters cleared');
-    } catch (error) {
-        console.warn('Failed to clear stored filters:', error);
-    }
+    tableStorage.clearFilters();
+};
+
+// ✨ NEW: Toggle filter persistence (using composable)
+const toggleFilterPersistence = (enabled: boolean) => {
+    filterPersistenceEnabled.value = enabled;
+    tableStorage.setPersistenceEnabled(enabled);
 };
 
 // Helper function for number formatting
@@ -866,14 +862,7 @@ const hasNonDefaultFilters = computed(() => {
 });
 
 // ✨ NEW: Check if there are stored filters
-const hasStoredFilters = computed(() => {
-    try {
-        const savedFilters = localStorage.getItem(filterStorageKey.value);
-        return savedFilters !== null && savedFilters !== undefined;
-    } catch {
-        return false;
-    }
-});
+const hasStoredFilters = computed(() => tableStorage.hasStoredFilters());
 
 // Enhanced column management with ordering
 const displayColumns = computed(() => {
@@ -1614,6 +1603,12 @@ watch(() => props.advancedFilters, (newFilters) => {
 watch(viewMode, (newViewMode) => {
     saveFiltersToStorage();
     console.log('View mode changed and saved:', newViewMode);
+});
+
+// ✨ NEW: Watch for advanced filters visibility changes and save to storage
+watch(showAdvancedFilters, (newValue) => {
+    tableStorage.setShowAdvancedFilters(newValue);
+    console.log('Advanced filters visibility changed and saved:', newValue);
 });
 
 // ✨ NEW: Close mobile menu when clicking outside or changing view

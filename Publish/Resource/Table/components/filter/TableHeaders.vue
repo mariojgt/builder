@@ -80,6 +80,19 @@
             </button>
         </div>
 
+        <!-- Filter Persistence Toggle -->
+        <div class="tooltip" :data-tip="filterPersistenceEnabled ? 'Remember filters (enabled)' : 'Remember filters (disabled)'">
+            <button
+                @click="handlePersistenceToggle"
+                :class="[
+                    'btn btn-ghost btn-xs w-6 h-6 p-0 min-h-0',
+                    filterPersistenceEnabled ? 'text-info' : 'text-base-content/30'
+                ]"
+            >
+                <SaveIcon class="w-3 h-3" />
+            </button>
+        </div>
+
         <!-- Column Settings -->
         <div class="tooltip" data-tip="Column settings">
             <button
@@ -172,7 +185,8 @@ import {
     MousePointerClick as MousePointerClickIcon,
     Columns as ColumnsIcon,
     Zap as BoltIcon,
-    Database as DatabaseIcon
+    Database as DatabaseIcon,
+    Save as SaveIcon
 } from 'lucide-vue-next';
 
 // Props
@@ -185,6 +199,7 @@ interface Props {
   rowClickNavigationEnabled?: boolean;
   hasActiveFilters?: boolean;
   hasStoredFilters?: boolean;
+  filterPersistenceEnabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -195,7 +210,8 @@ const props = withDefaults(defineProps<Props>(), {
   canReset: false,
   rowClickNavigationEnabled: true,
   hasActiveFilters: false,
-  hasStoredFilters: false
+  hasStoredFilters: false,
+  filterPersistenceEnabled: false
 });
 
 // Emits
@@ -208,6 +224,7 @@ const emit = defineEmits<{
   'reset-filters': [];
   'open-column-settings': [];
   'open-export-modal': [];
+  'toggle-persistence': [enabled: boolean];
 }>();
 
 // Cache management
@@ -294,6 +311,10 @@ const handleAdvancedFiltersToggle = () => {
 
 const handleRowClickToggle = () => {
   emit('toggle-row-click');
+};
+
+const handlePersistenceToggle = () => {
+  emit('toggle-persistence', !props.filterPersistenceEnabled);
 };
 
 const handleResetFilters = () => {
