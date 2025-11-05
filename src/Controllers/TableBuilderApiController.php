@@ -1303,12 +1303,25 @@ class TableBuilderApiController extends Controller
     }
 
     /**
-     * Apply text filter with different search modes (contains, exact, starts)
+     * Apply text filter with different search modes (contains, not_contains, exact, starts, is_null, is_not_null)
      * Auto-detects numeric values and uses exact matching for better precision
      */
     private function applyTextFilterWithMode($query, $key, $value, $searchMode, $useOr = false)
     {
         $method = $useOr ? 'orWhere' : 'where';
+
+        // Handle NULL/NOT NULL checks first (they don't need a value)
+        if ($searchMode === 'is_null') {
+            $nullMethod = $useOr ? 'orWhereNull' : 'whereNull';
+            $query->$nullMethod($key);
+            return;
+        }
+
+        if ($searchMode === 'is_not_null') {
+            $notNullMethod = $useOr ? 'orWhereNotNull' : 'whereNotNull';
+            $query->$notNullMethod($key);
+            return;
+        }
 
         // If value is numeric, always use exact matching to avoid LIKE matching issues
         // (e.g., searching for "5" shouldn't match "15", "25", "50", etc.)
@@ -1323,6 +1336,11 @@ class TableBuilderApiController extends Controller
                 break;
             case 'starts':
                 $query->$method($key, 'LIKE', $value . '%');
+                break;
+            case 'not_contains':
+                // Use WHERE NOT LIKE to exclude results containing the search string
+                $notLikeMethod = $useOr ? 'orWhere' : 'where';
+                $query->$notLikeMethod($key, 'NOT LIKE', '%' . $value . '%');
                 break;
             case 'contains':
             default:
