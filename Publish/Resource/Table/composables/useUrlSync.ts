@@ -47,12 +47,12 @@ export function useUrlSync() {
             }
         }
 
-        // Update URL without reloading the page
+        // Update URL without reloading the page or creating new history entry
         const newUrl = params.toString()
             ? `${window.location.pathname}?${params.toString()}`
             : window.location.pathname;
 
-        window.history.pushState({}, '', newUrl);
+        window.history.replaceState({}, '', newUrl);
         console.log('✅ URL updated with filters:', newUrl);
     };
 
@@ -82,7 +82,7 @@ export function useUrlSync() {
         console.log('🔍 Current window.location.href:', window.location.href);
 
         const params = new URLSearchParams(window.location.search);
-        
+
         console.log('🔍 All URL params keys:', Array.from(params.keys()));
         console.log('🔍 All URL params entries:', Array.from(params.entries()));
 
@@ -94,7 +94,7 @@ export function useUrlSync() {
             // URLSearchParams.get() automatically URL-decodes the value
             const filtersParam = params.get('filters');
             console.log('🔍 Raw filters param from URL (type:', typeof filtersParam, '):', filtersParam);
-            
+
             if (filtersParam) {
                 activeFilters = JSON.parse(filtersParam);
                 console.log('📥 Decoded activeFilters from URL:', activeFilters);
@@ -128,11 +128,11 @@ export function useUrlSync() {
     };
 
     /**
-     * Clear URL parameters
+     * Clear URL parameters without creating new history entry
      */
     const clearUrlParams = (): void => {
         if (typeof window === 'undefined') return;
-        window.history.pushState({}, '', window.location.pathname);
+        window.history.replaceState({}, '', window.location.pathname);
     };
 
     /**
