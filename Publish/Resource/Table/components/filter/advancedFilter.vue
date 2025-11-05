@@ -58,8 +58,13 @@
                   v-model="filters[column.key]"
                   :type="column.type === 'number' ? 'number' : 'text'"
                   :placeholder="column.type === 'number' ? '0' : 'Search...'"
+                  :disabled="['is_null', 'is_not_null'].includes(searchModesState[column.key])"
                   @input="handleFilterChange(column.key, filters[column.key], true)"
-                  :class="['input input-bordered input-xs flex-1 pl-2 text-xs placeholder:text-[11px]', column.type === 'text' ? 'pr-2' : 'pr-7']"
+                  :class="[
+                    'input input-bordered input-xs flex-1 pl-2 text-xs placeholder:text-[11px]',
+                    column.type === 'text' ? 'pr-2' : 'pr-7',
+                    ['is_null', 'is_not_null'].includes(searchModesState[column.key]) ? 'opacity-50 cursor-not-allowed' : ''
+                  ]"
                 />
                 <button
                   v-if="filters[column.key]"
@@ -243,7 +248,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import axios from 'axios';
 import { Filter, RotateCcw } from 'lucide-vue-next';
 
@@ -251,6 +256,10 @@ const props = defineProps({
   columns: {
     type: Array,
     required: true
+  },
+  initialFilters: {
+    type: Object,
+    default: () => ({})
   }
 });
 
@@ -259,8 +268,11 @@ const emit = defineEmits(['onFilterChange']);
 // Search modes and date presets constants
 const searchModes = ref([
   { label: 'Contains', value: 'contains' },
+  { label: 'Not Contains', value: 'not_contains' },
   { label: 'Exact', value: 'exact' },
-  { label: 'Starts', value: 'starts' }
+  { label: 'Starts', value: 'starts' },
+  { label: 'Is Empty', value: 'is_null' },
+  { label: 'Not Empty', value: 'is_not_null' }
 ]);
 
 const datePresets = ref([
@@ -300,6 +312,50 @@ const isLoadingOptions = ref({});
 const searchTimeouts = ref({});
 const filterChangeTimeouts = ref({});
 
+// ✨ NEW: Function to populate filters from URL/storage
+const populateFiltersFromInitial = () => {
+  if (!props.initialFilters || Object.keys(props.initialFilters).length === 0) {
+    return;
+  }
+
+  console.log('🔄 Populating filters from initialFilters:', props.initialFilters);
+
+  Object.entries(props.initialFilters).forEach(([key, filterData]) => {
+    const column = props.columns.find(col => col.key === key);
+    if (!column) return;
+
+    // Handle different filter data formats
+    if (typeof filterData === 'object' && filterData !== null) {
+      // Check if it has value and searchMode (from activeFilters)
+      if ('value' in filterData && 'searchMode' in filterData) {
+        filters.value[key] = filterData.value;
+        searchModesState.value[key] = filterData.searchMode;
+        console.log(`  ✅ Set filter ${key} = "${filterData.value}" with mode "${filterData.searchMode}"`);
+      }
+      // Check if it's a date range filter
+      else if ('from' in filterData || 'to' in filterData) {
+        filters.value[key] = filterData;
+        console.log(`  ✅ Set date filter ${key}:`, filterData);
+      }
+    } else {
+      // Simple value
+      filters.value[key] = filterData;
+      console.log(`  ✅ Set filter ${key} = "${filterData}"`);
+    }
+  });
+
+  console.log('✅ Filters populated. Current state:', {
+    filters: filters.value,
+    searchModes: searchModesState.value
+  });
+};
+
+// ✨ NEW: Watch for changes in initialFilters (when URL changes or component receives new props)
+watch(() => props.initialFilters, (newFilters) => {
+  console.log('👀 initialFilters changed:', newFilters);
+  populateFiltersFromInitial();
+}, { deep: true, immediate: true });
+
 // Computed
 const filterableColumns = computed(() => {
   return props.columns.filter(column => column.filterable !== false);
@@ -313,6 +369,9 @@ const activeFilters = computed(() => {
     const column = props.columns.find(col => col.key === key);
     if (!column) return;
 
+    // Get the search mode for this column
+    const searchMode = column.type === 'select' ? 'exact' : (searchModesState.value[key] || 'contains');
+
     // For date/timestamp: check if from or to is set
     if (['date', 'timestamp'].includes(column.type)) {
       if (value.from || value.to) {
@@ -325,11 +384,18 @@ const activeFilters = computed(() => {
         result[key] = value;
       }
     }
+    // For NULL/NOT NULL filters: include even if value is empty
+    else if (searchMode === 'is_null' || searchMode === 'is_not_null') {
+      result[key] = {
+        value: '', // Value is not needed for NULL checks
+        searchMode: searchMode
+      };
+    }
     // For other types: include if not empty string
     else if (value !== '') {
       result[key] = {
         value: value,
-        searchMode: column.type === 'select' ? 'exact' : (searchModesState.value[key] || 'contains')
+        searchMode: searchMode
       };
     }
   });
@@ -372,6 +438,14 @@ const formatFilterValue = (key, value) => {
   if (typeof value === 'object' && value.value !== undefined) {
     displayValue = value.value;
     searchMode = value.searchMode;
+  }
+
+  // Handle NULL/NOT NULL filters specially
+  if (searchMode === 'is_null') {
+    return 'Is Empty';
+  }
+  if (searchMode === 'is_not_null') {
+    return 'Not Empty';
   }
 
   switch (column.type) {

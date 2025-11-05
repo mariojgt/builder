@@ -162,6 +162,7 @@
                     <AdvancedFilter
                         :columns="props.columns"
                         :advanced-filters="props.advancedFilters"
+                        :initial-filters="activeFilters"
                         @onFilterChange="handleAdvancedFilterChange"
                         @on-icon-size-change="handleIconSizeChange"
                     />
@@ -602,6 +603,7 @@ import TableHeaders from './components/filter/TableHeaders.vue';
 import AdvancedFilter from './components/filter/advancedFilter.vue';
 import { useTableCache } from './composables/useTableCache';
 import { useTableStorage } from './composables/useTableStorage';
+import { useUrlSync } from './composables/useUrlSync';
 
 // ✨ ENHANCED: Props with model scopes support
 const props = defineProps({
@@ -650,6 +652,24 @@ const paginationInfo = ref({
     links: []
 });
 
+// ✨ NEW: Initialize cache composable
+const {
+    cacheEnabled,
+    generateCacheKey,
+    getCachedData,
+    setCachedData,
+    clearCacheEntry,
+    toggleCache
+} = useTableCache({ enabled: true });
+
+// ✨ NEW: Initialize URL sync composable
+const {
+    encodeFiltersToUrl,
+    decodeFiltersFromUrl,
+    clearUrlParams,
+    hasUrlParams
+} = useUrlSync();
+
 // ✨ NEW: Initialize storage composable
 const tableStorage = useTableStorage({
     tableTitle: props.tableTitle,
@@ -661,13 +681,17 @@ const tableStorage = useTableStorage({
 const storedFilters = tableStorage.getStoredFilters();
 console.log('Checking for stored filters on init:', storedFilters);
 
-const perPage = ref(storedFilters?.perPage ?? 10);
-const filterBy = ref(storedFilters?.filterBy ?? props.defaultIdKey);
-const orderBy = ref(storedFilters?.orderBy ?? 'desc');
-const search = ref(storedFilters?.search ?? null);
+// ✨ NEW: Check URL params FIRST before initializing anything
+const urlFiltersOnInit = hasUrlParams() ? decodeFiltersFromUrl() : null;
+console.log('URL filters on initialization:', urlFiltersOnInit);
+
+const perPage = ref(urlFiltersOnInit?.perPage ?? storedFilters?.perPage ?? 10);
+const filterBy = ref(urlFiltersOnInit?.filterBy ?? storedFilters?.filterBy ?? props.defaultIdKey);
+const orderBy = ref(urlFiltersOnInit?.orderBy ?? storedFilters?.orderBy ?? 'desc');
+const search = ref(urlFiltersOnInit?.search ?? storedFilters?.search ?? null);
 const viewMode = ref(storedFilters?.viewMode ?? 'table');
 
-const currentAdvancedFilters = ref(storedFilters?.currentAdvancedFilters ?? []);
+const currentAdvancedFilters = ref(urlFiltersOnInit?.currentAdvancedFilters ?? storedFilters?.currentAdvancedFilters ?? []);
 
 // ✨ Enhanced state for density and column management - Initialize with stored values
 const hiddenColumns = ref(new Set<string>(storedFilters?.hiddenColumns ?? []));
@@ -682,17 +706,6 @@ const rowClickNavigationEnabled = ref(tableStorage.getRowClickNavigationEnabled(
 // ✨ NEW: Filter persistence toggle state (using composable)
 const filterPersistenceEnabled = ref(tableStorage.getPersistenceEnabled());
 
-
-// ✨ NEW: Initialize cache composable
-const {
-    cacheEnabled,
-    generateCacheKey,
-    getCachedData,
-    setCachedData,
-    clearCacheEntry,
-    toggleCache
-} = useTableCache({ enabled: true });
-
 // ✨ NEW: Header organization state
 const showAdvancedControls = ref(false);
 const showAdvancedFilters = ref(tableStorage.getShowAdvancedFilters());
@@ -701,17 +714,38 @@ const mobileMenuOpen = ref(false);
 const showColumnSettingsModal = ref(false);
 const showExportModal = ref(false);
 
-// ✨ Filter state management - Initialize with stored or default filters
+// ✨ Filter state management - Initialize with URL params first, then stored filters, then defaults
 const activeFilters = ref({
     ...props.defaultFilters,
-    ...(storedFilters?.activeFilters ?? {})
+    ...(storedFilters?.activeFilters ?? {}),
+    ...(urlFiltersOnInit?.activeFilters ?? {})
 });
 
 // ✨ NEW: Filter persistence methods (using composable)
 const saveFiltersToStorage = () => {
-    // Only save if persistence is enabled
+    console.log('💾 saveFiltersToStorage called with:', {
+        perPage: perPage.value,
+        filterBy: filterBy.value,
+        orderBy: orderBy.value,
+        search: search.value,
+        activeFilters: activeFilters.value,
+        currentAdvancedFilters: currentAdvancedFilters.value,
+        filterPersistenceEnabled: filterPersistenceEnabled.value
+    });
+
+    // ✨ ALWAYS sync filters to URL (regardless of persistence setting)
+    encodeFiltersToUrl(
+        perPage.value,
+        filterBy.value,
+        orderBy.value,
+        search.value,
+        activeFilters.value,
+        currentAdvancedFilters.value
+    );
+
+    // Only save to localStorage if persistence is enabled
     if (!filterPersistenceEnabled.value) {
-        console.log('Filter persistence is disabled, skipping save');
+        console.log('Filter persistence is disabled, skipping localStorage save (but URL is still updated)');
         return;
     }
 
@@ -1454,6 +1488,9 @@ const resetFilters = () => {
         currentAdvancedFilters.value = [];
     }
 
+    // ✨ NEW: Clear URL parameters
+    clearUrlParams();
+
     // ✨ NEW: Save the reset state
     saveFiltersToStorage();
     scheduleFetch();
@@ -1463,11 +1500,13 @@ const resetFilters = () => {
 const resetAllFilters = () => {
     resetFilters();
     clearStoredFilters();
+    clearUrlParams();
 };
 
 // ✨ NEW: Clear all stored filters (for empty state button)
 const clearAllStoredFilters = () => {
     clearStoredFilters();
+    clearUrlParams();
     resetFilters();
 };
 
@@ -1634,20 +1673,50 @@ if (typeof window !== 'undefined') {
 onMounted(() => {
     console.log('Component mounting...');
 
-    // Log what we started with (already loaded from storage or defaults)
-    console.log('Initial state (from storage or defaults):', {
-        perPage: perPage.value,
-        filterBy: filterBy.value,
-        orderBy: orderBy.value,
-        search: search.value,
-        viewMode: viewMode.value,
-        activeFilters: activeFilters.value,
-        hasStoredFilters: hasStoredFilters.value
-    });
+    // ✨ NEW: Check for URL parameters first (highest priority)
+    if (hasUrlParams()) {
+        console.log('URL parameters detected, loading filters from URL...');
+        const urlFilters = decodeFiltersFromUrl();
+
+        if (urlFilters.perPage) perPage.value = urlFilters.perPage;
+        if (urlFilters.filterBy) filterBy.value = urlFilters.filterBy;
+        if (urlFilters.orderBy) orderBy.value = urlFilters.orderBy;
+        if (urlFilters.search) search.value = urlFilters.search;
+
+        if (urlFilters.activeFilters) {
+            activeFilters.value = {
+                ...props.defaultFilters,
+                ...urlFilters.activeFilters
+            };
+        }
+
+        if (urlFilters.currentAdvancedFilters) {
+            currentAdvancedFilters.value = urlFilters.currentAdvancedFilters;
+        }
+
+        console.log('Filters loaded from URL:', {
+            perPage: perPage.value,
+            filterBy: filterBy.value,
+            orderBy: orderBy.value,
+            search: search.value,
+            activeFilters: activeFilters.value
+        });
+    } else {
+        // Log what we started with (already loaded from storage or defaults)
+        console.log('Initial state (from storage or defaults):', {
+            perPage: perPage.value,
+            filterBy: filterBy.value,
+            orderBy: orderBy.value,
+            search: search.value,
+            viewMode: viewMode.value,
+            activeFilters: activeFilters.value,
+            hasStoredFilters: hasStoredFilters.value
+        });
+    }
 
     // ✨ NEW: Handle advanced filters initialization
-    if (!storedFilters && props.advancedFilters && props.advancedFilters.length > 0) {
-        // Only set default advanced filters if no stored filters exist
+    if (!storedFilters && !hasUrlParams() && props.advancedFilters && props.advancedFilters.length > 0) {
+        // Only set default advanced filters if no stored filters or URL params exist
         currentAdvancedFilters.value = props.advancedFilters.map(filter => ({
             ...filter,
             enabled: filter.enabled !== false

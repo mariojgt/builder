@@ -16,7 +16,7 @@
         <!-- Model Search Data -->
         <div v-if="type === 'model_search'" class="ultra-compact-model-search">
           <div v-if="!showFullText" class="ultra-compact-inline">
-            <span class="text-nano text-primary font-medium" :title="getModelSearchSummary()">
+            <span class="text-nano  font-medium" :title="getModelSearchSummary()">
               {{ Object.keys(getModelSearchData()).length }} items
             </span>
             <button
@@ -31,8 +31,8 @@
           <div v-else class="ultra-compact-expanded">
             <div class="ultra-compact-content">
               <div v-for="(val, k) in getModelSearchData()" :key="k" class="mb-1 last:mb-0">
-                <span class="text-xs font-medium text-base-content/70">{{ formatModelSearchKey(k) }}:</span>
-                <span class="text-xs text-base-content ml-1">{{ val }}</span>
+                <span class="text-xs font-medium ">{{ formatModelSearchKey(k) }}:</span>
+                <span class="text-xs  ml-1">{{ val }}</span>
               </div>
             </div>
             <button
@@ -73,7 +73,7 @@
 
         <!-- Date Display -->
         <div v-else-if="type === 'date' || type === 'timestamp'" class="ultra-compact-date">
-          <span class="text-nano tabular-nums text-base-content" :title="formatDate(false)">
+          <span class="text-nano tabular-nums " :title="formatDate(false)">
             {{ formatDateHumanDiff() }}
           </span>
         </div>
@@ -125,14 +125,14 @@
 
         <!-- Rating Display -->
         <div v-else-if="type === 'rating'" class="ultra-compact-rating">
-          <span class="text-nano tabular-nums font-medium" :title="`${value}/5 stars`">
+          <span class="text-nano tabular-nums font-medium " :title="`${value}/5 stars`">
             ★{{ value }}
           </span>
         </div>
 
         <!-- Price Display -->
         <div v-else-if="type === 'price'" class="ultra-compact-price">
-          <span class="text-nano tabular-nums font-medium text-green-600" :title="formatPrice()">
+          <span class="text-nano tabular-nums font-medium text-success" :title="formatPrice()">
             {{ formatPriceCompact() }}
           </span>
         </div>
@@ -153,7 +153,7 @@
         <!-- Chips/Tags Display -->
         <div v-else-if="type === 'chips' || type === 'tags'" class="ultra-compact-chips">
           <div v-if="!showFullText" class="ultra-compact-inline">
-            <span class="text-nano text-primary font-medium" :title="getChipArray().join(', ')">
+            <span class="text-nano  font-medium" :title="getChipArray().join(', ')">
               {{ getChipArray().length }} tags
             </span>
             <button
@@ -190,7 +190,7 @@
         <!-- Long Text Display -->
         <div v-else-if="isUltraCompactLongText" class="ultra-compact-text">
           <div v-if="!showFullText" class="ultra-compact-inline">
-            <span class="text-nano break-words" :title="formatValue()">
+            <span class="text-nano -content break-words" :title="formatValue()">
               {{ formatValue() }}
             </span>
             <button
@@ -204,7 +204,7 @@
           </div>
           <div v-else class="ultra-compact-expanded">
             <div class="ultra-compact-content">
-              <div class="text-xs leading-relaxed break-words whitespace-pre-wrap">
+              <div class="text-xs -content leading-relaxed break-words whitespace-pre-wrap">
                 {{ formatValue() }}
               </div>
             </div>
@@ -220,10 +220,10 @@
 
         <!-- Default Text Display -->
         <div v-else class="ultra-compact-default">
-          <span v-if="hasValue" class="text-nano" :title="formatValue()">
+          <span v-if="hasValue" class="text-nano " :title="formatValue()">
             {{ formatValue() }}
           </span>
-          <span v-else class="text-nano opacity-30">-</span>
+          <span v-else class="text-nano /40">-</span>
         </div>
       </template>
 
@@ -327,11 +327,11 @@
         <div v-else-if="type === 'date' || type === 'timestamp'" class="flex items-center" :class="compact ? 'text-xs' : 'text-sm'">
           <Calendar
             :class="compact ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'"
-            class="text-base-content/50"
+            class="/50"
           />
           <div>
-            <span>{{ formatDate(true) }}</span>
-            <span class="block text-base-content/60" :class="compact ? 'text-xs' : 'text-sm'">
+            <span class="">{{ formatDate(true) }}</span>
+            <span class="block /60" :class="compact ? 'text-xs' : 'text-sm'">
                 ({{ formatDateHumanDiff() }})
             </span>
           </div>
@@ -377,7 +377,7 @@
             </div>
           </div>
           <div v-else class="flex items-center justify-center bg-base-200 rounded-lg" :class="compact ? 'w-8 h-8' : 'w-12 h-12'">
-            <ImageIcon :class="compact ? 'w-4 h-4' : 'w-6 h-6'" class="text-base-content/40" />
+            <ImageIcon :class="compact ? 'w-4 h-4' : 'w-6 h-6'" class="/40" />
           </div>
         </div>
 
@@ -389,23 +389,23 @@
               :class="[
                 compact ? 'w-3 h-3' : 'w-4 h-4',
                 'transition-colors duration-200',
-                star <= (numericValue || 0) ? 'text-yellow-400 fill-current' : 'text-base-300'
+                star <= (numericValue || 0) ? 'text-warning fill-current' : 'text-base-300'
               ]"
             />
           </div>
-          <span class="ml-2 text-base-content/60" :class="compact ? 'text-xs' : 'text-sm'">
+          <span class="ml-2 /70" :class="compact ? 'text-xs' : 'text-sm'">
             {{ value }}/5
           </span>
         </div>
 
         <div v-else-if="type === 'price'" class="flex items-center font-semibold" :class="compact ? 'text-xs' : 'text-sm'">
-          <DollarSign :class="compact ? 'w-3 h-3 mr-0.5' : 'w-4 h-4 mr-1'" class="text-green-600" />
-          <span class="tabular-nums">{{ formatPrice() }}</span>
+          <DollarSign :class="compact ? 'w-3 h-3 mr-0.5' : 'w-4 h-4 mr-1'" class="text-success" />
+          <span class="tabular-nums ">{{ formatPrice() }}</span>
         </div>
 
         <div v-else-if="type === 'progress' || type === 'percentage'" class="w-full">
           <div class="flex items-center justify-between" :class="compact ? 'mb-0.5' : 'mb-1'">
-            <span :class="compact ? 'text-xs' : 'text-sm'">{{ formatValue() }}%</span>
+            <span class="" :class="compact ? 'text-xs' : 'text-sm'">{{ formatValue() }}%</span>
             <span
               class="text-xs px-2 py-1 rounded"
               :class="[getProgressClasses(), compact ? 'text-xs px-1 py-0.5' : '']"
@@ -434,9 +434,9 @@
         </div>
 
         <div v-else-if="isLongText && props.linkStyle !== 'link-compact'" class="group">
-          <div class="leading-relaxed break-words whitespace-pre-wrap" :class="compact ? 'text-xs' : 'text-sm'">
+          <div class="leading-relaxed break-words whitespace-pre-wrap " :class="compact ? 'text-xs' : 'text-sm'">
             <div v-if="!showFullText && !compact" class="inline">
-              <span>{{ truncatedText }}</span>
+              <span class="">{{ truncatedText }}</span>
               <button
                 v-if="needsTruncation"
                 @click.stop="showFullText = true"
@@ -446,7 +446,7 @@
                 {{ compact ? '...' : 'Show more' }}
               </button>
             </div>
-            <div v-else class="whitespace-pre-wrap break-words">
+            <div v-else class="whitespace-pre-wrap break-words ">
               {{ value }}
               <button
                 v-if="!compact && showFullText"
@@ -466,7 +466,7 @@
               v-if="hasConditionalStyling"
               class="inline-flex items-center rounded transition-all duration-200 break-words"
               :class="[
-                getConditionalClasses() || 'text-base-content',
+                getConditionalClasses() || '',
                 compact ? 'px-1 py-0.5 text-xs' : 'px-2 py-1 text-sm'
               ]"
             >
@@ -478,14 +478,14 @@
                 class="inline-flex items-center gap-1 btn btn-outline btn-sm transition-all duration-200"
               >
                 <ExternalLink :class="compact ? 'w-3 h-3' : 'w-4 h-4'" />
-                <span>{{ compact ? 'Link' : 'Open Link' }}</span>
+                <span class="">{{ compact ? 'Link' : 'Open Link' }}</span>
               </div>
-              <span v-else class="text-base-content break-words">
+              <span v-else class=" break-words">
                 {{ formatValue() }}
               </span>
             </template>
           </span>
-          <span v-else class="text-base-content/40 italic">
+          <span v-else class="/40 italic">
             {{ compact ? 'N/A' : 'No data' }}
           </span>
         </div>
