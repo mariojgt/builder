@@ -13,7 +13,8 @@ export function useUrlSync() {
         orderBy: string,
         search: string | null,
         activeFilters: Record<string, any>,
-        currentAdvancedFilters: any[]
+        currentAdvancedFilters: any[],
+        currentPage?: number
     ): void => {
         if (typeof window === 'undefined') return;
 
@@ -31,6 +32,21 @@ export function useUrlSync() {
         }
         if (search) {
             params.set('search', search);
+        }
+
+        // Handle page parameter - preserve existing if not explicitly provided
+        if (currentPage !== undefined) {
+            // Only add if page > 1
+            if (currentPage > 1) {
+                params.set('page', currentPage.toString());
+            }
+        } else {
+            // Preserve existing page parameter from URL if currentPage not provided
+            const existingParams = new URLSearchParams(window.location.search);
+            const existingPage = existingParams.get('page');
+            if (existingPage) {
+                params.set('page', existingPage);
+            }
         }
 
         // Encode active filters as plain JSON (URL-encoded by URLSearchParams)
@@ -66,6 +82,7 @@ export function useUrlSync() {
         search: string | null;
         activeFilters: Record<string, any> | null;
         currentAdvancedFilters: any[] | null;
+        page: number | null;
     } => {
         if (typeof window === 'undefined') {
             return {
@@ -74,7 +91,8 @@ export function useUrlSync() {
                 orderBy: null,
                 search: null,
                 activeFilters: null,
-                currentAdvancedFilters: null
+                currentAdvancedFilters: null,
+                page: null
             };
         }
 
@@ -120,7 +138,8 @@ export function useUrlSync() {
             orderBy: params.get('orderBy'),
             search: params.get('search'),
             activeFilters,
-            currentAdvancedFilters
+            currentAdvancedFilters,
+            page: params.get('page') ? parseInt(params.get('page')!) : null
         };
 
         console.log('📥 All decoded URL params:', result);

@@ -722,7 +722,7 @@ const activeFilters = ref({
 });
 
 // ✨ NEW: Filter persistence methods (using composable)
-const saveFiltersToStorage = () => {
+const saveFiltersToStorage = (explicitPage?: number) => {
     console.log('💾 saveFiltersToStorage called with:', {
         perPage: perPage.value,
         filterBy: filterBy.value,
@@ -730,17 +730,20 @@ const saveFiltersToStorage = () => {
         search: search.value,
         activeFilters: activeFilters.value,
         currentAdvancedFilters: currentAdvancedFilters.value,
-        filterPersistenceEnabled: filterPersistenceEnabled.value
+        filterPersistenceEnabled: filterPersistenceEnabled.value,
+        explicitPage: explicitPage
     });
 
     // ✨ ALWAYS sync filters to URL (regardless of persistence setting)
+    // Use explicitPage if provided, otherwise undefined to preserve URL
     encodeFiltersToUrl(
         perPage.value,
         filterBy.value,
         orderBy.value,
         search.value,
         activeFilters.value,
-        currentAdvancedFilters.value
+        currentAdvancedFilters.value,
+        explicitPage
     );
 
     // Only save to localStorage if persistence is enabled
@@ -1655,6 +1658,15 @@ watch(viewMode, () => {
     mobileMenuOpen.value = false;
 });
 
+// ✨ NEW: Watch pagination changes to update URL
+watch(() => paginationInfo.value.currentPage, (newPage, oldPage) => {
+    // Only update URL if page actually changed and it's not the initial load
+    if (newPage !== oldPage && oldPage !== undefined) {
+        console.log('📄 Page changed from', oldPage, 'to', newPage);
+        saveFiltersToStorage(newPage);
+    }
+});
+
 // ✨ NEW: Close mobile menu on window resize to desktop
 if (typeof window !== 'undefined') {
     const handleResize = () => {
@@ -1699,8 +1711,17 @@ onMounted(() => {
             filterBy: filterBy.value,
             orderBy: orderBy.value,
             search: search.value,
-            activeFilters: activeFilters.value
+            activeFilters: activeFilters.value,
+            page: urlFilters.page
         });
+
+        // ✨ NEW: If page parameter exists, fetch that specific page
+        if (urlFilters.page && urlFilters.page > 1) {
+            const pageUrl = `${props.endpoint}?page=${urlFilters.page}`;
+            console.log('📄 Loading page from URL:', urlFilters.page);
+            fetchData(pageUrl);
+            return; // Skip the normal fetchData() call below
+        }
     } else {
         // Log what we started with (already loaded from storage or defaults)
         console.log('Initial state (from storage or defaults):', {

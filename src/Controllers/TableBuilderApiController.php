@@ -1280,15 +1280,17 @@ class TableBuilderApiController extends Controller
                     }
                     break;
                 case 'select':
-                    // When the mode is 'exact', we must use a strict comparison
-                    if ($searchMode === 'exact') {
+                    if ($searchMode === 'whereNotIn') {
+                        $query->whereNotIn($key, (array) $filterValue);
+                    } elseif ($searchMode === 'whereIn') {
+                        $query->whereIn($key, (array) $filterValue);
+                    } elseif ($searchMode === 'exact') {
                         if (is_numeric($filterValue)) {
                             $query->$method($key, '=', (int)$filterValue);
                         } else {
                             $query->$method($key, '=', $filterValue);
                         }
                     } else {
-                        // For other modes like 'contains', use the text filter logic
                         $this->applyTextFilterWithMode($query, $key, $filterValue, $searchMode, $useOr);
                     }
                     break;
@@ -1381,12 +1383,15 @@ class TableBuilderApiController extends Controller
                         $this->applyDateFilter($q, $attribute, $filterValue);
                         break;
                     case 'select':
-                        // Check if search mode is set to 'contains' - allow partial matching
-                        if ($searchMode === 'contains') {
+                        if ($searchMode === 'whereNotIn') {
+                            $q->whereNotIn($attribute, (array) $filterValue);
+                        } elseif ($searchMode === 'whereIn') {
+                            $q->whereIn($attribute, (array) $filterValue);
+                        } elseif ($searchMode === 'contains') {
+                            // Check if search mode is set to 'contains' - allow partial matching
                             $this->applyTextFilterWithMode($q, $attribute, $filterValue, $searchMode, false);
                         } else {
                             // Default to exact match for select fields
-                            // Ensure numeric values are cast correctly for comparison
                             if (is_numeric($filterValue)) {
                                 $q->where($attribute, '=', (int)$filterValue);
                             } else {

@@ -114,22 +114,70 @@
             </select>
           </template>
 
-          <!-- Select Dropdown -->
+          <!-- Select Filter -->
           <template v-else-if="column.type === 'select'">
-            <select
-              v-model="filters[column.key]"
-              @change="handleFilterChange(column.key, filters[column.key], false)"
-              class="select select-bordered select-xs w-full text-xs"
-            >
-              <option value="">All</option>
-              <option
-                v-for="opt in column.options?.select_options || []"
-                :key="opt.value"
-                :value="opt.value"
+            <!-- Single value mode (exact / whereNotIn single) -->
+            <div v-if="getSelectMode(column.key) !== 'whereIn'" class="flex items-center gap-1">
+              <button
+                @click="setSelectMode(column.key, getSelectMode(column.key) === 'whereNotIn' ? 'exact' : 'whereNotIn')"
+                class="btn btn-xs px-1.5 shrink-0"
+                :class="getSelectMode(column.key) === 'whereNotIn' ? 'btn-error btn-outline' : 'btn-ghost'"
+                :title="getSelectMode(column.key) === 'whereNotIn' ? 'Mode: is NOT' : 'Mode: is'"
               >
-                {{ opt.label }}
-              </option>
-            </select>
+                {{ getSelectMode(column.key) === 'whereNotIn' ? '≠' : '=' }}
+              </button>
+              <select
+                v-model="filters[column.key]"
+                @change="handleFilterChange(column.key, filters[column.key], false)"
+                class="select select-bordered select-xs w-full text-xs"
+                :class="getSelectMode(column.key) === 'whereNotIn' ? 'border-error' : ''"
+              >
+                <option value="">All</option>
+                <option
+                  v-for="opt in column.options?.select_options || []"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </option>
+              </select>
+              <button
+                @click="setSelectMode(column.key, 'whereIn')"
+                class="btn btn-xs btn-ghost px-1.5 shrink-0"
+                title="Multi-select mode"
+              >
+                ∈
+              </button>
+            </div>
+            <!-- Multi-select mode (whereIn) -->
+            <div v-else class="space-y-1">
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] font-semibold text-primary">∈ Include selected</span>
+                <button
+                  @click="setSelectMode(column.key, 'exact')"
+                  class="btn btn-xs btn-ghost px-1 ml-auto"
+                  title="Back to single select"
+                >
+                  ✕
+                </button>
+              </div>
+              <div class="max-h-28 overflow-y-auto border border-primary/40 rounded p-1 space-y-0.5 bg-base-100">
+                <label
+                  v-for="opt in column.options?.select_options || []"
+                  :key="opt.value"
+                  class="flex items-center gap-1.5 px-1 py-0.5 rounded cursor-pointer hover:bg-base-200 text-[11px]"
+                >
+                  <input
+                    type="checkbox"
+                    :value="opt.value"
+                    v-model="filters[column.key]"
+                    @change="handleFilterChange(column.key, filters[column.key], false)"
+                    class="checkbox checkbox-xs checkbox-primary"
+                  />
+                  <span class="truncate">{{ opt.label }}</span>
+                </label>
+              </div>
+            </div>
           </template>
 
           <!-- Date Input -->
@@ -248,7 +296,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import axios from 'axios';
 import { Filter, RotateCcw } from 'lucide-vue-next';
 
@@ -312,6 +360,27 @@ const isLoadingOptions = ref({});
 const searchTimeouts = ref({});
 const filterChangeTimeouts = ref({});
 
+// Select filter modes: exact (default), whereIn, whereNotIn
+const selectModes = reactive({});
+
+const getSelectMode = (key) => selectModes[key] || 'exact';
+
+const setSelectMode = (key, mode) => {
+  const prev = getSelectMode(key);
+  if (prev === mode) return;
+
+  selectModes[key] = mode;
+
+  // Reset filter value when switching between single/multi modes
+  if (prev === 'exact' && mode !== 'exact') {
+    filters.value[key] = [];
+  } else if (prev !== 'exact' && mode === 'exact') {
+    filters.value[key] = '';
+  }
+
+  emitFilterChange();
+};
+
 // ✨ NEW: Function to populate filters from URL/storage
 const populateFiltersFromInitial = () => {
   if (!props.initialFilters || Object.keys(props.initialFilters).length === 0) {
@@ -329,7 +398,12 @@ const populateFiltersFromInitial = () => {
       // Check if it has value and searchMode (from activeFilters)
       if ('value' in filterData && 'searchMode' in filterData) {
         filters.value[key] = filterData.value;
-        searchModesState.value[key] = filterData.searchMode;
+        // Restore select mode for select fields
+        if (column.type === 'select' && ['whereIn', 'whereNotIn', 'exact'].includes(filterData.searchMode)) {
+          selectModes[key] = filterData.searchMode;
+        } else {
+          searchModesState.value[key] = filterData.searchMode;
+        }
         console.log(`  ✅ Set filter ${key} = "${filterData.value}" with mode "${filterData.searchMode}"`);
       }
       // Check if it's a date range filter
@@ -370,7 +444,9 @@ const activeFilters = computed(() => {
     if (!column) return;
 
     // Get the search mode for this column
-    const searchMode = column.type === 'select' ? 'exact' : (searchModesState.value[key] || 'contains');
+    const searchMode = column.type === 'select'
+      ? getSelectMode(key)
+      : (searchModesState.value[key] || 'contains');
 
     // For date/timestamp: check if from or to is set
     if (['date', 'timestamp'].includes(column.type)) {
@@ -391,8 +467,8 @@ const activeFilters = computed(() => {
         searchMode: searchMode
       };
     }
-    // For other types: include if not empty string
-    else if (value !== '') {
+    // For other types: include if not empty
+    else if (Array.isArray(value) ? value.length > 0 : value !== '') {
       result[key] = {
         value: value,
         searchMode: searchMode
@@ -452,7 +528,15 @@ const formatFilterValue = (key, value) => {
     case 'boolean':
       return displayValue === 'true' ? 'Yes' : 'No';
     case 'select':
-      const option = column.options?.select_options?.find(opt => opt.value === displayValue);
+      if (Array.isArray(displayValue)) {
+        const labels = displayValue.map(v => {
+          const o = column.options?.select_options?.find(opt => opt.value == v);
+          return o ? o.label : v;
+        });
+        const display = labels.length > 2 ? `${labels.slice(0, 2).join(', ')}… +${labels.length - 2}` : labels.join(', ');
+        return searchMode === 'whereNotIn' ? `∉ ${display}` : `∈ ${display}`;
+      }
+      const option = column.options?.select_options?.find(opt => opt.value == displayValue);
       return option ? option.label : displayValue;
     case 'model_search':
       const selectedItem = selectedModelSearchItems.value[key];
@@ -491,8 +575,12 @@ const clearFilter = (key) => {
 
   if (['date', 'timestamp'].includes(column?.type)) {
     filters.value[key] = { from: '', to: '' };
+  } else if (column?.type === 'select' && getSelectMode(key) !== 'exact') {
+    filters.value[key] = [];
+    delete selectModes[key];
   } else {
     filters.value[key] = '';
+    if (column?.type === 'select') delete selectModes[key];
   }
 
   if (column?.type === 'model_search') {
@@ -514,6 +602,9 @@ const resetAllFilters = () => {
     }
     return acc;
   }, {});
+
+  // Reset select modes
+  Object.keys(selectModes).forEach(key => delete selectModes[key]);
 
   searchModesState.value = {};
   modelSearchQueries.value = {};
